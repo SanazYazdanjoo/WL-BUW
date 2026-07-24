@@ -11,7 +11,6 @@ export function useSheetData() {
       const SHEET_ID = import.meta.env.VITE_SPREADSHEET_ID;
       const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
       
-      // batchGet requests multiple tabs at once using the "ranges" parameter
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=Directory_Index&ranges=All_Content&key=${API_KEY}`;
 
       try {
@@ -20,8 +19,7 @@ export function useSheetData() {
         
         const data = await response.json();
         
-        // 1. Parse the Directory_Index (valueRanges[0])
-        // We use optional chaining (?.) just in case the sheet is empty
+        // 1. Parse Directory_Index
         const directoryData = data.valueRanges[0].values?.slice(1).map(row => ({
           id: row[0] || '',
           title: row[1] || '',
@@ -29,16 +27,40 @@ export function useSheetData() {
           summary: row[3] || ''
         })) || [];
 
-        // 2. Parse the All_Content master list (valueRanges[1])
-        const contentData = data.valueRanges[1].values?.slice(1).map((row, index) => ({
-          uniqueId: `block-${index}`,
-          topicId: row[0] || '',
-          type: row[1] || 'Paragraph',
-          text: row[2] || ''
-        })) || [];
+        // 2. Parse All_Content based on your new column structure
+        const contentRows = data.valueRanges[1].values || [];
+        if (contentRows.length === 0) {
+          setDirectory(directoryData);
+          setAllContent([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Row 0 contains the column headers
+        const headers = contentRows[0]; 
+        const parsedBlocks = [];
+
+        // Loop through data rows (skipping header row 0)
+        contentRows.slice(1).forEach((row, rowIndex) => {
+          const topicId = row[0] || ''; // Column A: topic_id
+          if (!topicId) return;
+
+          // Check each column dynamically against the header name
+          headers.forEach((headerName, colIndex) => {
+            const cellText = row[colIndex];
+            if (!cellText || colIndex === 0) return; // Skip empty cells and Column A
+
+            parsedBlocks.push({
+              uniqueId: `block-${rowIndex}-${colIndex}`,
+              topicId: topicId,
+              type: headerName.trim(), // e.g. "Heading", "Subheading", "Paragraph", "Warning Box", "Event Date"
+              text: cellText
+            });
+          });
+        });
 
         setDirectory(directoryData);
-        setAllContent(contentData);
+        setAllContent(parsedBlocks);
       } catch (err) {
         setError(err.message);
       } finally {

@@ -1,22 +1,15 @@
 import { useParams, Link, useOutletContext } from 'react-router-dom';
 
 export default function FaqTopic() {
-  // Grab the dynamic ID from the URL
   const { topicId } = useParams();
-  
-  // Grab the master content list passed down from the Layout
   const { allContent, isLoading, error } = useOutletContext();
 
   if (isLoading) return <div className="loading-container">Loading topic...</div>;
   if (error) return <div className="error-container">Error: {error}</div>;
 
-  // React Router encodes the URL for safety, so we decode it to match your Google Sheet
   const currentTopicName = decodeURIComponent(topicId);
-  
-  // Instantly filter the master list to only get the rows for this specific topic
   const topicBlocks = allContent.filter(block => block.topicId === currentTopicName);
 
-  // If the admin created a directory link but hasn't written content for it yet
   if (topicBlocks.length === 0) {
     return (
       <div className="topic-container">
@@ -49,6 +42,13 @@ export default function FaqTopic() {
               return (
                 <div key={block.uniqueId} className="topic-warning">
                   <strong>Important:</strong> {block.text}
+                </div>
+              );
+
+            case 'Event Date':
+              return (
+                <div key={block.uniqueId} className="topic-event-date" style={{ margin: '16px 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+                  🗓️ <strong>Event Date:</strong> {block.text}
                 </div>
               );
 
