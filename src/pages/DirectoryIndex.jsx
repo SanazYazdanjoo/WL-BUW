@@ -7,10 +7,6 @@ export default function DirectoryIndex() {
   
   const [searchTerm, setSearchTerm] = useState('');
 
-  
-  // Track what the user types in the search bar
-  const [searchTerm, setSearchTerm] = useState('');
-
   // 1. Handle Loading State
   if (isLoading) {
     return (
