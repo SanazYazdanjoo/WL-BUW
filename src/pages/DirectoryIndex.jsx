@@ -55,15 +55,16 @@ export default function DirectoryIndex() {
       <main className="topic-list">
         {searchResults.length > 0 ? (
           searchResults.map((page) => (
-            <article key={page.id} className="topic-card">
-              <h2>{page.title}</h2>
-              <p>{page.summary}</p>
-              
-              {/* The Link component routes the user without reloading the web browser */}
-              <Link to={`/topic/${encodeURIComponent(page.id)}`} className="read-more-button">
-  Read Topic →
-</Link>
-            </article>
+            <Link 
+      to={`/topic/${encodeURIComponent(page.id)}`} 
+      key={page.id} 
+      className="topic-card-link"
+    >
+      <div className="topic-card">
+        <h2>{page.title}</h2>
+        <p>{page.summary}</p>
+      </div>
+    </Link>
           ))
         ) : (
           <div className="no-results">

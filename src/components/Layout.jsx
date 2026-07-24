@@ -12,7 +12,9 @@ const { directory, allContent, isLoading, error } = useSheetData();
       
       <div className="app-body">
         <aside className="app-sidebar">
-          <h3>All Topics</h3>
+          <h3>
+    <Link to="/" className="sidebar-home-link">All Topics</Link>
+  </h3>
           
           {isLoading && <p>Loading topics...</p>}
           {error && <p className="error-text">Error loading topics</p>}
