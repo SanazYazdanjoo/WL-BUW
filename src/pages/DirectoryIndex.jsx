@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useSheetData } from '../hooks/useSheetData'; // Your custom Google Sheets hook
+import { Link, useOutletContext } from 'react-router-dom';
 
 export default function DirectoryIndex() {
-  // Pull in the data, loading state, and any potential errors from your hook
-  const { directory, isLoading, error } = useSheetData();
+  // Grab the data passed down from Layout via useOutletContext
+  const { directory, isLoading, error } = useOutletContext();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+
   
   // Track what the user types in the search bar
   const [searchTerm, setSearchTerm] = useState('');

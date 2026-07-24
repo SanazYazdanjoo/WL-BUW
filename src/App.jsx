@@ -1,22 +1,21 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
 import DirectoryIndex from './pages/DirectoryIndex';
 import FaqTopic from './pages/FaqTopic';
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="app-layout">
-        <Routes>
-          {/* Main FAQ search and directory listing */}
-          <Route path="/" element={<DirectoryIndex />} />
+      <Routes>
+        {/* The Layout wraps all routes */}
+        <Route path="/" element={<Layout />}>
+          {/* index loads at the exact "/" path */}
+          <Route index element={<DirectoryIndex />} />
           
-          {/* Dynamic route for individual topic pages */}
-          <Route path="/topic/:topicId" element={<FaqTopic />} />
-          
-          {/* Fallback route: redirects invalid URLs back to the directory */}
+          <Route path="topic/:topicId" element={<FaqTopic />} />
           <Route path="*" element={<DirectoryIndex />} />
-        </Routes>
-      </div>
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

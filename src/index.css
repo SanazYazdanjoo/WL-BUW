@@ -1,43 +1,107 @@
-/* Base Layout & Typography */
+/* Reset & Base Layout */
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 body {
-  background-color: #f3f4f6;
-  margin: 0;
-  padding: 20px;
+  background-color: #f9fafb;
   color: #1f2937;
   line-height: 1.6;
 }
 
-.app-layout {
+/* Full Width Grid */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Forces full height */
+  width: 100vw;  /* Forces full width */
+  overflow: hidden;
+}
+
+/* Header */
+.app-header {
+  background-color: #1e3a8a;
+  color: white;
+  padding: 16px 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.app-header h1 {
+  font-size: 1.5rem;
+}
+
+/* Main Body (Sidebar + Content) */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden; /* Prevents whole page from scrolling */
+}
+
+/* Sidebar */
+.app-sidebar {
+  width: 280px;
+  background-color: white;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px;
+  overflow-y: auto; /* Sidebar scrolls independently */
+}
+
+.sidebar-list {
+  list-style: none;
+  margin-top: 16px;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  color: #4b5563;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-link:hover {
+  background-color: #f3f4f6;
+  color: #2563eb;
+}
+
+/* Main Content Area */
+.app-main {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto; /* Content area scrolls independently */
+  background-color: #f3f4f6;
+}
+
+/* Restrict inner content width for readability */
+.directory-container, .topic-container {
   max-width: 800px;
   margin: 0 auto;
 }
 
-/* Directory Page Styles */
-.directory-header {
+/* Footer */
+.app-footer {
+  background-color: #111827;
+  color: #9ca3af;
   text-align: center;
-  margin-bottom: 40px;
-  padding: 20px 0;
+  padding: 12px;
+  font-size: 0.9rem;
 }
 
-.directory-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-}
-
+/* Reusable Components (from earlier) */
 .search-bar {
   width: 100%;
-  max-width: 600px;
   padding: 16px;
   font-size: 1.1rem;
   border-radius: 8px;
   border: 1px solid #d1d5db;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin: 20px 0;
 }
 
 .topic-card {
@@ -46,12 +110,17 @@ body {
   margin-bottom: 20px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .topic-card h2 {
   margin-top: 0;
-  color: #111827;
+}
+
+.topic-content {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
 .read-more-button, .back-button {
@@ -60,65 +129,4 @@ body {
   color: #2563eb;
   font-weight: 600;
   margin-top: 10px;
-}
-
-.read-more-button:hover, .back-button:hover {
-  text-decoration: underline;
-}
-
-/* Individual Topic Page Styles */
-.back-button {
-  margin-bottom: 20px;
-}
-
-.topic-content {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.topic-heading {
-  font-size: 2.2rem;
-  border-bottom: 2px solid #f3f4f6;
-  padding-bottom: 15px;
-  margin-top: 0;
-}
-
-.topic-subheading {
-  font-size: 1.5rem;
-  margin-top: 30px;
-  color: #374151;
-}
-
-.topic-paragraph {
-  font-size: 1.1rem;
-  margin-bottom: 16px;
-}
-
-.topic-list-item {
-  font-size: 1.1rem;
-  margin-left: 20px;
-  margin-bottom: 10px;
-}
-
-/* The Warning Box mapped from Google Sheets */
-.topic-warning {
-  background-color: #fef3c7;
-  color: #92400e;
-  padding: 20px;
-  border-left: 6px solid #f59e0b;
-  border-radius: 0 8px 8px 0;
-  margin: 24px 0;
-  font-size: 1.1rem;
-}
-
-.loading-container, .error-container {
-  text-align: center;
-  padding: 50px;
-}
-
-.error-container {
-  color: #dc2626;
 }
