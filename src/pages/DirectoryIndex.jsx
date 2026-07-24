@@ -1,0 +1,78 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useSheetData } from '../hooks/useSheetData'; // Your custom Google Sheets hook
+
+export default function DirectoryIndex() {
+  // Pull in the data, loading state, and any potential errors from your hook
+  const { directory, isLoading, error } = useSheetData();
+  
+  // Track what the user types in the search bar
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // 1. Handle Loading State
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <h2>Loading FAQ Directory...</h2>
+      </div>
+    );
+  }
+
+  // 2. Handle Error State
+  if (error) {
+    return (
+      <div className="error-container">
+        <h2>Error loading directory</h2>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  // 3. The Instant Search Logic
+  // This filters the list in real-time checking both the visible title and hidden keywords
+  const searchResults = directory.filter((page) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      page.title.toLowerCase().includes(term) ||
+      page.keywords.toLowerCase().includes(term)
+    );
+  });
+
+  // 4. Render the UI
+  return (
+    <div className="directory-container">
+      <header className="directory-header">
+        <h1>Information Directory</h1>
+        <p>Search for a topic or browse the categories below.</p>
+        
+        <input
+          type="text"
+          className="search-bar"
+          placeholder="e.g., 'Exam rules', 'Schedules', 'Grading'..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </header>
+
+      <main className="topic-list">
+        {searchResults.length > 0 ? (
+          searchResults.map((page) => (
+            <article key={page.id} className="topic-card">
+              <h2>{page.title}</h2>
+              <p>{page.summary}</p>
+              
+              {/* The Link component routes the user without reloading the web browser */}
+              <Link to={`/topic/${page.id}`} className="read-more-button">
+                Read Topic →
+              </Link>
+            </article>
+          ))
+        ) : (
+          <div className="no-results">
+            <p>No topics found matching "{searchTerm}". Try another keyword.</p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

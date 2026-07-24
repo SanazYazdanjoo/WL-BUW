@@ -1,1 +1,124 @@
-@import "tailwindcss";
+/* Base Layout & Typography */
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: #f3f4f6;
+  margin: 0;
+  padding: 20px;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.app-layout {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Directory Page Styles */
+.directory-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 20px 0;
+}
+
+.directory-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.search-bar {
+  width: 100%;
+  max-width: 600px;
+  padding: 16px;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.topic-card {
+  background: white;
+  padding: 24px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.topic-card h2 {
+  margin-top: 0;
+  color: #111827;
+}
+
+.read-more-button, .back-button {
+  display: inline-block;
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.read-more-button:hover, .back-button:hover {
+  text-decoration: underline;
+}
+
+/* Individual Topic Page Styles */
+.back-button {
+  margin-bottom: 20px;
+}
+
+.topic-content {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.topic-heading {
+  font-size: 2.2rem;
+  border-bottom: 2px solid #f3f4f6;
+  padding-bottom: 15px;
+  margin-top: 0;
+}
+
+.topic-subheading {
+  font-size: 1.5rem;
+  margin-top: 30px;
+  color: #374151;
+}
+
+.topic-paragraph {
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+}
+
+.topic-list-item {
+  font-size: 1.1rem;
+  margin-left: 20px;
+  margin-bottom: 10px;
+}
+
+/* The Warning Box mapped from Google Sheets */
+.topic-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 20px;
+  border-left: 6px solid #f59e0b;
+  border-radius: 0 8px 8px 0;
+  margin: 24px 0;
+  font-size: 1.1rem;
+}
+
+.loading-container, .error-container {
+  text-align: center;
+  padding: 50px;
+}
+
+.error-container {
+  color: #dc2626;
+}
