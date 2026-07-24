@@ -1,17 +1,17 @@
-/* 1. The Minimal Color Palette */
+/* 1. Bauhaus-Inspired Color Palette & Variables */
 :root {
-  --bg-app: #FAFAFA;
-  --bg-surface: #FFFFFF;
-  --text-main: #09090B;
-  --text-muted: #52525B;
-  --border-light: #E4E4E7;
-  --accent-color: #18181B;
-  --accent-hover: #3F3F46;
+  --bg-app: #F4F4F4;          /* Clean architectural light gray */
+  --bg-surface: #FFFFFF;      /* Pure white container elements */
+  --text-main: #111111;       /* Deep high-contrast black */
+  --text-muted: #666666;      /* Industrial gray for secondary text */
+  --border-light: #CCCCCC;    /* Sharp, precise structural borders */
+  --accent-color: #CC0000;    /* Bauhaus Red accent */
+  --accent-hover: #990000;    /* Darker red for active states */
   
-  /* Warning Box Colors */
-  --warning-bg: #FEF3C7;
-  --warning-text: #92400E;
-  --warning-border: #F59E0B;
+  /* Warning & Alert Styling */
+  --warning-bg: #FFF3F3;
+  --warning-text: #CC0000;
+  --warning-border: #CC0000;
 }
 
 /* 2. Reset & Typography */
@@ -19,15 +19,14 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  /* Uses the system's most modern font (San Francisco on Mac, Segoe UI on Windows) */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Univers", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 body {
   background-color: var(--bg-app);
   color: var(--text-main);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 /* 3. Full Width Grid Layout */
@@ -39,21 +38,22 @@ body {
   overflow: hidden;
 }
 
-/* 4. Header (Now clean and white) */
+/* 4. Header (Structured & Institutional) */
 .app-header {
-  background-color: var(--bg-surface);
-  color: var(--text-main);
-  padding: 16px 32px;
-  border-bottom: 1px solid var(--border-light);
+  background-color: var(--text-main);
+  color: white;
+  padding: 20px 32px;
   display: flex;
   align-items: center;
   z-index: 10;
+  border-bottom: 3px solid var(--accent-color); /* Signature Bauhaus red framing line */
 }
 
 .app-header h1 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* 5. Main Body (Sidebar + Content) */
@@ -63,22 +63,30 @@ body {
   overflow: hidden;
 }
 
-/* 6. Sidebar */
+/* 6. Sidebar (Clean Technical Panel) */
 .app-sidebar {
-  width: 260px;
-  background-color: var(--bg-app);
+  width: 280px;
+  background-color: var(--bg-surface);
   border-right: 1px solid var(--border-light);
   padding: 32px 24px;
   overflow-y: auto;
 }
 
-.app-sidebar h3 {
+/* "All Topics" Link Header */
+.sidebar-home-link {
+  text-decoration: none;
+  color: var(--text-muted);
   font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  display: block;
   margin-bottom: 16px;
-  padding-left: 12px;
+  transition: color 0.2s ease;
+}
+
+.sidebar-home-link:hover {
+  color: var(--accent-color);
 }
 
 .sidebar-list {
@@ -89,74 +97,95 @@ body {
   display: block;
   padding: 8px 12px;
   margin-bottom: 4px;
-  color: var(--text-muted);
+  color: var(--text-main);
   text-decoration: none;
-  border-radius: 6px;
+  border-radius: 0px; /* Sharp, geometric edges typical of Bauhaus design */
   font-size: 0.95rem;
-  transition: all 0.2s ease;
+  font-weight: 400;
+  border-left: 2px solid transparent;
+  transition: all 0.15s ease;
 }
 
 .sidebar-link:hover {
-  background-color: var(--border-light);
-  color: var(--text-main);
+  background-color: var(--bg-app);
+  border-left-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 /* 7. Main Content Area */
 .app-main {
   flex: 1;
-  padding: 60px 40px;
+  padding: 60px 48px;
   overflow-y: auto;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-app);
 }
 
 .directory-container, .topic-container {
-  max-width: 700px; /* Narrower width for optimal reading */
+  max-width: 800px;
   margin: 0 auto;
 }
 
 /* 8. Search & Directory Elements */
 .directory-header {
-  margin-bottom: 48px;
+  margin-bottom: 40px;
 }
 
 .directory-header h1 {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   margin-bottom: 8px;
+  color: var(--text-main);
 }
 
 .directory-header p {
   color: var(--text-muted);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .search-bar {
   width: 100%;
-  padding: 16px 20px;
+  padding: 14px 18px;
   font-size: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  background-color: var(--bg-app);
+  border-radius: 0px; /* Sharp technical geometry */
+  border: 1px solid var(--text-main);
+  background-color: var(--bg-surface);
   margin-top: 24px;
-  transition: border-color 0.2s;
   outline: none;
+  transition: border-color 0.2s;
 }
 
 .search-bar:focus {
   border-color: var(--accent-color);
 }
 
-/* Cardless design for search results */
+/* Clickable Content Cards */
+.topic-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
 .topic-card {
-  padding: 24px 0;
-  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  padding: 24px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--text-main);
+  transition: all 0.2s ease;
+}
+
+.topic-card-link:hover .topic-card {
+  border-left-color: var(--accent-color);
+  background-color: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .topic-card h2 {
   font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-main);
 }
 
 .topic-card p {
@@ -165,17 +194,13 @@ body {
   margin-bottom: 12px;
 }
 
-.read-more-button {
+.read-more-text {
   display: inline-block;
-  text-decoration: none;
   color: var(--accent-color);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.read-more-button:hover {
-  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* 9. Individual Topic Pages */
@@ -184,49 +209,77 @@ body {
   align-items: center;
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
   margin-bottom: 32px;
   transition: color 0.2s;
 }
 
 .back-button:hover {
+  color: var(--accent-color);
+}
+
+.topic-content {
+  background: var(--bg-surface);
+  padding: 48px;
+  border: 1px solid var(--border-light);
+}
+/* Bauhaus-styled Image Banner */
+.topic-banner-image-container {
+  width: calc(100% + 96px); /* Expands to match the outer padding of the white box */
+  margin-left: -48px;
+  margin-top: -48px;
+  margin-right: -48px;
+  margin-bottom: 36px;
+  background-color: #000000; /* Dark framing background if image has empty space */
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.topic-banner-image-container img {
+  width: 100%;
+  max-height: 320px;
+  height: auto;
+  object-fit: cover; /* Keeps image sharp without breaking aspect ratio */
+  display: block;
+}
+.topic-heading {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 24px;
   color: var(--text-main);
 }
 
-.topic-heading {
-  font-size: 2.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 40px;
-}
-
 .topic-subheading {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-top: 48px;
-  margin-bottom: 16px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-top: 36px;
+  margin-bottom: 14px;
+  color: var(--text-main);
 }
 
 .topic-paragraph {
   font-size: 1.05rem;
   color: var(--text-main);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .topic-list-item {
   font-size: 1.05rem;
-  margin-left: 24px;
+  margin-left: 20px;
   margin-bottom: 8px;
   color: var(--text-main);
 }
 
 .topic-warning {
   background-color: var(--warning-bg);
-  color: var(--warning-text);
+  color: var(--text-main);
   padding: 16px 20px;
-  border-left: 4px solid var(--warning-border);
-  border-radius: 4px;
-  margin: 32px 0;
+  border-left: 4px solid var(--accent-color);
+  margin: 24px 0;
   font-size: 1rem;
 }
 
@@ -236,6 +289,8 @@ body {
   color: var(--text-muted);
   text-align: center;
   padding: 16px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   border-top: 1px solid var(--border-light);
 }

@@ -19,12 +19,28 @@ export default function FaqTopic() {
     );
   }
 
+  // Find if there is a banner image for this topic
+  const bannerBlock = topicBlocks.find(block => block.type === 'Banner');
+  // Get all the rest of the text blocks
+  const contentBlocks = topicBlocks.filter(block => block.type !== 'Banner');
+
   return (
     <div className="topic-container">
       <Link to="/" className="back-button">← Back to Directory</Link>
       
       <div className="topic-content">
-        {topicBlocks.map(block => {
+        {/* Render banner at the very top if it exists */}
+        {bannerBlock && (
+          <div className="topic-banner-image-container">
+            <img 
+              src={bannerBlock.text} 
+              alt="Topic Banner" 
+            />
+          </div>
+        )}
+
+        {/* Render the rest of the content */}
+        {contentBlocks.map(block => {
           switch(block.type) {
             case 'Heading':
               return <h1 key={block.uniqueId} className="topic-heading">{block.text}</h1>;
@@ -49,6 +65,20 @@ export default function FaqTopic() {
               return (
                 <div key={block.uniqueId} className="topic-event-date" style={{ margin: '16px 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
                   🗓️ <strong>Event Date:</strong> {block.text}
+                </div>
+              );
+
+            case 'Link':
+              return (
+                <div key={block.uniqueId} className="topic-link-wrapper" style={{ margin: '16px 0' }}>
+                  🔗 <a 
+                    href={block.text} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    style={{ color: 'var(--accent-color)', fontWeight: '500', textDecoration: 'underline' }}
+                  >
+                    {block.text}
+                  </a>
                 </div>
               );
 

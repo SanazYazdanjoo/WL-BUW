@@ -27,7 +27,7 @@ export function useSheetData() {
           summary: row[3] || ''
         })) || [];
 
-        // 2. Parse All_Content based on your new column structure
+        // 2. Parse All_Content based on your column structure
         const contentRows = data.valueRanges[1].values || [];
         if (contentRows.length === 0) {
           setDirectory(directoryData);
@@ -36,11 +36,11 @@ export function useSheetData() {
           return;
         }
 
-        // Row 0 contains the column headers
+        // Row 0 contains the column headers (e.g. "topic_id", "Banner", "Heading", etc.)
         const headers = contentRows[0]; 
         const parsedBlocks = [];
 
-        // Loop through data rows (skipping header row 0)
+        // Loop through data rows starting from Row 1 (skipping the header row index 0)
         contentRows.slice(1).forEach((row, rowIndex) => {
           const topicId = row[0] || ''; // Column A: topic_id
           if (!topicId) return;
@@ -48,12 +48,14 @@ export function useSheetData() {
           // Check each column dynamically against the header name
           headers.forEach((headerName, colIndex) => {
             const cellText = row[colIndex];
-            if (!cellText || colIndex === 0) return; // Skip empty cells and Column A
+            
+            // Skip empty cells, Column A (topic_id), and ensure we don't read header text
+            if (!cellText || colIndex === 0) return;
 
             parsedBlocks.push({
               uniqueId: `block-${rowIndex}-${colIndex}`,
               topicId: topicId,
-              type: headerName.trim(), // e.g. "Heading", "Subheading", "Paragraph", "Warning Box", "Event Date"
+              type: headerName.trim(), // e.g. "Banner", "Heading", "Paragraph", etc.
               text: cellText
             });
           });
