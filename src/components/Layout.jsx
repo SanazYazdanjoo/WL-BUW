@@ -23,9 +23,9 @@ export default function Layout() {
               <ul className="sidebar-list">
                 {directory.map((topic) => (
                   <li key={topic.id}>
-                    <Link to={`/topic/${topic.id}`} className="sidebar-link">
-                      {topic.title}
-                    </Link>
+                    <Link to={`/topic/${encodeURIComponent(topic.id)}`} className="sidebar-link">
+  {topic.title}
+</Link>
                   </li>
                 ))}
               </ul>

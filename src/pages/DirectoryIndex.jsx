@@ -60,9 +60,9 @@ export default function DirectoryIndex() {
               <p>{page.summary}</p>
               
               {/* The Link component routes the user without reloading the web browser */}
-              <Link to={`/topic/${page.id}`} className="read-more-button">
-                Read Topic →
-              </Link>
+              <Link to={`/topic/${encodeURIComponent(page.id)}`} className="read-more-button">
+  Read Topic →
+</Link>
             </article>
           ))
         ) : (

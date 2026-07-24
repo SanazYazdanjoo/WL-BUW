@@ -15,7 +15,7 @@ export default function FaqTopic() {
       const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
       
       // 2. The topicId becomes the exact Tab Name requested from the Google Sheet
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${topicId}?key=${API_KEY}`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(topicId)}?key=${API_KEY}`;
 
       try {
         const response = await fetch(url);
