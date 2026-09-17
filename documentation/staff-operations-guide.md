@@ -22,19 +22,23 @@ Sessions expire after eight hours. Cookies are HttpOnly, SameSite=Lax, Secure on
 
 Login has only best-effort per-instance throttling. Serverless instances do not share counters; high-entropy codes are essential. No new external authentication/rate-limit vendor has been introduced.
 
-## Daily workflow
+## Daily workflow and continuity
 
-- `/staff/dashboard`: today's Berlin-local shifts/events, check-in count, incomplete/unknown enrollment/backpack statuses, latest handover.
+- `/staff/dashboard`: today's Berlin-local shifts, today's check-ins with student, tutor and time, unresolved cases, quick links to find a student/add handover, and recent handover notes grouped by Today/Previous day/Earlier.
 - `/staff/students`: search by name/matriculation number and filter statuses. Addresses and long notes appear only in details.
-- `/staff/students/:opaqueId`: update permitted operational fields, check in once per student per day. Check-in is a separate record; it does not overwrite the imported date.
+- `/staff/students/:opaqueId`: update permitted operational fields and check in once per student per day. Check-in is a separate record; it does not overwrite the imported date. Recent updates show changed field labels, actor and time; check-in history shows the tutor and time. Sensitive previous values are not copied into the change list.
 - `/staff/shifts`, `/staff/program-tutors`: schedules and contacts; calculated shift summary.
 - `/staff/handover`: add an attributed note for the next shift.
 - `/staff/reports`: daily check-ins/handover on screen, count-only CSV download. No email is sent.
 - Coordinator only: `/staff/data`, `/staff/content`, `/staff/print`.
 
-Audit entries include changed field names, actor and timestamp; they do not duplicate sensitive field values. They are stored with private state, not sent to public logs. A staff audit-view screen is not yet implemented.
+Audit entries include changed field names, actor and timestamp; they do not duplicate sensitive field values. They are stored with private state, not sent to public logs. The student detail view shows a short recent update summary, not the full audit history. Tutor names are self-declared under shared-code pilot authentication, not verified institutional identities.
 
 If a save conflicts, copy any unsaved text somewhere approved, reload the latest record and review before saving again. Do not keep retrying an old version. If Nextcloud is unavailable, no success is claimed and nothing is queued in browser storage.
+
+## Semester preparation
+
+Coordinator `/staff/content` is labelled **Semester setup**. Its current-status view shows the configured semester, latest public content publication, WhatsApp readiness, MasterExcel import date/count, shift-date availability and official-source verification status. Different semester labels are flagged for review and are never automatically reconciled. Use **Preview content update** in the same screen, inspect the workbook changes/warnings, and publish only after review. Import operational MasterExcel data separately at `/staff/data`; official-source refresh is at `/staff/sources`; export the familiar workbook from `/staff/data`. The MasterExcel export does not contain full check-in, handover or audit state; back up the complete private data subtree. See the [workbook guide](content-workbook-guide.md) and [MasterExcel guide](master-excel-guide.md) for details.
 
 ## Deployment and handover
 

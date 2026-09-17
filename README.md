@@ -1,16 +1,18 @@
 # Welcome Lounge Digital Companion
 
-A mobile-first arrival companion for incoming international students at Bauhaus-Universität Weimar. This is an operational Welcome Lounge pilot, not a thesis project. It aims to reduce repetitive tutor questions and make arrival easier. The existing React + Vite application has been retained.
+A mobile-first service for incoming international students at Bauhaus-Universität Weimar. The Welcome Lounge Digital Companion helps students find essential arrival information and official sources in one structured place, while supporting tutors with lightweight shared operational context. It is an operational pilot, not a thesis project, and retains the existing React + Vite application.
 
 ## Current status
 
-**Implemented:** data-driven anonymous journey (seven labelled fallback steps; workbook imports support variable counts), contextual FAQs, restricted downloads, browser-only versioned progress, semester/WhatsApp settings, events and later-stage pages. Added server-side Excel parsing, coordinator preview/publication with backups, shared published web/print content, private pilot staff sign-in, Nextcloud operational state, student status/check-in, shifts, handover and daily count reports.
+**Implemented:** data-driven anonymous journey (nine labelled fallback steps; workbook imports support variable counts), contextual FAQs, restricted downloads, browser-only versioned progress, semester/WhatsApp settings, events and later-stage pages. Added server-side Excel parsing, coordinator preview/publication with backups, shared published web/print content, private pilot staff sign-in, Nextcloud operational state, student status/check-in, shifts, handover and daily count reports.
 
 **Partial:** actual workbook layout validation and live Nextcloud write verification remain pending. The staff area is disabled by default. Shared pilot codes and self-entered tutor names are not institutional identity verification. Feedback does not persist. Full CMS editing, audit browsing and automated reporting are not implemented.
 
 **Before real use:** validate the real editorial and MasterExcel files against previews; configure university credentials and strong staff codes; test conditional writes/backups on Nextcloud; publish International Office-approved content and current contact details. No personal workbook is bundled or committed. No external database or auth vendor was added.
 
-See [workbook publication](documentation/content-workbook-guide.md), [MasterExcel import/export](documentation/master-excel-guide.md) and [staff setup](documentation/staff-operations-guide.md).
+Product priorities are informed by early tutor feedback, not representative research. See [preliminary tutor survey findings](documentation/research-findings.md) for the response scope and design implications.
+
+See [semester setup and workbook publication](documentation/content-workbook-guide.md), [MasterExcel import/export](documentation/master-excel-guide.md) and [staff setup](documentation/staff-operations-guide.md).
 
 Official BUW references use a server-side parser and private Nextcloud last-known-good cache. Events update as structured facts; Preparing your studies supplies section names and links without replacing local onboarding guidance. See [official source synchronization](documentation/official-source-sync.md).
 

@@ -8,11 +8,11 @@ export function DemoNotice() {
   );
 }
 
-export function EscalationCard({ config }) {
+export function EscalationCard({ config, heading = "Still need help?" }) {
   const link = whatsappLink(config);
   return (
     <section className="escalation">
-      <h2>Still need help?</h2>
+      <h2>{heading}</h2>
       {link ? (
         <>
           <p>{config.contactLabel || "Welcome Lounge tutors"}</p>

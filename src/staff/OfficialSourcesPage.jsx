@@ -89,7 +89,7 @@ export default function OfficialSourcesPage() {
       <h1>Official information</h1>
       <p>University pages are checked automatically. Local Welcome Lounge content stays separate.</p>
       <button className="primary" disabled={busy || loading} onClick={synchronize}>
-        {busy ? "Checking…" : "Check official pages now"}
+        {busy ? "Refreshing…" : "Refresh official information"}
       </button>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}

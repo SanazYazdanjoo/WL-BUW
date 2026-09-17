@@ -160,3 +160,19 @@ Journey nodes glide slightly away from nearby mouse pointers while the decorativ
 ## 2026-09-17 - Round journey row transitions outward
 
 Journey connector turns at the end of each serpentine row now curve outward, using measured node positions and the active column count. The single-column mobile route remains unchanged. The sticky-footer flex shell now gives the main element full width so tablet breakpoints correctly select the two-column journey.
+
+## 2026-09-17 - Survey-informed information findability and tutor continuity
+
+The current survey input is preliminary and directional: four respondents, all Welcome Lounge tutors. It is not treated as representative of International Office staff, future tutors, or students. The product response focuses on navigation to current information, visible official sources, WhatsApp as human support, and lightweight shared context rather than replacing familiar tools.
+
+Student `/info` is now an editorial list that routes directly to existing university portals, health-insurance contacts, Rundfunkbeitrag and later-stage information. `/help` explains that Journey/Info cover common questions and the Welcome Lounge is the route for individual or unusual cases; WhatsApp remains configuration-driven with its existing safe fallback. No authoritative topic content or data was changed.
+
+The staff dashboard emphasizes today's named/time-stamped check-ins, links to student records, quick find/check-in/handover actions, unresolved cases and recent handover notes grouped by day. Student details show a compact recent change-field summary with actor/time and check-in history. Coordinator Semester setup summarizes the current semester, publication, WhatsApp, MasterExcel, shift data and official-source freshness; mismatched semester labels require human review and are never auto-corrected. Existing workbook preview/publish, data import/export and official-source refresh flows remain the actions. MasterExcel remains familiar import/export/backup compatibility.
+
+Documentation now records the limited research scope, product rationale, Info/Help roles, operational continuity workflow and semester review process. No search, AI, analytics, notifications, student identity collection, new vendor, or replacement of WhatsApp/Excel was introduced.
+
+**Verification:** `npm test` passes all 50 tests; lint, build, `content:check` and `git diff --check` pass. Local Playwright inspection at 375px and 1440px confirmed the journey/info routes render without horizontal overflow. Info links lead to the existing sections; Help displayed the safe no-WhatsApp-configured fallback. Mocked staff API responses exercised dashboard and semester-status rendering, including mismatch warning, and student details displayed changed-field attribution and check-in timestamps without browser errors. These local checks do not verify live Nextcloud, real workbook imports, Vercel, or actual deployment settings.
+
+## 2026-09-17 - Reorder the fallback journey
+
+Reordered the bundled onboarding fallback to Health insurance, Accommodation, Enrollment & student ID, City registration, Bank account, Meetup with Program Tutors, Campus & departments, Welcome events, and Language courses. Accommodation and the tutor meetup are explicitly demo entries with neutral copy; existing topic IDs were retained. A focused test now asserts semantic topic order. Published workbook content remains authoritative and must be reviewed in Semester setup if the same order should be used in a published journey.

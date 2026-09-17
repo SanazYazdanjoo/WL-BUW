@@ -90,22 +90,33 @@ export function TopicPage({ later = false }) {
 }
 
 export function InfoPage() {
-  const { officialSources } = useOutletContext();
+  const { content, officialSources } = useOutletContext();
+  const portalTitles = content["useful-links"].data.links
+    .map((link) => link.title)
+    .filter(Boolean)
+    .slice(0, 3);
+  const laterTopics = content["after-arrival"].data.topics.filter((topic) => topic.isActive);
   const links = [
     {
       label: "University portals",
+      detail: portalTitles.length ? portalTitles.join(" · ") : "Moodle, BISON and webmail",
       to: "/useful-links",
     },
     {
       label: "Health insurance contacts",
+      detail: "Provider contacts and information",
       to: "/health-insurance",
     },
     {
       label: "Rundfunkbeitrag",
+      detail: "Living in Germany",
       to: "/rundfunk",
     },
     {
       label: "After-arrival information",
+      detail: laterTopics.length
+        ? laterTopics.slice(0, 3).map((topic) => topic.title).join(" · ")
+        : "Later-stage topics",
       to: "/after-arrival",
     },
   ];
@@ -115,7 +126,10 @@ export function InfoPage() {
       <nav aria-label="Useful information">
         {links.map((item) => (
           <Link className="info-link" key={item.to} to={item.to}>
-            <span>{item.label}</span>
+            <span className="info-link-copy">
+              <span>{item.label}</span>
+              <small>{item.detail}</small>
+            </span>
             <span aria-hidden="true">→</span>
           </Link>
         ))}
@@ -157,77 +171,59 @@ export function AfterArrivalPage() {
   );
 }
 
-function EventCard({ event }) {
+function eventDatePart(value, options) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    ...options,
+    timeZone: "Europe/Berlin",
+  }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function EventDate({ event }) {
+  const endDate = event.endDate && event.endDate !== event.date ? event.endDate : "";
   return (
-    <article className="event-row">
-      {event.isDemo && <p className="eyebrow">Sample · not a real event</p>}
-      <time dateTime={event.date}>
-        {new Intl.DateTimeFormat("en-GB", {
-          dateStyle: "full",
-          timeZone: "Europe/Berlin",
-        }).format(new Date(`${event.date}T12:00:00Z`))}
-        {" · "}
-        {event.startTime}–{event.endTime}
-      </time>
-      <h2>{event.title}</h2>
-      <p>{event.location}</p>
-      <p>{event.description}</p>
-      {event.externalLink && (
-        <a href={event.externalLink} target="_blank" rel="noopener noreferrer">
-          Event details ↗
-        </a>
+    <time className="event-date" dateTime={event.date}>
+      <span className="event-date-day">{eventDatePart(event.date, { day: "2-digit" })}</span>
+      <span className="event-date-month">{eventDatePart(event.date, { month: "short" })}</span>
+      {endDate && (
+        <span className="event-date-end">
+          to {eventDatePart(endDate, { day: "numeric", month: "short" })}
+        </span>
       )}
-    </article>
+    </time>
   );
 }
 
-function OfficialEvent({ event, today }) {
-  const start = event.date ? new Date(`${event.date}T12:00:00Z`) : null;
-  const end = event.endDate ? new Date(`${event.endDate}T12:00:00Z`) : start;
-  if (end && end.toISOString().slice(0, 10) < today) return null;
-  const dateText = start
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "Europe/Berlin",
-      }).format(start) +
-      (event.endDate
-        ? `–${new Intl.DateTimeFormat("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            timeZone: "Europe/Berlin",
-          }).format(end)}`
-        : "")
-    : "";
+function EventEntry({ event, needsReview = false }) {
   const times = event.startTime
-    ? event.endTime
-      ? `${event.startTime}–${event.endTime}`
-      : event.startTime
+    ? event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime
     : "";
+  const metadata = [times, event.location, event.language].filter(Boolean).join(" · ");
+  const detailUrl = event.detailUrl || event.externalLink;
   return (
-    <article className="event-row">
-      {dateText && <time dateTime={event.date}>{dateText}</time>}
-      <h2>{event.title}</h2>
-      {event.sourceStatus === "needs-review" ? (
-        <p className="event-review-note">
-          Please check the official programme for the current date and time.
-        </p>
-      ) : (
-        <p className="event-meta">
-          {[times, event.location, event.language].filter(Boolean).join(" · ")}
-        </p>
-      )}
-      {event.descriptionSnippet && <p>{event.descriptionSnippet}</p>}
-      {event.registrationUrl && (
-        <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">
-          Register ↗
-        </a>
-      )}
-      <a href={event.detailUrl} target="_blank" rel="noopener noreferrer">
-        Official details ↗
-      </a>
+    <article className={`event-row${event.date ? "" : " is-undated"}`}>
+      {event.date && <EventDate event={event} />}
+      <div className="event-content">
+        <h2>{event.title}</h2>
+        {needsReview ? (
+          <p className="event-review-note">Details are being checked. See the official programme.</p>
+        ) : (
+          metadata && <p className="event-meta">{metadata}</p>
+        )}
+        {event.descriptionSnippet && <p className="event-description">{event.descriptionSnippet}</p>}
+        <div className="event-links">
+          {event.registrationUrl && (
+            <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">
+              Register ↗
+            </a>
+          )}
+          {detailUrl && (
+            <a href={detailUrl} target="_blank" rel="noopener noreferrer">
+              {event.registrationUrl ? "Details ↗" : "Event details ↗"}
+            </a>
+          )}
+        </div>
+      </div>
     </article>
   );
 }
@@ -244,12 +240,19 @@ export function EventsPage() {
     (event) => event.date && event.sourceStatus === "current" && (event.endDate || event.date) >= today,
   ).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
   const ambiguous = publishedOfficial.filter(
-    (event) => !event.date || event.sourceStatus === "needs-review",
+    (event) => (!event.date || event.sourceStatus === "needs-review") &&
+      (!event.date || (event.endDate || event.date) >= today),
   );
   const upcoming = events.filter(
-    (event) => !event.isDemo && event.date >= today,
+    (event) => !event.isDemo && event.isActive !== false && event.date >= today,
   );
-  const samples = events.filter((event) => event.isDemo);
+  const officialIds = new Set(verified.map((event) => `${event.title.toLowerCase()}|${event.date}`));
+  const published = [
+    ...verified.map((event) => ({ event, needsReview: false })),
+    ...upcoming
+      .filter((event) => !officialIds.has(`${event.title.toLowerCase()}|${event.date}`))
+      .map((event) => ({ event, needsReview: false })),
+  ].sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime || "").localeCompare(b.event.startTime || ""));
   return (
     <section className="events-page">
       <h1>Events</h1>
@@ -263,36 +266,24 @@ export function EventsPage() {
           Some event details need checking. Please confirm them in the official programme.
         </p>
       )}
-      {verified.map((event) => (
-        <OfficialEvent key={event.id} event={event} today={today} />
+      {published.map(({ event, needsReview }) => (
+        <EventEntry key={event.id} event={event} needsReview={needsReview} />
       ))}
       {ambiguous.length > 0 && (
-        <section className="ambiguous-events">
-          <h2>Check the official programme</h2>
+        <section className="ambiguous-events" aria-label="Events to confirm">
           {ambiguous.map((event) => (
-            <OfficialEvent key={event.id} event={event} today={today} />
+            <EventEntry key={event.id} event={event} needsReview />
           ))}
         </section>
       )}
-      {upcoming
-        .filter((event) => !publishedOfficial.some((officialEvent) =>
-          officialEvent.title.toLowerCase() === event.title.toLowerCase() && officialEvent.date === event.date))
-        .map((event) => <EventCard key={event.id} event={event} />)}
-      {!verified.length && !ambiguous.length && !upcoming.length && (
-        <p>No upcoming events are listed here.</p>
-      )}
-      {samples.length > 0 && (
-        <section className="sample-events">
-          <h2>Sample events</h2>
-          {samples.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </section>
+      {!published.length && !ambiguous.length && (
+        <p className="events-empty">No upcoming events published yet.</p>
       )}
       <OfficialSourceLink
         sources={officialSources}
         sourceId="welcomeEvents"
         label="Official Welcome Events programme"
+        compact
       />
     </section>
   );
@@ -303,13 +294,17 @@ export function HelpPage() {
   return (
     <section className="help-page">
       <h1>Help</h1>
-      <EscalationCard config={content.config.data} />
+      <p>
+        For common arrival questions, see the <Link to="/journey">Journey</Link> or{" "}
+        <Link to="/info">Useful information</Link>. For individual or unusual questions,
+        contact the Welcome Lounge.
+      </p>
+      <EscalationCard config={content.config.data} heading="Welcome Lounge support" />
       <section className="privacy-section">
         <h2>Privacy</h2>
         <p>
-          You do not need an account. Progress stays in this browser and is not
-          sent to the server. Page and document requests pass through our host
-          and the university file service. Feedback is not stored yet.
+          No account is needed; progress stays in this browser. Requests pass through
+          the app host and university file service. Feedback is not stored.
         </p>
       </section>
       <Link to="/feedback">Feedback</Link>

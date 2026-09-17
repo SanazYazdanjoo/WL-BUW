@@ -1,7 +1,109 @@
 ﻿import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { InformationSections } from "../pages/InformationPage";
 import { staffRequest } from "./service";
+import { whatsappLink } from "../../shared/content";
+function statusDate(value) {
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Not recorded"
+    : new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Berlin",
+      }).format(date);
+}
+
+function SemesterStatus() {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      staffRequest("config"),
+      staffRequest("content"),
+      staffRequest("workspace"),
+      staffRequest("sources"),
+    ])
+      .then(([config, content, workspace, sources]) => {
+        if (active) setStatus({ config, content, workspace, sources: sources.sources });
+      })
+      .catch(() => {
+        if (active) setError("Semester status is not available. Reload to try again.");
+      });
+    return () => { active = false; };
+  }, []);
+
+  if (error) return <p role="alert">{error}</p>;
+  if (!status) return <p role="status">Loading semester status…</p>;
+
+  const config = status.config.config;
+  const publicSemester = status.content.content.config?.semesterLabel || "";
+  const operationalSemester = status.workspace.data.semesterLabel || "";
+  const knownSemesters = [config.semesterLabel, publicSemester, operationalSemester]
+    .filter(Boolean);
+  const semesterMismatch = new Set(knownSemesters).size > 1;
+  const whatsappReady = Boolean(whatsappLink(config));
+  const sources = status.sources || [];
+  return (
+    <section className="semester-status" aria-labelledby="semester-status-heading">
+      <h2 id="semester-status-heading">Current status</h2>
+      {semesterMismatch && (
+        <p className="semester-review-note">
+          Semester labels do not match. Review the workbook and operational data before publishing.
+        </p>
+      )}
+      <dl>
+        <div>
+          <dt>Current semester</dt>
+          <dd>{config.semesterLabel || "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Public information</dt>
+          <dd>{status.content.publishedAt
+            ? `Last published ${statusDate(status.content.publishedAt)}`
+            : "No workbook publication is recorded"}</dd>
+        </div>
+        <div>
+          <dt>WhatsApp support</dt>
+          <dd>{whatsappReady ? `Published · ${config.semesterLabel}` : "Not published"}</dd>
+        </div>
+        <div>
+          <dt>MasterExcel data</dt>
+          <dd>
+            {status.workspace.data.lastImported
+              ? `Last imported ${statusDate(status.workspace.data.lastImported)} · ${status.workspace.data.students.length} students`
+              : "No import recorded"}
+          </dd>
+        </div>
+        <div>
+          <dt>Shift data</dt>
+          <dd>{status.workspace.data.shifts.length
+            ? `${status.workspace.data.shifts.length} shift dates loaded`
+            : "No shift dates loaded"}</dd>
+        </div>
+        {sources.map((source) => (
+          <div key={source.sourceId}>
+            <dt>{source.label}</dt>
+            <dd>
+              {source.status === "current" ? "Current" :
+                source.status === "stale" ? "Could not confirm recently" :
+                  source.status === "needs-review" ? "Review required" : "No update available"}
+              {" · "}{statusDate(source.lastSuccessfulCheck)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <nav aria-label="Semester setup actions" className="semester-actions">
+        <Link to="/staff/data">Import operational data</Link>
+        <Link to="/staff/sources">Refresh official information</Link>
+        <a href="/api/staff/data/export">Export MasterExcel</a>
+      </nav>
+    </section>
+  );
+}
+
 function ReadableValue({ value }) {
   if (value === null || value === undefined || value === "")
     return <span>Not supplied</span>;
@@ -90,17 +192,18 @@ export function ImportPage({ editorial = false }) {
   return (
     <>
       <h1>
-        {editorial ? "Review & publish workbook" : "Import & export staff data"}
+        {editorial ? "Semester setup" : "Import & export staff data"}
       </h1>
       <p>
         {editorial
-          ? "Upload the editorial workbook to the configured Nextcloud content-source folder, then review every change before publication."
+          ? "Update public information from the shared workbook. Preview every change before publishing."
           : "Upload MasterExcel.xlsx to the private staff-data folder. Importing is explicit; the workbook is never used as the live database."}
       </p>
+      {editorial && <SemesterStatus />}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       <button disabled={busy} onClick={() => request(false)}>
-        Preview current workbook
+        {editorial ? "Preview content update" : "Preview current workbook"}
       </button>
       {!editorial && (
         <p>

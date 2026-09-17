@@ -4,7 +4,7 @@ The coordinator workflow is **edit workbook → upload to Nextcloud → preview 
 
 ## Setup
 
-Place `Welcome Lounge First Steps and some other informations.xlsx` in `content-source/`, relative to `NEXTCLOUD_ROOT_FOLDER`. Keep this folder private. Configure server-only staff access as described in [Staff operations](staff-operations-guide.md). Open `/staff/content` with the coordinator code. Configure the semester/contact fields before the first publication.
+Place `Welcome Lounge First Steps and some other informations.xlsx` in `content-source/`, relative to `NEXTCLOUD_ROOT_FOLDER`. Keep this folder private. Configure server-only staff access as described in [Staff operations](staff-operations-guide.md). Open **Semester setup** (`/staff/content`) with the coordinator code. Review current semester, publication time, WhatsApp readiness, MasterExcel import, shift data and official-source status. Configure the semester/contact fields before publication.
 
 Required sheet names (case-insensitive): `first steps`, `Krankenversicherungen`, `student portal Links`, `Rundfunkbeitrag`.
 
@@ -12,7 +12,7 @@ Required sheet names (case-insensitive): `first steps`, `Krankenversicherungen`,
 
 ## Supported layout
 
-- First steps: an English Summer/Winter Semester label, numbered rows (number in column A or B), instruction text and a REQUIRED DOCUMENTS column (D when no heading is detected). Optional Title/Instruction headings are recognized. Original instruction paragraphs are preserved; an absent title uses a short display label derived from the text. Stable IDs use `first-step-01`, etc. The number of steps is data-driven. Blank rows are ignored. Duplicate numbers and empty instructions are rejected; number gaps are flagged. Keep numbers stable within a semester.
+- First steps: an English Summer/Winter Semester label, numbered rows (number in column A or B), instruction text and a REQUIRED DOCUMENTS column (D when no heading is detected). Optional Title/Instruction headings are recognized. Original instruction paragraphs are preserved; an absent title uses a short display label derived from the text. Stable IDs use `first-step-01`, etc. The number of steps is data-driven. Blank rows are ignored. Duplicate numbers and empty instructions are rejected; number gaps are flagged. Keep numbers stable within a semester. The bundled demo fallback currently orders Health insurance, Accommodation, Enrollment & student ID, City registration, Bank account, Meetup with Program Tutors, Campus & departments, Welcome events, then Language courses. A reviewed workbook publication becomes authoritative and replaces the fallback order; review those rows in the workbook preview before publishing.
 - Insurance: Provider/Name, Address and weekday heading columns, or constrained provider/address/hour blocks. Incomplete hours generate review warnings. No provider is recommended by the application.
 - Portals: labels and actual Excel hyperlinks or http/https URL cells. Unsafe links are rejected. Descriptions are retained.
 - Rundfunkbeitrag: numbered or bold headings followed by paragraphs. Original text is retained; formulas are not evaluated.
@@ -21,7 +21,7 @@ Limits: 10 MB compressed workbook, 60 MB expanded ZIP, 500 archive entries, 20 s
 
 ## Review and publication
 
-Preview shows the source and current semester, counts, warnings and expandable before/after changes. Review the full source text, required items, links and all warnings. A semester mismatch requires explicit confirmation. Reordered/reused numbers need a new progress revision; new-semester numbered steps require it. Cancel changes nothing.
+Choose **Preview content update** to see the source and current semester, counts, warnings and expandable before/after changes. Review the full source text, required items, links and all warnings. Any mismatch among configured, public and operational semester labels is a review signal; nothing is auto-corrected. A workbook semester mismatch requires explicit confirmation. Reordered/reused numbers need a new progress revision; new-semester numbered steps require it. Cancel changes nothing.
 
 Confirming re-reads the workbook and published content and checks a signed, expiring preview proof. Changed sources or content require a new preview. A private backup is saved first, then a single conditional PUT writes `app-content/published.json`. That release contains all validated public collections, so one publication cannot leave partially written sheets. No existing workbook is moved or deleted. A failed publication can leave an extra harmless backup.
 

@@ -43,6 +43,65 @@ function StudentTable({ students }) {
     </div>
   );
 }
+
+function staffDateTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Time unavailable"
+    : new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Berlin",
+      }).format(date);
+}
+
+function HandoverEntries({ entries, today, limit }) {
+  const previous = new Date(`${today}T12:00:00Z`);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  const previousDay = previous.toISOString().slice(0, 10);
+  const recent = entries
+    .slice()
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, limit);
+  const groups = [
+    { label: "Today", notes: recent.filter((note) => note.date === today) },
+    { label: "Previous day", notes: recent.filter((note) => note.date === previousDay) },
+    { label: "Earlier", notes: recent.filter((note) => note.date < previousDay) },
+  ];
+  return groups.some((group) => group.notes.length) ? groups.map((group) =>
+    group.notes.length > 0 && (
+      <section className="staff-handover-group" key={group.label}>
+        <h3>{group.label}</h3>
+        {group.notes.map((note) => (
+          <article className="staff-handover-entry" key={note.id}>
+            <p>{note.note}</p>
+            <small>{note.author} · {staffDateTime(note.timestamp)}</small>
+          </article>
+        ))}
+      </section>
+    ),
+  ) : <p>No handover notes yet.</p>;
+}
+
+function TodayCheckins({ checkins, students }) {
+  const recent = checkins.slice().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return recent.length ? (
+    <ul className="staff-activity-list">
+      {recent.slice(0, 8).map((checkin) => {
+        const student = students.find((item) => item.id === checkin.studentId);
+        return (
+          <li key={checkin.id}>
+            <Link to={`/staff/students/${checkin.studentId}`}>
+              {student?.name || "Student record"}
+            </Link>
+            <small>Checked in by {checkin.actor.name} · {staffDateTime(checkin.timestamp)}</small>
+          </li>
+        );
+      })}
+    </ul>
+  ) : <p>No visitors checked in yet.</p>;
+}
+
 export function Dashboard() {
   const { workspace, error } = useWorkspace();
   if (!workspace) return <State error={error} />;
@@ -55,30 +114,28 @@ export function Dashboard() {
         {today} · {data.semesterLabel || "Semester not configured"}
       </p>
       <p>
-        {data.checkins.filter((c) => c.date === today).length} check-ins today ·{" "}
-        {data.students.length} imported students
+        {data.checkins.filter((c) => c.date === today).length} students checked in today
       </p>
+      <nav className="staff-quick-actions" aria-label="Today’s actions">
+        <Link to="/staff/students">Find a student</Link>
+        <Link to="/staff/students">Check in a visitor</Link>
+        <Link to="/staff/handover">Add handover</Link>
+      </nav>
       <h2>Today’s shifts</h2>
       <Shifts shifts={shifts} />
+      <h2>Checked in today</h2>
+      <TodayCheckins
+        checkins={data.checkins.filter((checkin) => checkin.date === today)}
+        students={data.students}
+      />
       <h2>Needs attention</h2>
-      <p>Enrollment or backpack status is incomplete or unknown.</p>
       <StudentTable
         students={data.students
           .filter((s) => s.enrolled !== true || s.receivedBackpack !== true)
           .slice(0, 20)}
       />
       <h2>Latest handover</h2>
-      {data.handover
-        .slice(-5)
-        .reverse()
-        .map((n) => (
-          <article key={n.id}>
-            <p className="source-text">{n.note}</p>
-            <small>
-              {n.author} · {n.timestamp}
-            </small>
-          </article>
-        ))}
+      <HandoverEntries entries={data.handover} today={today} limit={5} />
     </>
   );
 }
@@ -186,6 +243,21 @@ export function StudentDetail() {
         <Link to="/staff/students">Back to students</Link>
       </>
     );
+  const recentUpdates = (workspace.data.audit || [])
+    .filter((entry) => entry.action === "student.fields" && entry.recordId === s.id)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 5);
+  const recentCheckins = workspace.data.checkins
+    .filter((entry) => entry.studentId === s.id)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 5);
+  const fieldNames = {
+    enrolled: "Enrollment",
+    receivedBackpack: "Welcome materials",
+    accommodation: "Accommodation",
+    cityRegistration: "City registration appointment",
+    notes: "Case notes",
+  };
   return (
     <>
       <Link to="/staff/students">Back to students</Link>
@@ -220,9 +292,28 @@ export function StudentDetail() {
         busy={busy}
         save={(patch) => act("students/update", { id: s.id, patch })}
       />
-      <p>
-        Last update: {s.updatedBy} · {s.updatedAt}
-      </p>
+      {recentUpdates.length > 0 && (
+        <section className="staff-record-history" aria-labelledby="student-updates-heading">
+          <h2 id="student-updates-heading">Recent updates</h2>
+          {recentUpdates.map((entry) => (
+            <article className="staff-handover-entry" key={entry.id}>
+              <p>{entry.changedFields.map((field) => fieldNames[field] || "Student details").join(" · ")}</p>
+              <small>Updated by {entry.actor.name} · {staffDateTime(entry.timestamp)}</small>
+            </article>
+          ))}
+        </section>
+      )}
+      {recentCheckins.length > 0 && (
+        <section className="staff-record-history" aria-labelledby="student-checkins-heading">
+          <h2 id="student-checkins-heading">Check-in history</h2>
+          {recentCheckins.map((entry) => (
+            <article className="staff-handover-entry" key={entry.id}>
+              <p>Checked in</p>
+              <small>{entry.actor.name} · {staffDateTime(entry.timestamp)}</small>
+            </article>
+          ))}
+        </section>
+      )}
     </>
   );
 }

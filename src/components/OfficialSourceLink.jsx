@@ -41,18 +41,17 @@ export default function OfficialSourceLink({
   const url = section?.officialUrl || source.url || configured.url;
   let note = checkedLabel(source.lastSuccessfulCheck);
   if (compact && source.status === "current") note = "";
-  if (compact && source.status === "stale") {
-    note = "Latest information could not be verified.";
-  }
   let className = "official-source";
   if (source.status === "stale") {
-    note = "We could not verify the latest information recently.";
+    note = compact
+      ? "Latest information could not be verified recently."
+      : "We could not verify the latest information recently.";
     className += " is-stale";
   } else if (source.status === "needs-review") {
-    note = "Please confirm current details on the official page.";
+    note = compact ? "Some details need review." : "Please confirm current details on the official page.";
     className += " needs-review";
   } else if (source.status === "unavailable") {
-    note = "Check the official page for current information.";
+    note = compact ? "Live verification is unavailable." : "Check the official page for current information.";
     className += " is-unavailable";
   }
   return (
@@ -60,8 +59,10 @@ export default function OfficialSourceLink({
       <a href={url} target="_blank" rel="noopener noreferrer">
         {compact ? (
           <>
-            {label || "Official information"} · Bauhaus-Universität Weimar
-            <span aria-hidden="true"> ↗</span>
+            <span>
+              {label || "Official information"} · Bauhaus-Universität Weimar
+              <span aria-hidden="true"> ↗</span>
+            </span>
           </>
         ) : (
           <>

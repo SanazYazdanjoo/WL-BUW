@@ -99,7 +99,7 @@ export default function StaffLayout() {
               ...(session.role === "admin"
                 ? [
                     ["data", "Import & export"],
-                    ["content", "Content & semester"],
+                    ["content", "Semester setup"],
                     ["sources", "Official information"],
                     ["print", "Print center"],
                   ]
