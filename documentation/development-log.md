@@ -184,3 +184,7 @@ Kept every existing journey topic, moved City registration and Bank account ahea
 ## 2026-09-17 - Refine the fallback journey order
 
 Moved Enrollment & student ID before City registration and Bank account after City registration, removed Campus & departments from the bundled first-steps journey, and moved Residence permit to the final position. The fallback now has eleven steps; remaining topic content and IDs are retained. A published Nextcloud workbook remains unchanged until a coordinator reviews and publishes its updated version.
+
+## 2026-09-17 - Refine journey spacing and connector turns
+
+Reduced the node-to-title gap consistently across breakpoints while keeping labels centered below nodes. Desktop row turns now use paired gentle Bézier curves along the outer edge. Reduced the compact black footer's minimum height and padding; journey content, semantic ordering, and route behavior are unchanged.

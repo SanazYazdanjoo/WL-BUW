@@ -15,7 +15,9 @@ function curveBetween(start, end, index, columns, copyBottom, mapWidth, edgeSpac
     const desiredRadius = Math.min(82, Math.max(58, Math.abs(dy) * 0.42));
     const availableSpace = outside > 0 ? edgeSpace?.right : edgeSpace?.left;
     const radius = Math.min(desiredRadius, availableSpace ?? desiredRadius);
-    return `M ${start.x} ${start.y} C ${start.x + outside * radius} ${start.y} ${end.x + outside * radius} ${end.y} ${end.x} ${end.y}`;
+    const turnX = (start.x + end.x) / 2 + outside * radius;
+    const turnY = (start.y + end.y) / 2;
+    return `M ${start.x} ${start.y} C ${start.x + outside * radius * 0.55} ${start.y + dy * 0.12} ${turnX} ${start.y + dy * 0.28} ${turnX} ${turnY} C ${turnX} ${turnY + dy * 0.22} ${end.x + outside * radius * 0.55} ${end.y - dy * 0.12} ${end.x} ${end.y}`;
   }
   const dx = end.x - start.x;
   const dy = end.y - start.y;

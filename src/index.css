@@ -307,7 +307,7 @@ main:focus {
   grid-template-rows: 60px auto;
   justify-items: center;
   align-content: start;
-  gap: 0.65rem;
+  gap: 0.1rem;
   padding: 0.15rem 0.25rem;
   color: inherit;
   text-decoration: none;
@@ -1137,9 +1137,9 @@ main:focus {
 .footer-inner {
   display: flex;
   max-width: var(--color-content-width);
-  min-height: 72px;
+  min-height: 56px;
   margin: auto;
-  padding: 0.5rem 1.4rem;
+  padding: 0.35rem 1.4rem;
   align-items: center;
   justify-content: flex-start;
   gap: 1rem;
@@ -1468,7 +1468,7 @@ main:focus {
   .journey-map-link {
     min-height: 122px;
     grid-template-rows: 48px auto;
-    gap: 0.5rem;
+    gap: 0.1rem;
     justify-items: center;
     padding-inline: 0;
   }
@@ -1498,7 +1498,7 @@ main:focus {
   }
 
   .footer-inner {
-    min-height: 72px;
+    min-height: 56px;
     flex-wrap: wrap;
     padding-inline: 1.15rem;
     gap: 0.15rem 1rem;
