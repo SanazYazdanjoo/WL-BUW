@@ -188,3 +188,7 @@ Moved Enrollment & student ID before City registration and Bank account after Ci
 ## 2026-09-17 - Refine journey spacing and connector turns
 
 Reduced the node-to-title gap consistently across breakpoints while keeping labels centered below nodes. Desktop row turns now use paired gentle Bézier curves along the outer edge. Reduced the compact black footer's minimum height and padding; journey content, semantic ordering, and route behavior are unchanged.
+
+## 2026-09-17 - Stabilize journey summary reveal
+
+Moved summary visibility to the semantic step link's hover and keyboard-focus states, removing pointer-enter state that fired only at the list item's outer boundary. Raised the active step above adjacent map rows, positioned its summary bubble above the title, and gave the hovered node the highest local stacking level. Reduced topic title size slightly.

@@ -294,12 +294,19 @@ main:focus {
 
 .journey-map-step {
   position: relative;
+  z-index: 1;
   grid-column: var(--step-column);
   grid-row: var(--step-row);
   min-width: 0;
 }
 
+.journey-map-step:hover,
+.journey-map-step:focus-within {
+  z-index: 10;
+}
+
 .journey-map-link {
+  position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
@@ -365,7 +372,7 @@ main:focus {
   justify-content: center;
   gap: 0.3rem 0.5rem;
   color: var(--color-text);
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 500;
   line-height: 1.28;
   text-align: center;
@@ -381,9 +388,9 @@ main:focus {
 .journey-map-summary {
   display: block;
   position: absolute;
-  z-index: 5;
+  z-index: 15;
   top: auto;
-  bottom: calc(100% - 68px);
+  bottom: calc(100% - 58px);
   left: calc(50% + 38px);
   width: min(13rem, max(6rem, calc(50vw - 4rem)));
   padding: 0.65rem 0.75rem;
@@ -407,7 +414,7 @@ main:focus {
   position: static;
 }
 
-.journey-map-step.is-summary-open .journey-map-summary,
+.journey-map-link:hover .journey-map-summary,
 .journey-map-link:focus-visible .journey-map-summary {
   max-height: 12rem;
   opacity: 1;
@@ -441,6 +448,7 @@ main:focus {
 .journey-map-list[data-columns="2"] .journey-map-step[data-column="2"] .journey-map-summary {
   right: calc(50% + 38px);
   left: auto;
+  bottom: calc(100% - 58px);
 }
 
 .journey-map-list[data-columns="3"] .journey-map-step[data-column="3"] .journey-map-summary::before,
@@ -487,6 +495,7 @@ main:focus {
 
 .journey-map-step:not(.is-complete) .journey-map-link:hover .journey-map-node,
 .journey-map-step:not(.is-complete) .journey-map-link:focus-visible .journey-map-node {
+  z-index: 30;
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: white;
@@ -1488,13 +1497,13 @@ main:focus {
   }
 
   .journey-map-title {
-    font-size: 1.08rem;
+    font-size: 1.02rem;
   }
 
   .journey-map-summary {
     max-width: 52ch;
     font-size: 0.94rem;
-    bottom: calc(100% - 56px);
+    top: auto;
   }
 
   .footer-inner {

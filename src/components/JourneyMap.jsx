@@ -39,7 +39,6 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
   const pointerRef = useRef(null);
   const pathRefs = useRef([]);
   const [columns, setColumns] = useState(3);
-  const [hoveredTopicId, setHoveredTopicId] = useState(null);
   const [geometry, setGeometry] = useState({ width: 0, height: 0, points: [] });
   const topicCount = topics.length;
   const completed = new Set(completedTopicIds);
@@ -215,22 +214,12 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
           const isNext = topic.id === nextTopicId;
           return (
             <li
-              className={`journey-map-step${isComplete ? " is-complete" : ""}${hoveredTopicId === topic.id ? " is-summary-open" : ""}`}
+              className={`journey-map-step${isComplete ? " is-complete" : ""}`}
               data-column={column + 1}
               data-row={row + 1}
               data-side={index % 2 === 0 ? "left" : "right"}
               key={topic.id}
               ref={(element) => { itemRefs.current[index] = element; }}
-              onPointerEnter={(event) => {
-                if (event.pointerType === "mouse" && event.target.closest(".journey-map-node")) {
-                  setHoveredTopicId(topic.id);
-                }
-              }}
-              onPointerLeave={(event) => {
-                if (event.pointerType === "mouse") {
-                  setHoveredTopicId((current) => current === topic.id ? null : current);
-                }
-              }}
               style={{ "--step-column": column + 1, "--step-row": row + 1 }}
             >
               <Link
