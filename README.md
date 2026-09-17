@@ -4,7 +4,7 @@ A mobile-first service for incoming international students at Bauhaus-Universit√
 
 ## Current status
 
-**Implemented:** data-driven anonymous journey (twelve labelled fallback steps; workbook imports support variable counts), contextual FAQs, restricted downloads, browser-only versioned progress, semester/WhatsApp settings, events and later-stage pages. Added server-side Excel parsing, coordinator preview/publication with backups, shared published web/print content, private pilot staff sign-in, Nextcloud operational state, student status/check-in, shifts, handover and daily count reports.
+**Implemented:** data-driven anonymous journey (eleven labelled fallback steps; workbook imports support variable counts), contextual FAQs, restricted downloads, browser-only versioned progress, semester/WhatsApp settings, events and later-stage pages. Added server-side Excel parsing, coordinator preview/publication with backups, shared published web/print content, private pilot staff sign-in, Nextcloud operational state, student status/check-in, shifts, handover and daily count reports.
 
 **Partial:** actual workbook layout validation and live Nextcloud write verification remain pending. The staff area is disabled by default. Shared pilot codes and self-entered tutor names are not institutional identity verification. Feedback does not persist. Full CMS editing, audit browsing and automated reporting are not implemented.
 

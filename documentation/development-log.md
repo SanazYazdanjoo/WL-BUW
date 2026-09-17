@@ -180,3 +180,7 @@ Reordered the bundled onboarding fallback to Health insurance, Accommodation, En
 ## 2026-09-17 - Extend the fallback from the Welcome Lounge first-steps PDF
 
 Kept every existing journey topic, moved City registration and Bank account ahead of enrollment, and added Semester contribution, Residence permit, and Deutschlandsemesterticket topics. Reordered Language courses last. PDF-derived details remain demo content; references to Summer Semester 2026 were excluded. Semester contribution figures were checked against the current official Winter Semester 2026/27 page and the topic links directly to the university's source. Added approved-host validation for topic-specific official URLs and linked the relevant official pages. The fallback cannot update a currently published Nextcloud workbook; coordinators must preview and publish an approved workbook separately. No Nextcloud content was changed from this environment.
+
+## 2026-09-17 - Refine the fallback journey order
+
+Moved Enrollment & student ID before City registration and Bank account after City registration, removed Campus & departments from the bundled first-steps journey, and moved Residence permit to the final position. The fallback now has eleven steps; remaining topic content and IDs are retained. A published Nextcloud workbook remains unchanged until a coordinator reviews and publishes its updated version.

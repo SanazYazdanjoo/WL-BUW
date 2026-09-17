@@ -12,16 +12,15 @@ test("semantic route lookup resolves active topics and leaves invalid/inactive I
     [
       "insurance",
       "accommodation",
-      "city-registration",
-      "bank-account",
       "semester-contribution",
       "enrollment",
-      "residence-permit",
+      "city-registration",
+      "bank-account",
       "semester-ticket",
       "program-tutors",
-      "campus",
       "welcome-events",
       "language-courses",
+      "residence-permit",
     ],
   );
   assert.equal(
