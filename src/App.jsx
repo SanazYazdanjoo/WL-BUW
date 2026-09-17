@@ -1,19 +1,31 @@
-﻿import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import DirectoryIndex from './pages/DirectoryIndex';
-import FileDetails from './pages/FileDetails';
-
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import {
+  AfterArrivalPage,
+  EventsPage,
+  FeedbackPage,
+  HelpPage,
+  JourneyPage,
+  NotFound,
+  StaffPage,
+  TopicPage,
+} from "./pages/StudentPages";
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* The Layout wraps all routes */}
-        <Route path="/" element={<Layout />}>
-          {/* index loads at the exact "/" path */}
-          <Route index element={<DirectoryIndex />} />
-          
-          <Route path="topic/:topicId" element={<FileDetails />} />
-          <Route path="*" element={<DirectoryIndex />} />
+        <Route element={<Layout />}>
+          <Route index element={<JourneyPage />} />
+          <Route path="journey" element={<JourneyPage />} />
+          <Route path="journey/:topicId" element={<TopicPage />} />
+          <Route path="events" element={<EventsPage />} />
+          <Route path="after-arrival" element={<AfterArrivalPage />} />
+          <Route path="after-arrival/:topicId" element={<TopicPage later />} />
+          <Route path="help" element={<HelpPage />} />
+          <Route path="feedback" element={<FeedbackPage />} />
+          <Route path="staff" element={<StaffPage />} />
+          <Route path="staff/dashboard" element={<StaffPage />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>

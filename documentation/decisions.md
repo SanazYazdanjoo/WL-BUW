@@ -53,3 +53,41 @@ The React hook aborts obsolete requests and hides results belonging to a previou
 Missing credentials, invalid paths, unsupported methods, missing resources, upstream denial and network failures have explicit error responses. Credentials and raw upstream error bodies are not exposed. Listings time out after 20 seconds; downloads after five minutes.
 
 Mocked tests and local browser checks verify implementation behavior. They do not establish live access to the private university folder; authenticated verification remains pending.
+
+## D10: Student companion supersedes file-browser UX (2026-09-17)
+
+The operational pilot retains React/Vite (no Next.js migration). D01's file-only content model, D02's directory UX, D04's hardcoded root, D05's broad public access, and D08's public folder navigation are superseded. Students use journey/topic/event routes; Nextcloud is storage and editorial content. The existing XML parser and security tests remain, but public listings are disabled. Historical entries above describe the previous implementation only.
+
+## D11: Portable root and explicit public publication area
+
+`NEXTCLOUD_ROOT_FOLDER` is the single server-side root setting, defaulting to the current S.Y location. Origin stays university-only. Four fixed JSON paths and the `documents/` subtree are public; other root files cannot be requested. All documents in that subtree are public, even without a topic link. This is intentionally simpler than maintaining per-file ACLs. Staff must review the subtree before launch. No remote files were moved/deleted/created. Validation, disabled redirects and forced download headers remain; encoded ambiguity and hidden document paths are also rejected.
+
+## D12: Shared API on local Node and Vercel
+
+The same middleware backs Vite dev/preview, standalone Node and a Vercel catch-all function. No duplicated WebDAV implementation, external database or client secret variables. Rewrites preserve API/assets and support SPA deep links. Vercel deployment/live Nextcloud validation are pending operational checks, not claimed outcomes.
+
+## D13: Reviewed structured content, safe samples
+
+JSON is a deliberately simple interim maintenance format. Staff edit content independently of React and without rebuilds; a visual editor remains planned. Versioned validation bounds text/lists/bytes and discards unknown fields. Invalid or unavailable content falls back to explicit samples; no authoritative university instructions were invented. A failed config disables WhatsApp; previous invites are not cached. Staff must publish a current label and invitation together. Content already loaded in a browser changes on reload.
+
+## D14: Anonymous progress and honest incomplete features
+
+Progress stores only version and completed topic IDs locally, with reset/corruption/storage-failure handling. No student accounts/profiles or server progress. Persistent feedback, staff auth and operational records are deferred pending institutional decisions. The feedback adapter explicitly returns not-saved, and staff routes are unavailable notices. An unwired authorization/repository interface provides a future server-only boundary; it is not a production authentication system. No vendor or ephemeral-filesystem database was introduced.
+
+## D15: Clear mobile journey with contextual help
+
+Seven freely accessible topics use connected circular nodes and restrained Bauhaus colors. Long text stays in readable cards. Semantic controls, native FAQ details, progress labels, keyboard focus and mobile layouts take priority over decoration. Events and later-stage topics are distinct from first-week completion. Demo events are isolated from real upcoming events. Content and contact accuracy remain dependent on International Office review.
+
+## D16: Preserve the existing GitHub-to-Vercel integration
+
+The user clarified that automatic Git deployments already work for an existing Vercel project. Releases remain commit/push followed by that integration's deployment. Initial import instructions are superseded; no new project, relinking or separate CI is needed. Local inspection found no pre-existing tracked Vercel configuration; the current P0 additions provide the shared function entry point and frontend rewrite.
+
+The supplied deployment redirects anonymous requests to Vercel authentication. Protection is preserved. Any change to project-level access must be explicitly identified and approved before changing it. Local handler tests, sentinel-secret build checks and a read-only readiness script improve verification but cannot establish hosted functionality behind the access barrier. Vercel support remains locally verified and live acceptance pending.
+
+## D17: Reference-led editorial journey and per-file publication
+
+The user supplied a primary visual reference and refined the document-access requirement. Open cream-background rows, outlined circular nodes, a dashed connector, restrained red actions and a proper red-square brand replace the earlier bordered-card/multicolour approach. Screenshot administrative claims and timing labels are not copied into content; neutral contextual labels remain demo text. Existing React/Vite, semantic routes, JSON adapters and browser progress are reused.
+
+The prior D11 subtree-only publication policy is superseded: a document also requires an exact reference in an active non-demo topic in validated Nextcloud onboarding or after-arrival content. The server checks fresh references for every request and denies fallback-only, removed, inactive or unreferenced files. This avoids publishing arbitrary documents simply because they are placed in the same directory. Shared WebDAV streaming/path protections remain intact; no remote files are changed.
+
+Native-button FAQ controls expose expanded state explicitly. The existing progress key/schema and topic IDs remain stable rather than resetting previous users' progress for a cosmetic rename. No new authentication, storage vendor, reporting or admin features were added in this slice.

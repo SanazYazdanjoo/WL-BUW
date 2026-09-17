@@ -1,15 +1,26 @@
-import { defineConfig, loadEnv } from 'vite'
-import { nextcloudMiddleware } from './server/nextcloud.js'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig, loadEnv } from "vite";
+import { applicationApi } from "./server/api.js";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
-  const middleware = nextcloudMiddleware(loadEnv(mode, process.cwd(), 'NEXTCLOUD_'))
+  const middleware = applicationApi({
+    ...loadEnv(mode, process.cwd(), "NEXTCLOUD_"),
+    ...process.env,
+  });
   return {
-    plugins: [react(), tailwindcss(), {
-      name: 'nextcloud-api',
-      configureServer(server) { server.middlewares.use(middleware) },
-      configurePreviewServer(server) { server.middlewares.use(middleware) },
-    }],
-  }
-})
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: "nextcloud-api",
+        configureServer(server) {
+          server.middlewares.use(middleware);
+        },
+        configurePreviewServer(server) {
+          server.middlewares.use(middleware);
+        },
+      },
+    ],
+  };
+});

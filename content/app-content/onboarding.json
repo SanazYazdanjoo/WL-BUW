@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "topics": [
+    {
+      "id": "enrollment",
+      "order": 1,
+      "title": "Enrollment & student ID",
+      "shortTitle": "Enrollment & student ID",
+      "summary": "Find your enrollment information and get to know your student ID.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Your university setup"
+    },
+    {
+      "id": "city-registration",
+      "order": 2,
+      "title": "City registration (Anmeldung)",
+      "shortTitle": "City registration / Anmeldung",
+      "summary": "Find guidance about registering your address in Weimar.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Getting settled"
+    },
+    {
+      "id": "insurance",
+      "order": 3,
+      "title": "Health insurance",
+      "shortTitle": "Health insurance",
+      "summary": "Understand where to find information about health insurance.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Your health cover"
+    },
+    {
+      "id": "bank-account",
+      "order": 4,
+      "title": "Bank account",
+      "shortTitle": "Bank account",
+      "summary": "Explore the information you may need when arranging a bank account.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Everyday essentials"
+    },
+    {
+      "id": "language-courses",
+      "order": 5,
+      "title": "Language courses",
+      "shortTitle": "Language courses",
+      "summary": "Find opportunities to build your language skills.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Learning together"
+    },
+    {
+      "id": "campus",
+      "order": 6,
+      "title": "Campus & departments",
+      "shortTitle": "Campus & departments",
+      "summary": "Get to know your department and the places you will use on campus.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Get oriented"
+    },
+    {
+      "id": "welcome-events",
+      "order": 7,
+      "title": "Welcome events",
+      "shortTitle": "Welcome events",
+      "summary": "Discover ways to connect with other new students.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Meet people"
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 ﻿# Project documentation
 
-Welcome Lounge is a React file browser for the university Nextcloud folder `Welcome.Lounge_WiSe2026_27/S.Y`.
+The Welcome Lounge Digital Companion supports anonymous student onboarding at Bauhaus-Universität Weimar. It uses React/Vite and a restricted Nextcloud content API. It is no longer a public file browser.
 
 | Document | Contents |
 | --- | --- |
-| [Decisions](decisions.md) | Requirements, choices and consequences |
-| [Technical implementation](technical-implementation.md) | Architecture, source map, routes and API contracts |
-| [Operations](operations.md) | Setup, deployment, troubleshooting and verification |
-| [Development log](development-log.md) | Dated changes, evidence and remaining work |
+| [Content guide](content-guide.md) | Non-developer JSON maintenance, publication and semester change |
+| [Decisions](decisions.md) | Historical decisions and current superseding pilot decisions |
+| [Technical implementation](technical-implementation.md) | Current architecture, routes, APIs and security boundaries |
+| [Operations](operations.md) | Local/Vercel setup, verification and institutional handover |
+| [Deployment verification](deployment-verification.md) | Existing project, protection findings and hosted acceptance status |
+| [Development log](development-log.md) | Changes, evidence and remaining work |
 
-These records cover development from this chat and the existing structure relevant to it. Earlier design rationale is not inferred from commit titles.
-
-For every future development, update the log with the requirement, implementation, affected files, verification and unresolved work. Record significant choices in decisions.md; update technical and operations documentation when behavior or setup changes. Distinguish implemented behavior from proposals and unverified work. Never include real credentials.
+The root README distinguishes implemented, partial and pending features. The original file-browser decisions in the history are superseded where stated. Update these documents after meaningful changes; never describe planned work as implemented or include credentials.

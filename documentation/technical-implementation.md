@@ -2,96 +2,63 @@
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  Browser[React file browser] -->|same-origin GET| API[Nextcloud middleware]
-  API -->|PROPFIND Depth 1 or GET| NC[University Nextcloud]
-  NC -->|XML metadata or file bytes| API
-  API -->|JSON or streamed attachment| Browser
-  Env[Server environment] -->|account and app password| API
-```
+Deployment uses the existing GitHub-connected Vercel project: commit/push triggers the existing automatic deployment. No additional CI or replacement project is needed. See [live deployment verification](deployment-verification.md) for the protection barrier and the distinction between local tests and hosted acceptance.
 
-The npm project uses ES modules. React mounts in StrictMode. Node supplies HTTP, fetch, filesystem and stream APIs. No database is used.
+React + Vite + React Router remains the frontend. Browser navigation and information architecture do not mirror Nextcloud folders. Plain structured content is fetched from the same-origin API; progress uses a separate browser-only store. No database or student identity is used.
+
+`server/api.js` composes the content and document middleware. Vite development/preview, `server/start.js`, and the Vercel catch-all `api/[...path].js` invoke this same implementation. Credentials and the configured root never enter the frontend dependency graph. The university Nextcloud origin remains fixed to avoid introducing a configurable proxy/SSRF surface.
 
 ## Source map
 
-| File | Responsibility |
+| Module | Responsibility |
 | --- | --- |
-| `src/main.jsx` | React entry point and shared CSS |
-| `src/App.jsx` | BrowserRouter and page routes |
-| `src/components/Layout.jsx` | Reads folder query, fetches metadata and supplies outlet context |
-| `src/hooks/useNextcloudData.js` | JSON fetch, abort handling, loading state and errors |
-| `src/pages/DirectoryIndex.jsx` | Breadcrumbs, filename search, cards and empty/error states |
-| `src/pages/FileDetails.jsx` | Name, MIME type, size, download and Nextcloud links |
-| `src/index.css` | Layout, long-name wrapping and mobile stacking |
-| `server/nextcloud.js` | Path validation, WebDAV URLs, XML parsing, API and streaming |
-| `server/start.js` | Environment loading and standalone API/static server |
-| `vite.config.js` | API middleware for development and preview |
-| `tests/nextcloud.test.js` | Node tests with mocked upstream requests |
-| `.env.example` | Empty server credential settings |
-| `.gitignore` | Excludes environment files, build output and dependencies |
-| `eslint.config.js` | Browser/React rules plus Node globals for server, tests and Vite |
+| `src/App.jsx` | Product routes and not-found route |
+| `src/components/Layout.jsx` | Navigation, loading/fallback state, route focus, shared outlet context |
+| `src/pages/StudentPages.jsx` | Journey, topic, events, later-stage, help, feedback, staff-unavailable pages |
+| `src/components/Journey.jsx` | Reusable progress, full-row step links, actions, downloads, escalation and feedback UI |
+| `src/components/AppHeader.jsx` | Red-square brand and responsive navigation with keyboard-operable mobile menu |
+| `src/components/FAQAccordion.jsx` | Native button disclosures with aria-expanded/aria-controls and per-item state |
+| `src/services/topics.js` | Stable active-topic lookup, including not-found behavior |
+| `src/hooks/useContent.js` | Parallel content reads, timeout, cancellation, response validation, safe samples |
+| `src/hooks/useProgress.js`, `src/services/progress.js` | Versioned local storage, toggle/reset, cross-tab updates, storage-failure handling |
+| `shared/content.js`, `shared/paths.js` | Content/link/path validation used by server and frontend |
+| `content/app-content` | Explicit sample data and staff-maintenance templates |
+| `server/content.js` | Fixed content paths, bounded JSON read, validation/fallback |
+| `server/nextcloud.js` | Configurable DAV root, protected downloads, retained XML parser |
+| `server/operations.js` | Unwired server-only authorization/repository boundary for future staff records |
+| `src/services/feedback.js` | Unavailable adapter; reports `saved: false`; no transmission/storage |
 
-## Frontend routes and data flow
+The old directory pages/hook and unused directory widgets/styles were removed. The tested XML parser and fast-xml-parser dependency remain reusable; there is no public PROPFIND route.
 
-| Route | Behavior |
-| --- | --- |
-| `/` | List the configured root |
-| `/?path=Documents` | List the relative Documents folder |
-| `/topic/report.pdf?path=Documents` | Details for Documents/report.pdf |
-| Other paths | Render the directory via the wildcard route |
+## Routes
 
-Paths and filename parameters are URL-encoded. React Router supplies the decoded filename parameter. File details look up a non-folder entry in the current listing; missing files show a not-found state with a link back.
+`/` and `/journey` show the seven-step sample journey. `/journey/:topicId` opens any topic independently. `/events` shows upcoming real entries separately from demo entries. `/after-arrival` and `/after-arrival/:topicId` hold later-stage information. `/help`, `/feedback`, `/staff`, `/staff/dashboard` complete the shell. Unknown routes and topic IDs show not-found UI. Staff routes only show an unavailable notice; they do not protect or fetch any records because no staff features are enabled. SPA unknown routes return HTML 200 with not-found UI, not an HTTP 404.
 
-The hook returns `directory`, `isLoading` and `error`; Layout adds `path` to outlet context. It validates JSON content type and the entries array. Search is case-insensitive and matches names only. Contents are not fetched until download is requested.
+## API
 
-## API contract
+- `GET /api/content/config`
+- `GET /api/content/onboarding`
+- `GET /api/content/events`
+- `GET /api/content/after-arrival`
 
-Both endpoints accept a URL-encoded `path` relative to S.Y. An empty listing path selects the root.
+Each returns `{source: "nextcloud" | "demo", data: ...}` with `no-store`. Only the corresponding fixed `app-content/<kind>.json` path is requested. Upstream reads use a 10-second timeout and a streamed 512,000-byte cap before parsing. Missing credentials, upstream denial, invalid/missing JSON or a timeout return validated sample data with `source: demo`. The client has a 15-second timeout and its own bundled sample fallback for an unavailable API. Config fallback always disables WhatsApp. There is no cache of previous WhatsApp invitations. Content is loaded once per page load, or on retry.
 
-### GET /api/nextcloud/files?path=Documents
+`GET /api/nextcloud/download?path=documents/enrollment/form.pdf` streams an attachment. The path must be within `documents/` and exactly referenced by an active, non-demo topic in current validated Nextcloud onboarding or after-arrival content. The server reads both content collections in parallel on each download request; it does not cache authorization. Missing/malformed/demo fallback content cannot grant access. Unreferenced documents are rejected before fetching their bytes. No folder listing is available (`/api/nextcloud/files` returns 404). Paths reject dot segments, backslashes, percent-encoded ambiguity, controls and hidden path segments; root configuration is separately validated. Upstream redirects are disabled. Bytes are never rendered inline: octet-stream, attachment disposition, nosniff, no-store. Document reads time out after 40 seconds, following up to 10 seconds for content authorization; Vercel function duration is 60 seconds. The client buffers a blob for an error-aware download; publish reasonably small PDFs suitable for phones. Platform file-size/streaming limits still need live verification.
 
-The backend sends PROPFIND to `/remote.php/dav/files/{account}/Welcome.Lounge_WiSe2026_27/S.Y/Documents`, requesting resource type, content type and content length.
+Errors: 400 invalid path, 404 missing/disallowed file or endpoint, 405 unsupported method, 503 unconfigured document connection, 502 upstream/network failure. Raw upstream bodies and credentials are never returned. Safe server diagnostics identify failed content kinds; no student data is logged by application code. Hosting/upstream infrastructure may keep request logs.
 
-Illustrative response (not actual folder contents):
+## Progress and privacy
 
-```json
-{
-  "entries": [
-    {
-      "name": "report.pdf",
-      "path": "Documents/report.pdf",
-      "isFolder": false,
-      "mimeType": "application/pdf",
-      "size": 1234
-    }
-  ],
-  "folderUrl": "https://nextcloud.uni-weimar.de/apps/files/files?dir=%2FWelcome.Lounge_WiSe2026_27%2FS.Y"
-}
-```
+`wl-progress` stores `{version: 1, completed: [topicId]}`. Corrupt/missing/unknown versions reset safely; valid IDs are deduplicated. Unknown versions are intentionally not interpreted; future schema changes require a migration here. Browser storage failure retains in-memory progress with an explicit warning. No progress leaves the browser. IDs persist across semesters unless a student resets them. No sensitive staff/student records belong in local storage.
 
-The parser normalizes single/multiple response and propstat nodes, uses successful properties, excludes the requested folder itself and non-child entries, then sorts folders first and names next. Missing MIME types become empty strings; unavailable/invalid lengths become zero.
+## Security boundary and future work
 
-### GET /api/nextcloud/download?path=Documents%2Freport.pdf
+The download boundary combines subtree confinement and current per-file topic references. The low-level download middleware defaults to deny unless an approval function is supplied; the shared API supplies the content-based authorizer. The four JSON files are public editorial content. Keep all personal data elsewhere. Future staff adapters must authorize every operation server-side, validate inputs, set tutor identity/timestamps on the server, and use approved durable storage. The current staff interface is not an authentication system and is not connected to HTTP routes.
 
-The backend GETs the file and pipes its response body through `Readable.fromWeb` and `pipeline`. Content-Disposition contains an encoded filename. The result is an attachment, not an inline preview. If streaming fails after headers are sent, the connection is destroyed instead of writing JSON into the file.
+## Reference-led student journey
 
-### Errors
+The screenshot informs layout and geometry, not administrative claims. `src/index.css` defines shared cream, text, red, border, connector and width tokens. Journey rows use outlined numbered circles, a dashed vertical line, open text layout and a single full-row Link. Completion changes both the node/checkmark and accessible state text. At desktop widths titles and summaries may flow inline; mobile stacks contextual label, title, summary and action. The mobile menu exposes expanded state, supports Escape and restores focus to its button. FAQ items use native buttons and hidden labelled answer panels.
 
-Errors are JSON objects containing `error`; some also contain the root `folderUrl`. API responses use no-store.
+The topic schema adds an optional `eyebrow` without breaking existing version-1 files. Sample summaries are neutral UX text and remain explicitly marked as demo. Stable IDs and existing `wl-progress` version-1 storage are retained, so existing completion data is preserved. The progress hook now exposes explicit markComplete, markIncomplete, isComplete and totalCompleted alongside toggle/reset; displayed counts are scoped to the current active journey topics.
 
-| Status | Meaning |
-| --- | --- |
-| 400 | Invalid relative path |
-| 404 | Unknown API route or upstream resource missing |
-| 405 | API method other than GET |
-| 503 | Missing server credentials |
-| 502 | Upstream access denial, network/timeout/redirect failure, invalid XML or another upstream error |
-
-## Server modes and limitations
-
-Vite loads NEXTCLOUD_ settings for the selected mode and installs the middleware in development/preview. The standalone server loads `.env.local` from the working directory and serves `dist` relative to its source file. Server environment variables can also provide credentials.
-
-Static serving accepts GET/HEAD, rejects paths outside dist and falls back to index.html for SPA routes or missing assets. Its MIME map covers HTML, JavaScript, CSS, SVG, PNG and ICO; other extensions use octet-stream. API handling precedes static fallback.
-
-There is no visitor authentication, extraction, upload, full-text search, pagination, range support, file watching or credential provisioning. Root-relative API URLs and BrowserRouter assume deployment at the origin root; subpath hosting needs additional configuration. Source-folder constants currently occur in backend and frontend code.
+Vercel security headers include CSP, nosniff and referrer policy. Local Vite development allows its normal development tooling. Institutional production review, live Nextcloud/Vercel verification, accessible testing with students, and approved contact/privacy details remain required.

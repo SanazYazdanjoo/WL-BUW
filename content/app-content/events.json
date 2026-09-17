@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "id": "sample-welcome",
+      "title": "Sample welcome gathering",
+      "date": "2026-10-01",
+      "startTime": "14:00",
+      "endTime": "15:00",
+      "location": "Sample location ? to be confirmed",
+      "description": "Example entry only. This is not a scheduled university event.",
+      "externalLink": "",
+      "isActive": true,
+      "isDemo": true
+    }
+  ]
+}

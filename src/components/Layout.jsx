@@ -1,21 +1,51 @@
-﻿import { Link, Outlet, useSearchParams } from 'react-router-dom';
-import { nextcloudFolderUrl, useNextcloudData } from '../hooks/useNextcloudData';
-
+import { useEffect } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import AppHeader from "./AppHeader";
+import { useContent } from "../hooks/useContent";
+import { useProgress } from "../hooks/useProgress";
 export default function Layout() {
-  const [params] = useSearchParams();
-  const path = params.get('path') || '';
-  const data = useNextcloudData(path);
+  const content = useContent();
+  const progress = useProgress();
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.title = "Welcome Lounge · Bauhaus-Universität Weimar";
+    window.scrollTo(0, 0);
+    document.getElementById("main")?.focus();
+  }, [pathname]);
   return (
     <div className="app-container">
-      <header className="app-header"><h1>Welcome Lounge · Files</h1></header>
-      <div className="app-body">
-        <aside className="app-sidebar">
-          <Link to="/" className="sidebar-home-link">All files</Link>
-          <a href={nextcloudFolderUrl} target="_blank" rel="noopener noreferrer" className="sidebar-link">Open Nextcloud</a>
-        </aside>
-        <main className="app-main"><Outlet context={{ ...data, path }} /></main>
-      </div>
-      <footer className="app-footer"><p>Welcome.Lounge_WiSe2026_27 / S.Y</p></footer>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <AppHeader key={pathname} />
+      <main id="main" tabIndex="-1">
+        {content.loading ? (
+          <div className="loading-state" role="status">
+            <span className="loading-node" aria-hidden="true" />
+            <h1>Getting your journey ready</h1>
+            <p>Your steps will appear here in a moment.</p>
+          </div>
+        ) : (
+          <>
+            {Object.values(content).some((v) => v?.source === "demo") && (
+              <aside className="service-notice">
+                Preview content · Some guidance is not available yet. Samples
+                are labelled below.{" "}
+                <button className="text-button" onClick={content.retry}>
+                  Try again
+                </button>
+              </aside>
+            )}
+            <Outlet context={{ content, progress }} />
+          </>
+        )}
+      </main>
+      <footer>
+        <p>Welcome Lounge · Built for your arrival in Weimar.</p>
+        <Link to="/help">Help & privacy</Link>
+        <Link to="/feedback">Feedback</Link>
+        <Link to="/staff">Staff area</Link>
+      </footer>
     </div>
   );
 }

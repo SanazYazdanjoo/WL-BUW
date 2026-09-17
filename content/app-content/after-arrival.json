@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "topics": [
+    {
+      "id": "semester-ticket",
+      "order": 1,
+      "title": "Semester ticket",
+      "shortTitle": "Semester ticket",
+      "summary": "Find your next steps for semester ticket.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    },
+    {
+      "id": "exam-registration",
+      "order": 2,
+      "title": "Exam registration",
+      "shortTitle": "Exam registration",
+      "summary": "Find your next steps for exam registration.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    },
+    {
+      "id": "printing",
+      "order": 3,
+      "title": "Printing",
+      "shortTitle": "Printing",
+      "summary": "Find your next steps for printing.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    },
+    {
+      "id": "library-rooms",
+      "order": 4,
+      "title": "Library rooms",
+      "shortTitle": "Library rooms",
+      "summary": "Find your next steps for library rooms.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    },
+    {
+      "id": "residence-permit",
+      "order": 5,
+      "title": "Residence permit extension",
+      "shortTitle": "Residence permit extension",
+      "summary": "Find your next steps for residence permit extension.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    },
+    {
+      "id": "more-language-courses",
+      "order": 6,
+      "title": "Continuing language courses",
+      "shortTitle": "Continuing language courses",
+      "summary": "Find your next steps for continuing language courses.",
+      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Official action steps will appear here after review by the International Office."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "after-arrival",
+      "isActive": true,
+      "isDemo": true
+    }
+  ]
+}
