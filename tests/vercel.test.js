@@ -21,7 +21,8 @@ test("Vercel handler reads configured content and streams downloads through shar
   const requested = [];
   Object.assign(process.env, settings);
   globalThis.fetch = async (url, options) => {
-    if (url.endsWith("/published.json")) return new Response(null, { status: 404 });
+    if (url.endsWith("/published.json"))
+      return new Response(null, { status: 404 });
     requested.push(url);
     assert.equal(options.method || "GET", "GET");
     assert.equal(options.redirect, "error");
@@ -133,6 +134,43 @@ test("Vercel entry point safely serves missing-credential fallback without leaki
     for (const key of keys) {
       if (previous[key] === undefined) delete process.env[key];
       else process.env[key] = previous[key];
+    }
+  }
+});
+
+test("Vercel path adapter restores rewritten nested routes before shared API auth", async () => {
+  const names = [
+    "STAFF_PILOT_ENABLED",
+    "NEXTCLOUD_USERNAME",
+    "NEXTCLOUD_APP_PASSWORD",
+  ];
+  const previous = Object.fromEntries(
+    names.map((name) => [name, process.env[name]]),
+  );
+  for (const name of names) delete process.env[name];
+  const server = createServer((req, res) => handler(req, res));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const session = await fetch(`${base}/api/staff?__api_path=staff/session`);
+    assert.equal(session.status, 401);
+    assert.deepEqual(await session.json(), {
+      error: "Sign in to the staff area.",
+    });
+    const content = await fetch(
+      `${base}/api/content?__api_path=content/config`,
+    );
+    assert.equal(content.status, 200);
+    assert.equal((await content.json()).source, "demo");
+    const denied = await fetch(`${base}/api/staff?__api_path=staff/../private`);
+    assert.equal(denied.status, 404);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
     }
   }
 });

@@ -1,6 +1,18 @@
 {
   "framework": "vite",
   "rewrites": [
+    {
+      "source": "/api/content/:kind",
+      "destination": "/api/content?__api_path=content/:kind"
+    },
+    {
+      "source": "/api/staff/:path*",
+      "destination": "/api/staff?__api_path=staff/:path*"
+    },
+    {
+      "source": "/api/nextcloud/:path*",
+      "destination": "/api/nextcloud?__api_path=nextcloud/:path*"
+    },
     { "source": "/((?!api(?:/|$)|assets/).*)", "destination": "/index.html" }
   ],
   "functions": { "api/**/*.js": { "maxDuration": 60 } },
