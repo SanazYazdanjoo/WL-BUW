@@ -31,11 +31,13 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
   const mapRef = useRef(null);
   const itemRefs = useRef([]);
   const nodeRefs = useRef([]);
+  const titleRefs = useRef([]);
   const copyRefs = useRef([]);
   const geometryRef = useRef("");
   const pointerRef = useRef(null);
   const pathRefs = useRef([]);
   const [columns, setColumns] = useState(3);
+  const [hoveredTopicId, setHoveredTopicId] = useState(null);
   const [geometry, setGeometry] = useState({ width: 0, height: 0, points: [] });
   const topicCount = topics.length;
   const completed = new Set(completedTopicIds);
@@ -48,6 +50,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
     const finePointer = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
     if (!map || reducedMotion || !finePointer) return undefined;
     const nodes = nodeRefs.current;
+    const titles = titleRefs.current;
 
     let frame = 0;
     let offsets = [];
@@ -58,6 +61,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
         if (!point) return point;
         const node = nodeRefs.current[index];
         if (!node) return point;
+        const title = titleRefs.current[index];
         const current = offsets[index] || { x: 0, y: 0 };
         let targetX = 0;
         let targetY = 0;
@@ -85,6 +89,11 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
         node.style.transform = next.x === 0 && next.y === 0
           ? ""
           : `translate(${next.x}px, ${next.y}px)`;
+        if (title) {
+          title.style.transform = next.x === 0 && next.y === 0
+            ? ""
+            : `translate(${next.x}px, ${next.y}px)`;
+        }
         return { x: point.x + next.x, y: point.y + next.y };
       });
 
@@ -116,6 +125,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
       map.removeEventListener("pointerleave", clearPointer);
       if (frame) window.cancelAnimationFrame(frame);
       nodes.forEach((node) => { if (node) node.style.transform = ""; });
+      titles.forEach((title) => { if (title) title.style.transform = ""; });
       pathRefs.current = [];
     };
   }, [columns, geometry]);
@@ -195,6 +205,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
       <ol
         className="journey-map-list"
         aria-label="Your first steps"
+        data-columns={columns}
         style={{ "--journey-columns": columns }}
       >
         {arranged.map(({ topic, index, row, column }) => {
@@ -202,12 +213,22 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
           const isNext = topic.id === nextTopicId;
           return (
             <li
-              className={`journey-map-step${isComplete ? " is-complete" : ""}`}
+              className={`journey-map-step${isComplete ? " is-complete" : ""}${hoveredTopicId === topic.id ? " is-summary-open" : ""}`}
               data-column={column + 1}
               data-row={row + 1}
               data-side={index % 2 === 0 ? "left" : "right"}
               key={topic.id}
               ref={(element) => { itemRefs.current[index] = element; }}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse" && event.target.closest(".journey-map-node")) {
+                  setHoveredTopicId(topic.id);
+                }
+              }}
+              onPointerLeave={(event) => {
+                if (event.pointerType === "mouse") {
+                  setHoveredTopicId((current) => current === topic.id ? null : current);
+                }
+              }}
               style={{ "--step-column": column + 1, "--step-row": row + 1 }}
             >
               <Link
@@ -228,7 +249,10 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                   ref={(element) => { copyRefs.current[index] = element; }}
                 >
                   <span className="journey-map-title">
-                    <span className="journey-map-title-text">{topic.title}</span>
+                    <span
+                      className="journey-map-title-text"
+                      ref={(element) => { titleRefs.current[index] = element; }}
+                    >{topic.title}</span>
                     {isComplete && <span className="sr-only">, completed</span>}
                     {isNext && <span className="sr-only">, next incomplete step</span>}
                   </span>
