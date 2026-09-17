@@ -228,21 +228,6 @@ main:focus {
 }
 
 /* A measured SVG path connects semantic, keyboard-accessible journey links. */
-.journey-progress {
-  margin: 0 0 1rem;
-}
-
-.journey-progress p {
-  margin: 0;
-  font-size: 0.94rem;
-  font-weight: 500;
-}
-
-.journey-progress-warning {
-  color: var(--color-text-muted);
-  font-size: 0.76rem;
-}
-
 .journey-map {
   position: relative;
   isolation: isolate;
@@ -263,15 +248,15 @@ main:focus {
 
 .journey-path-segment {
   fill: none;
-  stroke: var(--color-border);
-  stroke-width: 1.5;
+  stroke: var(--color-text);
+  stroke-width: 2;
   stroke-dasharray: 2 6;
   stroke-linecap: round;
   transition: stroke 0.18s ease, stroke-dasharray 0.18s ease;
 }
 
 .journey-path-segment.is-progressed {
-  stroke: var(--color-primary);
+  stroke: var(--color-text);
   stroke-dasharray: none;
 }
 
@@ -323,7 +308,7 @@ main:focus {
   width: 60px;
   height: 60px;
   place-items: center;
-  border: 1.5px solid var(--color-text);
+  border: 2px solid var(--color-text);
   border-radius: 50%;
   background: var(--color-bg);
   font-size: 0.92rem;
@@ -336,8 +321,8 @@ main:focus {
 }
 
 .journey-map-step.is-complete .journey-map-node {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
+  border-color: var(--color-text);
+  background: var(--color-text);
   color: white;
   font-size: 1.2rem;
   font-weight: 600;
@@ -410,9 +395,11 @@ main:focus {
   transform: translateX(3px);
 }
 
-.journey-map-link:hover .journey-map-node,
-.journey-map-link:focus-visible .journey-map-node {
+.journey-map-link:hover .journey-map-node:not(.is-complete),
+.journey-map-link:focus-visible .journey-map-node:not(.is-complete) {
   border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
 }
 
 @media (min-width: 600px) and (max-width: 899px) {
@@ -1128,10 +1115,6 @@ main:focus {
 
   .journey-heading h1 {
     font-size: clamp(2.12rem, 8vw, 2.38rem);
-  }
-
-  .journey-progress {
-    margin-bottom: 0.85rem;
   }
 
   .journey-map-list {

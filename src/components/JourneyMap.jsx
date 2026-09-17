@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { arrangeJourneyTopics, findNextJourneyTopic } from "../services/journeyLayout";
 
@@ -25,12 +25,92 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
   const nodeRefs = useRef([]);
   const copyRefs = useRef([]);
   const geometryRef = useRef("");
+  const pointerRef = useRef(null);
+  const pathRefs = useRef([]);
   const [columns, setColumns] = useState(3);
   const [geometry, setGeometry] = useState({ width: 0, height: 0, points: [] });
   const topicCount = topics.length;
   const completed = new Set(completedTopicIds);
   const arranged = arrangeJourneyTopics(topics, columns);
   const nextTopicId = findNextJourneyTopic(topics, completedTopicIds)?.id;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const finePointer = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+    if (!map || reducedMotion || !finePointer) return undefined;
+    const nodes = nodeRefs.current;
+
+    let frame = 0;
+    let offsets = [];
+    const animate = () => {
+      const pointer = pointerRef.current;
+      let moving = false;
+      const points = geometry.points.map((point, index) => {
+        if (!point) return point;
+        const node = nodeRefs.current[index];
+        if (!node) return point;
+        const current = offsets[index] || { x: 0, y: 0 };
+        let targetX = 0;
+        let targetY = 0;
+        if (pointer) {
+          let dx = point.x - pointer.x;
+          let dy = point.y - pointer.y;
+          let distance = Math.hypot(dx, dy);
+          if (distance < 0.01) {
+            dx = index % 2 === 0 ? 1 : -1;
+            dy = -0.35;
+            distance = Math.hypot(dx, dy);
+          }
+          const influence = Math.max(0, 1 - distance / 92);
+          const strength = 11 * influence;
+          targetX = (dx / distance) * strength;
+          targetY = (dy / distance) * strength;
+        }
+        const next = {
+          x: current.x + (targetX - current.x) * 0.18,
+          y: current.y + (targetY - current.y) * 0.18,
+        };
+        if (Math.abs(next.x - targetX) + Math.abs(next.y - targetY) > 0.15) moving = true;
+        else { next.x = targetX; next.y = targetY; }
+        offsets[index] = next;
+        node.style.transform = next.x === 0 && next.y === 0
+          ? ""
+          : `translate(${next.x}px, ${next.y}px)`;
+        return { x: point.x + next.x, y: point.y + next.y };
+      });
+
+      points.slice(0, -1).forEach((point, index) => {
+        const next = points[index + 1];
+        const path = pathRefs.current[index];
+        if (point && next && path) {
+          path.setAttribute("d", curveBetween(point, next, index, columns, geometry.copyBottoms[index]));
+        }
+      });
+      if (moving) frame = window.requestAnimationFrame(animate);
+      else frame = 0;
+    };
+
+    const updatePointer = (event) => {
+      if (event.pointerType !== "mouse") return;
+      const rect = map.getBoundingClientRect();
+      pointerRef.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      if (!frame) frame = window.requestAnimationFrame(animate);
+    };
+    const clearPointer = () => {
+      pointerRef.current = null;
+      if (!frame) frame = window.requestAnimationFrame(animate);
+    };
+    map.addEventListener("pointermove", updatePointer);
+    map.addEventListener("pointerleave", clearPointer);
+    return () => {
+      map.removeEventListener("pointermove", updatePointer);
+      map.removeEventListener("pointerleave", clearPointer);
+      if (frame) window.cancelAnimationFrame(frame);
+      nodes.forEach((node) => { if (node) node.style.transform = ""; });
+      pathRefs.current = [];
+    };
+  }, [columns, geometry]);
 
   useLayoutEffect(() => {
     const map = mapRef.current;
@@ -94,6 +174,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                 key={`${topics[index].id}-${topics[index + 1].id}`}
                 d={curveBetween(point, next, index, columns, geometry.copyBottoms[index])}
                 className={isProgressed ? "journey-path-segment is-progressed" : "journey-path-segment"}
+                ref={(element) => { pathRefs.current[index] = element; }}
               />
             );
           })}

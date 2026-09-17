@@ -55,7 +55,7 @@ Do not commit full university page captures. Check parser warnings and the offic
 
 ## Favicon discovery
 
-The approved-page parser resolves a declared favicon URL against that page and validates its URL scheme. The live Preparing your studies page currently declares `https://www.uni-weimar.de/fileadmin/template/Favicon/favicon.ico?1789657819`. Relative, absolute and unsafe references are covered by synthetic tests. The icon bytes are **not** synchronized or hot-linked into the app: rights and institutional reuse permission have not been established. The existing local app favicon remains unchanged. If the International Office confirms reuse rights, a maintainer can review and deliberately add the approved asset to the repository; this is not an automatic source-sync feature.
+The approved-page parser resolves a declared favicon URL against that page and validates its URL scheme. The live Preparing your studies page currently declares `https://www.uni-weimar.de/fileadmin/template/Favicon/favicon.ico?1789657819`. Relative, absolute and unsafe references are covered by synthetic tests. The icon bytes are **not** synchronized or hot-linked into the app: rights and institutional reuse permission have not been established. The app instead uses the separate local favicon supplied by the project owner at `public/favicon.ico`; this is not an automatic source-sync feature.
 
 ## Current verification boundary
 

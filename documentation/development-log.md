@@ -144,3 +144,15 @@ Bundled Fira Sans locally via `@fontsource/fira-sans`, including Latin and Latin
 Replaced the straight vertical student timeline with a spatial serpentine map. The semantic ordered list remains in topic order; a small layout utility groups any topic count into alternating rows (three columns on desktop, two on tablet, and alternating one-column nodes on mobile). A ResizeObserver measures node centers for a decorative SVG path. The path is neutral and dashed ahead, burgundy through completed progress, and routed around mobile text. Entire step regions remain links with explicit accessible labels; the circle is a status marker only. The separate progress bar and repeated “Open” cues were removed. Completed nodes use a burgundy fill, a checkmark and a visible Done label. Topic detail routes remain linear and unchanged. The global footer is now a compact white identity row.
 
 Automated checks: 50 tests pass, including dynamic grouping and next-incomplete lookup; lint and build pass. Playwright checks at 375, 430, 768, 1024, 1440 and 1920px confirm seven rendered steps, expected responsive columns, no horizontal overflow and no browser errors. Local interaction verified keyboard focus, marking a step done, immediate progress update and burgundy connector progress. Twelve-topic content was checked with long title/summary variants. No administrative content, APIs, persistence, staff behavior or project settings were changed.
+
+## 2026-09-17 - Use supplied app favicon
+
+Replaced the app entry's SVG favicon link with the project-owner-supplied public/favicon.ico. The separately discovered BUW website favicon remains unused pending reuse permission. The supplied ICO header and all three image entries were validated before copy.
+
+## 2026-09-17 - Journey node pointer interaction
+
+Added a restrained mouse-proximity effect to the semantic journey map: nodes glide a few pixels away from the pointer, and the existing SVG connector is recalculated in the same animation frame so it remains attached. The effect is limited to fine pointers and is disabled for reduced-motion preferences. Touch, keyboard, link behavior and topic order are unchanged.
+
+## 2026-09-17 - Refine journey map interaction and states
+
+Journey nodes glide slightly away from nearby mouse pointers while the decorative SVG path follows. The effect is limited to fine pointers and disabled for reduced motion. Connector and circle outlines now use 2px black strokes; incomplete nodes fill with BUW magenta on hover/focus, while completed nodes remain black with a white check. Removed the Journey header progress strip and sample notice; completion remains visible in the map.

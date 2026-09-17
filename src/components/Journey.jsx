@@ -8,24 +8,6 @@ export function DemoNotice() {
   );
 }
 
-export function JourneyProgress({ topics, progress }) {
-  const count = topics.filter((topic) =>
-    progress.completed.includes(topic.id),
-  ).length;
-  return (
-    <section className="journey-progress" aria-label="Journey progress">
-      <p aria-live="polite">
-        {count} of {topics.length} completed
-      </p>
-      {!progress.available && (
-        <span className="journey-progress-warning" role="status">
-          Progress is not being saved in this browser.
-        </span>
-      )}
-    </section>
-  );
-}
-
 export function EscalationCard({ config }) {
   const link = whatsappLink(config);
   return (

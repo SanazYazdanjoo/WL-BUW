@@ -9,7 +9,6 @@ import {
   DocumentList,
   EscalationCard,
   FeedbackPrompt,
-  JourneyProgress,
 } from "../components/Journey";
 
 export function JourneyPage() {
@@ -22,10 +21,6 @@ export function JourneyPage() {
       <header className="journey-heading">
         <h1>Your first steps</h1>
       </header>
-      <JourneyProgress topics={topics} progress={progress} />
-      {topics.some((topic) => topic.isDemo) && (
-        <p className="content-note">Sample content — official information is still being reviewed.</p>
-      )}
       {topics.length ? (
         <JourneyMap topics={topics} completedTopicIds={progress.completed} />
       ) : (
