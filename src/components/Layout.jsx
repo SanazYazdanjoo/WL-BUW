@@ -43,11 +43,28 @@ export default function Layout() {
           </>
         )}
       </main>
-      <footer>
-        <p>Welcome Lounge · Built for your arrival in Weimar.</p>
-        <Link to="/help">Help & privacy</Link>
-        <Link to="/feedback">Feedback</Link>
-        <Link to="/staff">Staff area</Link>
+      <footer className="app-footer">
+        <div className="footer-inner">
+          <p>Welcome Lounge · Bauhaus-Universität Weimar</p>
+          <nav aria-label="Footer navigation">
+            <a
+              href="https://www.uni-weimar.de/en/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              University ↗
+            </a>
+            <a
+              href="https://www.uni-weimar.de/en/university/international/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              International Office ↗
+            </a>
+            <Link to="/help">Help & privacy</Link>
+            <Link to="/staff">Staff area</Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );
