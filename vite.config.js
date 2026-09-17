@@ -1,11 +1,11 @@
-import { defineConfig, loadEnv } from "vite";
+﻿import { defineConfig, loadEnv } from "vite";
 import { applicationApi } from "./server/api.js";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const middleware = applicationApi({
-    ...loadEnv(mode, process.cwd(), "NEXTCLOUD_"),
+    ...loadEnv(mode, process.cwd(), ["NEXTCLOUD_", "STAFF_", "CONTENT_"]),
     ...process.env,
   });
   return {

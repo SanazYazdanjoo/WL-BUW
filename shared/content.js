@@ -25,6 +25,33 @@ export function whatsappLink(config) {
     : "";
 }
 const strings = (v) => list(v).map((x) => text(x));
+const metadata = (v) => ({
+  semesterLabel:
+    v.semesterLabel === undefined ? "" : text(v.semesterLabel, 100),
+  publishedAt: v.publishedAt === undefined ? "" : text(v.publishedAt, 40),
+  progressRevision:
+    v.progressRevision === undefined ? "legacy" : text(v.progressRevision, 100),
+});
+const source = (v) =>
+  v === undefined
+    ? undefined
+    : {
+        workbook: text(v.workbook, 200),
+        sheet: text(v.sheet, 100),
+        row: Number.isInteger(v.row) && v.row > 0 ? v.row : fail(),
+      };
+export function safeInformationLink(value) {
+  try {
+    const u = new URL(value);
+    return ["http:", "https:"].includes(u.protocol) &&
+      !u.username &&
+      !u.password
+      ? u.href
+      : "";
+  } catch {
+    return "";
+  }
+}
 function topic(v) {
   return {
     id: id(v.id),
@@ -36,6 +63,13 @@ function topic(v) {
     summary: text(v.summary),
     description: text(v.description),
     why: text(v.why),
+    requiredDocumentsText:
+      v.requiredDocumentsText === undefined
+        ? ""
+        : text(v.requiredDocumentsText),
+    requiredItems:
+      v.requiredItems === undefined ? [] : strings(v.requiredItems),
+    source: source(v.source),
     actions: strings(v.actions),
     importantNotes: strings(v.importantNotes),
     category: text(v.category, 100),
@@ -77,9 +111,70 @@ export function validateContent(kind, value) {
   if (kind === "onboarding" || kind === "after-arrival")
     return {
       version: 1,
+      ...metadata(value),
       topics: unique(list(value.topics).map(topic))
         .filter((t) => t.isActive)
         .sort((a, b) => a.order - b.order),
+    };
+  if (kind === "health-insurance")
+    return {
+      version: 1,
+      ...metadata(value),
+      providers: unique(
+        list(value.providers).map((p) => ({
+          id: id(p.id),
+          name: text(p.name, 200),
+          address: text(p.address),
+          openingHours: Object.fromEntries(
+            [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday",
+            ].map((d) => [
+              d,
+              p.openingHours?.[d] === undefined
+                ? ""
+                : text(p.openingHours[d], 500),
+            ]),
+          ),
+          source: source(p.source),
+        })),
+      ),
+    };
+  if (kind === "useful-links")
+    return {
+      version: 1,
+      ...metadata(value),
+      links: unique(
+        list(value.links).map((l) => {
+          const url = safeInformationLink(l.url);
+          if (!url) fail();
+          return {
+            id: id(l.id),
+            title: text(l.title, 200),
+            url,
+            description: text(l.description),
+            category: text(l.category, 100),
+            isActive: flag(l.isActive),
+            source: source(l.source),
+          };
+        }),
+      ).filter((l) => l.isActive),
+    };
+  if (kind === "rundfunk")
+    return {
+      version: 1,
+      ...metadata(value),
+      title: text(value.title, 200),
+      sections: list(value.sections).map((s) => ({
+        heading: text(s.heading, 200),
+        paragraphs: strings(s.paragraphs),
+        source: source(s.source),
+      })),
     };
   if (kind === "events")
     return {

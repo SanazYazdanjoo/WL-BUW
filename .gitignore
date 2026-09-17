@@ -27,3 +27,7 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Local workbook inputs can contain private university/student information.
+local-data/
+*.local.xlsx

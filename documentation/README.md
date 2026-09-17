@@ -12,3 +12,5 @@ The Welcome Lounge Digital Companion supports anonymous student onboarding at Ba
 | [Development log](development-log.md) | Changes, evidence and remaining work |
 
 The root README distinguishes implemented, partial and pending features. The original file-browser decisions in the history are superseded where stated. Update these documents after meaningful changes; never describe planned work as implemented or include credentials.
+
+New maintenance guides: [Editorial workbook](content-workbook-guide.md), [MasterExcel](master-excel-guide.md), [Staff operations](staff-operations-guide.md). These describe the current workbook-first workflow and supersede earlier staff-placeholder status.

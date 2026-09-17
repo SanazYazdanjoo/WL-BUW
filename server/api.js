@@ -1,6 +1,8 @@
+﻿import { staffMiddleware } from "./staff/api.js";
 import { contentMiddleware, loadContent } from "./content.js";
 import { nextcloudMiddleware } from "./nextcloud.js";
 export function applicationApi(env, fetchImpl = fetch) {
+  const staff = staffMiddleware(env, fetchImpl);
   const content = contentMiddleware(env, fetchImpl),
     documents = nextcloudMiddleware(env, fetchImpl, async (path) => {
       const collections = await Promise.all(
@@ -19,13 +21,17 @@ export function applicationApi(env, fetchImpl = fetch) {
       );
     });
   return (req, res, next) =>
-    content(req, res, () =>
-      documents(req, res, () => {
-        if (new URL(req.url, "http://localhost").pathname.startsWith("/api/")) {
-          res
-            .writeHead(404, { "Content-Type": "application/json" })
-            .end(JSON.stringify({ error: "Not found." }));
-        } else next();
-      }),
+    staff(req, res, () =>
+      content(req, res, () =>
+        documents(req, res, () => {
+          if (
+            new URL(req.url, "http://localhost").pathname.startsWith("/api/")
+          ) {
+            res
+              .writeHead(404, { "Content-Type": "application/json" })
+              .end(JSON.stringify({ error: "Not found." }));
+          } else next();
+        }),
+      ),
     );
 }

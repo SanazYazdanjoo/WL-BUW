@@ -1,13 +1,4 @@
-﻿/**
- * Server-only operational boundary. A future adapter must authenticate and
- * authorize the actor BEFORE reading/writing persistent records. Nothing here
- * is wired to public routes. Do not replace this with localStorage or files.
- * Proposed contracts:
- * listArrivals(actor, date) -> Arrival[]
- * checkIn(actor, {arrivalId, status}) -> {id, tutorId, recordedAt}
- * addHandover(actor, {shiftId, note}) -> {id, tutorId, recordedAt}
- * Actor identity and timestamps must be assigned/verified server-side.
- */
+/** Authorized operational service boundary, shared by private staff routes. */
 export function createOperationsService({ authorize, repository }) {
   return {
     async listArrivals(session, date) {

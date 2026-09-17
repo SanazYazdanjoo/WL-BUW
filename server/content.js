@@ -1,3 +1,6 @@
+﻿import healthInsurance from "../content/app-content/health-insurance.json" with { type: "json" };
+import usefulLinks from "../content/app-content/useful-links.json" with { type: "json" };
+import rundfunk from "../content/app-content/rundfunk.json" with { type: "json" };
 import { Buffer } from "node:buffer";
 import { davUrl } from "./nextcloud.js";
 import { validateContent } from "../shared/content.js";
@@ -5,56 +8,120 @@ import config from "../content/app-content/config.json" with { type: "json" };
 import onboarding from "../content/app-content/onboarding.json" with { type: "json" };
 import events from "../content/app-content/events.json" with { type: "json" };
 import afterArrival from "../content/app-content/after-arrival.json" with { type: "json" };
-const samples = { config, onboarding, events, "after-arrival": afterArrival };
+const samples = {
+  config,
+  onboarding,
+  events,
+  "after-arrival": afterArrival,
+  "health-insurance": healthInsurance,
+  "useful-links": usefulLinks,
+  rundfunk,
+};
+export async function loadContentBundle(env, fetchImpl = fetch) {
+  const data = {},
+    sources = {};
+  if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) {
+    for (const [kind, sample] of Object.entries(samples)) {
+      sources[kind] = "demo";
+      data[kind] = validateContent(kind, sample);
+    }
+    return { sources, data };
+  }
+  try {
+    const release = await readPublicJson(
+      "app-content/published.json",
+      env,
+      fetchImpl,
+      4 * 1024 * 1024,
+    );
+    if (release && (release.version !== 1 || !release.content))
+      throw new Error("invalid release");
+    if (release) {
+      for (const kind of Object.keys(samples)) {
+        data[kind] = validateContent(kind, release.content[kind]);
+        sources[kind] = "nextcloud";
+      }
+      return { sources, data };
+    }
+    await Promise.all(
+      Object.entries(samples).map(async ([kind, sample]) => {
+        try {
+          const value = await readPublicJson(
+            `app-content/${kind}.json`,
+            env,
+            fetchImpl,
+          );
+          if (!value) throw new Error("missing legacy content");
+          data[kind] = validateContent(kind, value);
+          sources[kind] = "nextcloud";
+        } catch {
+          data[kind] = validateContent(kind, sample);
+          sources[kind] = "demo";
+        }
+      }),
+    );
+    return { sources, data };
+  } catch {
+    console.warn(
+      "Published content unavailable or invalid; serving labelled samples.",
+    );
+    for (const [kind, sample] of Object.entries(samples)) {
+      sources[kind] = "demo";
+      data[kind] = validateContent(kind, sample);
+    }
+    return { sources, data };
+  }
+}
+async function readPublicJson(path, env, fetchImpl, limit = 512000) {
+  const response = await fetchImpl(
+    davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER),
+    {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${env.NEXTCLOUD_USERNAME}:${env.NEXTCLOUD_APP_PASSWORD}`).toString("base64")}`,
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return null;
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error("upstream");
+  }
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of response.body) {
+    size += chunk.length;
+    if (size > limit) throw new Error("oversize");
+    chunks.push(Buffer.from(chunk));
+  }
+  return JSON.parse(
+    Buffer.concat(chunks)
+      .toString("utf8")
+      .replace(/^\uFEFF/, ""),
+  );
+}
 export async function loadContent(kind, env, fetchImpl = fetch) {
   if (!Object.hasOwn(samples, kind)) throw new Error("Unknown content");
   try {
     if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD)
       throw new Error("unconfigured");
-    const response = await fetchImpl(
-      davUrl(
-        env.NEXTCLOUD_USERNAME,
-        `app-content/${kind}.json`,
-        env.NEXTCLOUD_ROOT_FOLDER,
-      ),
-      {
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${env.NEXTCLOUD_USERNAME}:${env.NEXTCLOUD_APP_PASSWORD}`).toString("base64")}`,
-        },
-        redirect: "error",
-        signal: AbortSignal.timeout(10000),
-      },
+    const release = await readPublicJson(
+      "app-content/published.json",
+      env,
+      fetchImpl,
+      8 * 1024 * 1024,
     );
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error("upstream");
-    }
-    // Bound bytes before parsing, including responses without Content-Length.
-    const reader = response.body.getReader();
-    const chunks = [];
-    let size = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.length;
-        if (size > 512000) throw new Error("oversize");
-        chunks.push(Buffer.from(value));
-      }
-    } finally {
-      await reader.cancel();
-    }
-    return {
-      source: "nextcloud",
-      data: validateContent(
-        kind,
-        JSON.parse(
-          Buffer.concat(chunks)
-            .toString("utf8")
-            .replace(/^\uFEFF/, ""),
-        ),
-      ),
-    };
+    if (release && (release.version !== 1 || !release.content))
+      throw new Error("invalid release");
+    // Legacy JSON is read only when no release exists. Invalid releases fail closed.
+    const value = release
+      ? release.content[kind]
+      : await readPublicJson(`app-content/${kind}.json`, env, fetchImpl);
+    return { source: "nextcloud", data: validateContent(kind, value) };
   } catch {
     console.warn(
       `Content unavailable or invalid: ${kind}; serving labelled sample content.`,
@@ -65,6 +132,20 @@ export async function loadContent(kind, env, fetchImpl = fetch) {
 export function contentMiddleware(env, fetchImpl = fetch) {
   return async (req, res, next) => {
     const url = new URL(req.url, "http://localhost");
+    if (url.pathname === "/api/content") {
+      const status = req.method === "GET" ? 200 : 405;
+      const body =
+        status === 200
+          ? await loadContentBundle(env, fetchImpl)
+          : { error: "Content not available." };
+      res.writeHead(status, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(JSON.stringify(body));
+      return;
+    }
     if (!url.pathname.startsWith("/api/content/")) return next();
     const kind = url.pathname.slice("/api/content/".length);
     const status =

@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import AppHeader from "./AppHeader";
 import { useContent } from "../hooks/useContent";
 import { useProgress } from "../hooks/useProgress";
 export default function Layout() {
   const content = useContent();
-  const progress = useProgress();
+
   const { pathname } = useLocation();
   useEffect(() => {
     document.title = "Welcome Lounge · Bauhaus-Universität Weimar";
@@ -36,7 +36,10 @@ export default function Layout() {
                 </button>
               </aside>
             )}
-            <Outlet context={{ content, progress }} />
+            <ProgressOutlet
+              key={content.onboarding.data.progressRevision}
+              content={content}
+            />
           </>
         )}
       </main>
@@ -48,4 +51,9 @@ export default function Layout() {
       </footer>
     </div>
   );
+}
+
+function ProgressOutlet({ content }) {
+  const progress = useProgress(content.onboarding.data.progressRevision);
+  return <Outlet context={{ content, progress }} />;
 }

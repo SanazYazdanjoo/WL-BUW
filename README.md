@@ -1,16 +1,16 @@
-﻿# Welcome Lounge Digital Companion
+# Welcome Lounge Digital Companion
 
 A mobile-first arrival companion for incoming international students at Bauhaus-Universität Weimar. This is an operational Welcome Lounge pilot, not a thesis project. It aims to reduce repetitive tutor questions and make arrival easier. The existing React + Vite application has been retained.
 
 ## Current status
 
-**Implemented:** seven-step open-order journey, topic pages with contextual FAQs and downloads, browser-only progress, configurable semester/WhatsApp, events, later-stage topics, help/privacy, not-found pages, validated Nextcloud content, restricted public downloads, shared local/Vercel API.
+**Implemented:** data-driven anonymous journey (seven labelled fallback steps; workbook imports support variable counts), contextual FAQs, restricted downloads, browser-only versioned progress, semester/WhatsApp settings, events and later-stage pages. Added server-side Excel parsing, coordinator preview/publication with backups, shared published web/print content, private pilot staff sign-in, Nextcloud operational state, student status/check-in, shifts, handover and daily count reports.
 
-**Partial:** anonymous feedback UI (explicitly does not save); staff landing page and server-only operational interface (no records or login); staff-maintained JSON content (no visual editor).
+**Partial:** actual workbook layout validation and live Nextcloud write verification remain pending. The staff area is disabled by default. Shared pilot codes and self-entered tutor names are not institutional identity verification. Feedback does not persist. Full CMS editing, audit browsing and automated reporting are not implemented.
 
-**Pending before student launch:** International Office-approved content and contact details, current WhatsApp invitation, approved public documents, authenticated Nextcloud smoke test, Vercel deployment verification, institutional privacy/contact review. All supplied topic/event material is clearly labelled sample content.
+**Before real use:** validate the real editorial and MasterExcel files against previews; configure university credentials and strong staff codes; test conditional writes/backups on Nextcloud; publish International Office-approved content and current contact details. No personal workbook is bundled or committed. No external database or auth vendor was added.
 
-**Planned, awaiting decisions:** staff authentication, persistent operational/feedback storage, check-in, handover, reports, admin editing, attendance. No external database or auth provider has been added.
+See [workbook publication](documentation/content-workbook-guide.md), [MasterExcel import/export](documentation/master-excel-guide.md) and [staff setup](documentation/staff-operations-guide.md).
 
 ## Run locally
 
@@ -43,7 +43,7 @@ npm start
 
 ## Deploy to Vercel
 
-Existing production URL: **https://wl-buw.vercel.app/**. Existing project ID: `prj_VrjEwDB09VK3PldfyLvnfZn9bxIQ`. The domain is already public; it currently serves the older file-browser build. The earlier deployment-specific URL is protected, which does not require changing protection on the production domain.
+Existing production URL: **https://wl-buw.vercel.app/**. Existing project ID: `prj_VrjEwDB09VK3PldfyLvnfZn9bxIQ`. The domain was publicly accessible at the previous inspection; that observation is historical, not verification of this unpushed change. The earlier deployment-specific URL is protected, which does not require changing protection on the production domain.
 
 This repository is already connected to an existing Vercel project. Keep GitHub as the source of truth: **commit/push -> Vercel automatic Git deployment**. Do not create another project, replace the integration, or add a separate CI system. Check the existing project settings against Vite, `npm run build`, output `dist`, and Node 22.x before changing anything. Add server credentials only through that project's Vercel Environment Variables.
 
@@ -51,7 +51,7 @@ This repository is already connected to an existing Vercel project. Keep GitHub 
 
 ## Content maintenance
 
-Create the following **inside the configured root**, using Nextcloud's normal UI. Nothing in this repository automatically creates, moves, or deletes remote files.
+Create the following **inside the configured root**, using Nextcloud's normal UI. Confirmed staff imports/publications may create application folders, state and backups. Existing source files are never moved or deleted.
 
 ```text
 app-content/
@@ -59,6 +59,13 @@ app-content/
   onboarding.json
   events.json
   after-arrival.json
+  health-insurance.json
+  useful-links.json
+  rundfunk.json
+  published.json  # created by confirmed workbook publication
+content-source/  # private editorial workbook
+content-backups/ # private publication backups
+staff-data/      # private MasterExcel, state.json and backups
 documents/
   enrollment/
   city-registration/
@@ -70,8 +77,8 @@ Start with [the example files](content/app-content). See the [content guide](doc
 
 Downloads must be inside `documents/` **and explicitly referenced by an active, non-demo topic** in the current validated Nextcloud onboarding or after-arrival content. Unlinked files cannot be downloaded. Keep only approved public material in this area; personal records and case notes must remain elsewhere. There is no public folder-listing API. Removing a reference revokes download access on the next request.
 
-Edit `config.json` to change semester label, contact text, WhatsApp URL, or `whatsappEnabled`. Changes are read at runtime on reload without rebuilding. Missing/invalid configuration disables WhatsApp rather than reusing a cached invitation. Changing the root later requires one environment-variable change plus placing the same content structure at the new location.
+Use `/staff/content` to change semester/contact settings and publish reviewed workbook content. Legacy `config.json` editing is supported before the first release; afterward `published.json` takes precedence. Changes are read at runtime on reload without rebuilding. Missing/invalid configuration disables WhatsApp rather than reusing a cached invitation. Changing the root later requires one environment-variable change plus placing the same content structure at the new location.
 
 ## Handover
 
-See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), and [decisions](documentation/decisions.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts, operational records, analytics, or database are present.
+See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), and [decisions](documentation/decisions.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts or analytics are present. Private operational records use Nextcloud; permanent institutional authentication remains future work.

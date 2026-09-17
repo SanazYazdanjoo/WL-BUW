@@ -91,3 +91,15 @@ The user supplied a primary visual reference and refined the document-access req
 The prior D11 subtree-only publication policy is superseded: a document also requires an exact reference in an active non-demo topic in validated Nextcloud onboarding or after-arrival content. The server checks fresh references for every request and denies fallback-only, removed, inactive or unreferenced files. This avoids publishing arbitrary documents simply because they are placed in the same directory. Shared WebDAV streaming/path protections remain intact; no remote files are changed.
 
 Native-button FAQ controls expose expanded state explicitly. The existing progress key/schema and topic IDs remain stable rather than resetting previous users' progress for a cosmetic rename. No new authentication, storage vendor, reporting or admin features were added in this slice.
+
+## 2026-09-17 — Workbook publication and private pilot operations (supersedes staff placeholder)
+
+Keep React/Vite and the existing Vercel integration. ExcelJS runs server-side only, with bounded ZIP/workbook parsing and synthetic fixtures. A single `app-content/published.json` release avoids multi-file partial publication; existing JSON collections remain backward compatible until first publication. Preview proofs bind the source, reviewed content and session, expire after 15 minutes, and require explicit confirmation. Publication backs up prior content before a conditional PUT.
+
+Private operational records use one bounded `staff-data/state.json` aggregate with ETag conflict detection. This intentionally chooses simple atomic updates over multi-file transactions or an external database. MasterExcel remains import/export only. Backup/retention is manual; no automatic deletion. This supersedes earlier statements that no staff persistence exists.
+
+Pilot authentication uses server-only random shared tutor/admin codes and signed eight-hour cookies, disabled by default. Names are self-declared, not verified identities. Roles and CSRF are server-enforced. Permanent institutional authentication is still required for long-term handover. No student authentication is added.
+
+Workbook step IDs are numbered and stable within a semester; a publication progress revision isolates browser completion when the coordinator resets/reuses steps. Normal text-only publication can retain the revision. Required items remain separate from approved downloadable documents. The exact real workbook formats require validation before first publication.
+
+ExcelJS's UUID transitive dependency is overridden to 11.1.1 to avoid the audited vulnerable version. The v4 call used by ExcelJS is compatible; workbook read/write tests pass.

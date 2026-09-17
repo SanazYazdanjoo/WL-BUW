@@ -62,3 +62,15 @@ The screenshot informs layout and geometry, not administrative claims. `src/inde
 The topic schema adds an optional `eyebrow` without breaking existing version-1 files. Sample summaries are neutral UX text and remain explicitly marked as demo. Stable IDs and existing `wl-progress` version-1 storage are retained, so existing completion data is preserved. The progress hook now exposes explicit markComplete, markIncomplete, isComplete and totalCompleted alongside toggle/reset; displayed counts are scoped to the current active journey topics.
 
 Vercel security headers include CSP, nosniff and referrer policy. Local Vite development allows its normal development tooling. Institutional production review, live Nextcloud/Vercel verification, accessible testing with students, and approved contact/privacy details remain required.
+
+## Workbook/staff implementation update — 2026-09-17
+
+New server modules: `server/excel/` (bounded ExcelJS parsers/export), `server/staff/auth.js` (pilot session/role/CSRF), `store.js` (private confined WebDAV conditional writes), `repository.js` (imports, publication, operational records), `api.js` (protected routes). `server/api.js` composes this with existing public content/download handlers. Vite loads only server configuration prefixes into middleware; no staff/Nextcloud secrets are injected into client code.
+
+Public content adds health-insurance, useful-links and rundfunk collections and routes. Required workbook items are shown separately from downloads. `loadContent` first checks the atomic release, falls back to legacy JSON only when absent, and serves labelled samples on invalid/unavailable content. The document allowlist uses that same validated content. ExcelJS is absent from the frontend bundle.
+
+The student client requests `/api/content` once for all seven collections to reduce mobile round trips. The server validates a complete atomic release in one Nextcloud read. Before the first release, it fetches legacy collections concurrently and marks missing/invalid ones as samples. Individual content routes remain for compatibility and download authorization.
+
+`src/staff/` isolates staff routes, services, workspace and coordinator pages from student pages. Sessions/CSRF stay in memory/cookies; operational records are never written to localStorage. Browser progress retains the legacy key for existing content and uses a publication revision suffix for resets. Native print styles consume the same normalized published collections.
+
+See the workbook, MasterExcel and staff-operation guides for schemas, limits, workflows and known pilot limitations. These sections supersede the earlier unimplemented staff architecture description.

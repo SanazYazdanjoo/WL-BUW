@@ -67,3 +67,9 @@ node scripts/check-content.js /path/to/draft/app-content
 Back up the four JSON files and public documents independently of code. Transfer repository and deployment ownership plus content access to the International Office. Replace personal credentials with an institutional service account and revoke old credentials after verification. Move the content structure through the approved process, then change only `NEXTCLOUD_ROOT_FOLDER` for an institutional root. Document the new responsible content reviewer and access owners without recording passwords.
 
 Staff authentication, storage, retention rules and authorized roles remain decisions. The staff boundary is unwired; do not expose operational adapters until authentication and authorization tests exist. Feedback is not persisted. Hosting-level access logs may contain IP addresses; establish institutional privacy information before public launch.
+
+## Staff/workbook operations update — 2026-09-17
+
+The staff placeholder has been replaced with disabled-by-default pilot access and private Nextcloud persistence. Follow [Staff operations](staff-operations-guide.md), [Editorial workbook](content-workbook-guide.md) and [MasterExcel](master-excel-guide.md). These supersede older instructions to maintain all text through JSON and statements that staff records are unimplemented.
+
+Keep the existing Vercel project and Git deployment workflow. Configure the new server-only environment variables through existing project settings; no project-level protection changes were made. Validate with the actual workbooks and a private test subtree before entering real operational data. Synthetic local verification does not establish live Nextcloud write permissions or production deployment readiness.

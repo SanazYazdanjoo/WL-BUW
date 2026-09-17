@@ -1,4 +1,4 @@
-export const PROGRESS_KEY = "wl-progress";
+﻿export const PROGRESS_KEY = "wl-progress";
 export const emptyProgress = () => ({ version: 1, completed: [] });
 export function parseProgress(raw) {
   try {
@@ -19,19 +19,19 @@ export function parseProgress(raw) {
     return emptyProgress();
   }
 }
-export function readProgress(storage) {
+export function readProgress(storage, key = PROGRESS_KEY) {
   try {
     return {
-      value: parseProgress(storage.getItem(PROGRESS_KEY)),
+      value: parseProgress(storage.getItem(key)),
       available: true,
     };
   } catch {
     return { value: emptyProgress(), available: false };
   }
 }
-export function writeProgress(storage, value) {
+export function writeProgress(storage, value, key = PROGRESS_KEY) {
   try {
-    storage.setItem(PROGRESS_KEY, JSON.stringify(value));
+    storage.setItem(key, JSON.stringify(value));
     return true;
   } catch {
     return false;

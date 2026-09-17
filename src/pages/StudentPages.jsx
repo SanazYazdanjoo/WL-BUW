@@ -25,12 +25,17 @@ export function JourneyPage() {
           in Weimar.
         </h1>
         <p>
-          Seven things to explore during your first weeks. Open any step for its
-          next actions, documents and answers to common questions. Start
-          wherever you need to.
+          Your essential first steps in Weimar. Open any step for its next
+          actions, documents and answers to common questions. Start wherever you
+          need to.
         </p>
       </header>
       <JourneyProgress topics={topics} progress={progress} />
+      <nav aria-label="Practical information" className="information-links">
+        <Link to="/health-insurance">Insurance directory</Link>
+        <Link to="/useful-links">University portals</Link>
+        <Link to="/rundfunk">Rundfunkbeitrag</Link>
+      </nav>
       <h2 className="sr-only">Your arrival journey</h2>
       {topics.length ? (
         <ol className="journey">
@@ -74,14 +79,26 @@ export function TopicPage({ later = false }) {
       {topic.isDemo && <DemoNotice />}
       <div className="topic-body">
         <section>
-          <h2>About this step</h2>
-          <p>{topic.description}</p>
+          <h2>{topic.source ? "What you need to do" : "About this step"}</h2>
+          <p className="source-text">{topic.description}</p>
         </section>
         <section>
           <h2>Why this matters</h2>
           <p>{topic.why}</p>
         </section>
-        <ActionList actions={topic.actions} />
+        {(!topic.source || topic.actions.length > 0) && <ActionList actions={topic.actions} />}
+        {topic.requiredItems.length > 0 && (
+          <section>
+            <h2>Required items</h2>
+            <ul>
+              {topic.requiredItems.map((item, i) => (
+                <li key={i} className="source-text">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <DocumentList key={topic.id} documents={topic.documents} />
         {topic.importantNotes.length > 0 && (
           <section className="notice">
@@ -245,24 +262,6 @@ export function FeedbackPage() {
       </header>
       <FeedbackPrompt />
     </>
-  );
-}
-export function StaffPage() {
-  return (
-    <section className="card">
-      <p className="eyebrow">Staff area · Not enabled</p>
-      <h1>Welcome Lounge tutors</h1>
-      <p>
-        Staff sign-in and operational records are not available in this pilot
-        build. No visitor, check-in or handover data is loaded here.
-      </p>
-      <p>
-        Continue using the team’s existing approved process. Secure
-        authentication and persistent storage must be agreed before this area is
-        enabled.
-      </p>
-      <Link to="/">Return to student journey</Link>
-    </section>
   );
 }
 export function NotFound() {

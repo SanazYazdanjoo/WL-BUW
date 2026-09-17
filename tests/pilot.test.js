@@ -20,6 +20,12 @@ import {
 } from "../src/services/progress.js";
 import config from "../content/app-content/config.json" with { type: "json" };
 import onboarding from "../content/app-content/onboarding.json" with { type: "json" };
+import { loadContentBundle } from "../server/content.js";
+import events from "../content/app-content/events.json" with { type: "json" };
+import afterArrival from "../content/app-content/after-arrival.json" with { type: "json" };
+import healthInsurance from "../content/app-content/health-insurance.json" with { type: "json" };
+import usefulLinks from "../content/app-content/useful-links.json" with { type: "json" };
+import rundfunk from "../content/app-content/rundfunk.json" with { type: "json" };
 const env = {
   NEXTCLOUD_USERNAME: "test",
   NEXTCLOUD_APP_PASSWORD: "secret",
@@ -59,7 +65,10 @@ test("XML rejects malformed and entity-bearing responses", () => {
     assert.throws(() => parseListing(xml, davUrl("test"), ""));
 });
 test("content schema enforces IDs, safe document paths, booleans and unique topics", () => {
-  assert.equal(validateContent("onboarding", onboarding).topics.length, 7);
+  assert.equal(
+    validateContent("onboarding", onboarding).topics.length,
+    onboarding.topics.length,
+  );
   for (const change of [
     (v) => v.topics.push(v.topics[0]),
     (v) => (v.topics[0].id = "../bad"),
@@ -74,7 +83,10 @@ test("content schema enforces IDs, safe document paths, booleans and unique topi
   }
   const v = structuredClone(onboarding);
   v.topics[0].isActive = false;
-  assert.equal(validateContent("onboarding", v).topics.length, 6);
+  assert.equal(
+    validateContent("onboarding", v).topics.length,
+    onboarding.topics.length - 1,
+  );
   assert.throws(() =>
     validateContent("onboarding", { version: 2, topics: [] }),
   );
@@ -110,6 +122,8 @@ test("WhatsApp requires enabled current configuration and exact secure invite ho
 });
 test("content reads fixed configured path and falls back safely for every upstream failure", async () => {
   const result = await loadContent("config", env, async (url, options) => {
+    if (url.endsWith("/published.json"))
+      return new Response(null, { status: 404 });
     assert.match(url, /Welcome-Lounge-App\/app-content\/config.json$/);
     assert.equal(options.redirect, "error");
     return new Response(JSON.stringify(config));
@@ -196,7 +210,6 @@ test("shared API returns JSON 404/405 and never fetches private paths", async ()
   }
 });
 
-import events from "../content/app-content/events.json" with { type: "json" };
 import { createOperationsService } from "../server/operations.js";
 import { feedbackService } from "../src/services/feedback.js";
 test("events validate dates, times and active state without publishing unsafe links", () => {
@@ -236,4 +249,69 @@ test("feedback adapter never reports persistence", async () => {
   const result = await feedbackService.submit({ answer: true });
   assert.equal(result.saved, false);
   assert.match(result.message, /not been sent or saved/);
+});
+
+test("published release takes precedence and malformed releases never reveal legacy data", async () => {
+  const release = {
+    version: 1,
+    content: { config: { ...config, semesterLabel: "Reviewed semester" } },
+  };
+  let calls = 0;
+  const published = await loadContent("config", env, async (url) => {
+    calls++;
+    assert.ok(url.endsWith("/published.json"));
+    return new Response(JSON.stringify(release));
+  });
+  assert.equal(published.data.semesterLabel, "Reviewed semester");
+  assert.equal(calls, 1);
+  const invalid = await loadContent(
+    "config",
+    env,
+    async () =>
+      new Response(JSON.stringify({ version: 2, content: release.content })),
+  );
+  assert.equal(invalid.source, "demo");
+});
+
+test("progress revisions keep completion separate from reused numbered steps", () => {
+  const entries = new Map(),
+    storage = {
+      getItem: (key) => entries.get(key),
+      setItem: (key, value) => entries.set(key, value),
+    };
+  writeProgress(
+    storage,
+    toggleProgress(emptyProgress(), "first-step-01"),
+    "wl-progress:old",
+  );
+  assert.deepEqual(
+    readProgress(storage, "wl-progress:new").value.completed,
+    [],
+  );
+  assert.deepEqual(readProgress(storage, "wl-progress:old").value.completed, [
+    "first-step-01",
+  ]);
+});
+
+test("student content bundle reads the published release once for mobile loads", async () => {
+  const content = {
+    config,
+    onboarding,
+    events,
+    "after-arrival": afterArrival,
+    "health-insurance": healthInsurance,
+    "useful-links": usefulLinks,
+    rundfunk,
+  };
+  let calls = 0;
+  const bundle = await loadContentBundle(env, async (url) => {
+    calls++;
+    assert.ok(url.endsWith("/published.json"));
+    return new Response(JSON.stringify({ version: 1, content }));
+  });
+  assert.equal(calls, 1);
+  assert.equal(Object.keys(bundle.data).length, 7);
+  assert.ok(
+    Object.values(bundle.sources).every((source) => source === "nextcloud"),
+  );
 });

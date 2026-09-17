@@ -6,7 +6,7 @@ import onboarding from "../content/app-content/onboarding.json" with { type: "js
 
 test("semantic route lookup resolves active topics and leaves invalid/inactive IDs not found", () => {
   const { topics } = validateContent("onboarding", onboarding);
-  assert.equal(topics.length, 7);
+  assert.equal(topics.length, onboarding.topics.length);
   assert.equal(
     findTopic(topics, "enrollment").title,
     "Enrollment & student ID",

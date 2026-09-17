@@ -14,6 +14,7 @@ test("only exact references in active non-demo topics authorize downloads, with 
   let failContent = false;
   let documentReads = 0;
   const upstream = async (url) => {
+    if (url.endsWith("/published.json")) return new Response(null, { status: 404 });
     if (url.endsWith("/app-content/onboarding.json"))
       return new Response(failContent ? "{invalid" : JSON.stringify(data));
     if (url.endsWith("/app-content/after-arrival.json"))

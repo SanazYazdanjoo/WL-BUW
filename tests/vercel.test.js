@@ -21,6 +21,7 @@ test("Vercel handler reads configured content and streams downloads through shar
   const requested = [];
   Object.assign(process.env, settings);
   globalThis.fetch = async (url, options) => {
+    if (url.endsWith("/published.json")) return new Response(null, { status: 404 });
     requested.push(url);
     assert.equal(options.method || "GET", "GET");
     assert.equal(options.redirect, "error");

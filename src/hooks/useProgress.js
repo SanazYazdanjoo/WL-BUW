@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   emptyProgress,
   readProgress,
@@ -7,26 +7,28 @@ import {
   PROGRESS_KEY,
   setCompleted,
 } from "../services/progress";
-function initial() {
+function initial(key) {
   try {
-    return readProgress(window.localStorage);
+    return readProgress(window.localStorage, key);
   } catch {
     return { value: emptyProgress(), available: false };
   }
 }
-export function useProgress() {
-  const [state, setState] = useState(initial);
+export function useProgress(revision = "legacy") {
+  const key =
+    revision === "legacy" ? PROGRESS_KEY : `${PROGRESS_KEY}:${revision}`;
+  const [state, setState] = useState(() => initial(key));
   useEffect(() => {
     const sync = (event) => {
-      if (event.key === PROGRESS_KEY || event.key === null) setState(initial());
+      if (event.key === key || event.key === null) setState(initial(key));
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, []);
+  }, [key]);
   const update = (value) => {
     let available = false;
     try {
-      available = writeProgress(window.localStorage, value);
+      available = writeProgress(window.localStorage, value, key);
     } catch {
       /* private browser mode */
     }
