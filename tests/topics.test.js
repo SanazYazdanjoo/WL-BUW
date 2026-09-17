@@ -12,9 +12,12 @@ test("semantic route lookup resolves active topics and leaves invalid/inactive I
     [
       "insurance",
       "accommodation",
-      "enrollment",
       "city-registration",
       "bank-account",
+      "semester-contribution",
+      "enrollment",
+      "residence-permit",
+      "semester-ticket",
       "program-tutors",
       "campus",
       "welcome-events",

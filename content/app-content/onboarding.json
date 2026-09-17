@@ -6,11 +6,12 @@
       "order": 1,
       "title": "Health insurance",
       "shortTitle": "Health insurance",
-      "summary": "Understand where to find information about health insurance.",
-      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
-      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "summary": "Check what health insurance steps apply to your situation.",
+      "description": "The Welcome Lounge sheet asks students with an EHIC to have it recognised by a German health insurer. The document list varies by student group; use the current university guidance to confirm your route and what to send.",
+      "why": "Health insurance is part of the university enrolment process.",
       "actions": [
-        "Official action steps will appear here after review by the International Office."
+        "Check the university's current guidance for your insurance situation.",
+        "Follow the instructions from your insurer."
       ],
       "documents": [],
       "faqs": [
@@ -26,18 +27,23 @@
       "category": "first-week",
       "isActive": true,
       "isDemo": true,
-      "eyebrow": "Your health cover"
+      "eyebrow": "Your health cover",
+      "requiredItems": [
+        "If the EHIC route applies: scans of both sides of the EHIC and a (preliminary) letter of admission.",
+        "For other situations, check the current university guidance for the documents that apply to you."
+      ]
     },
     {
       "id": "accommodation",
       "order": 2,
       "title": "Accommodation",
       "shortTitle": "Accommodation",
-      "summary": "Find accommodation information for your stay in Weimar.",
-      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
-      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "summary": "Arrange your rental paperwork and key collection.",
+      "description": "The Welcome Lounge sheet asks you to get a printed Wohnungsgeberbest\u00e4tigung (landlord confirmation of residence) and arrange your keys. Keep the rental contract and confirmation for city registration.",
+      "why": "The rental paperwork is used in later arrival steps.",
       "actions": [
-        "Official action steps will appear here after review by the International Office."
+        "Arrange the rental contract and key collection.",
+        "Ask your landlord for a printed Wohnungsgeberbest?tigung."
       ],
       "documents": [],
       "faqs": [
@@ -53,18 +59,121 @@
       "category": "first-week",
       "isActive": true,
       "isDemo": true,
-      "eyebrow": "Finding a place to stay"
+      "eyebrow": "Finding a place to stay",
+      "requiredItems": [
+        "Rental contract",
+        "Printed Wohnungsgeberbest\u00e4tigung"
+      ]
+    },
+    {
+      "id": "city-registration",
+      "order": 3,
+      "title": "City registration (Anmeldung)",
+      "shortTitle": "City registration / Anmeldung",
+      "summary": "Register your residence with the city authorities and receive a registration certificate.",
+      "description": "The Welcome Lounge sheet lists a rental contract or current address, passport/visa, letter of admission and Wohnungsgeberbest\u00e4tigung. Follow the Welcome Lounge instructions for arranging an appointment after arrival.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Check the current university and city instructions for your situation.",
+        "Follow the Welcome Lounge appointment instructions after arrival."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Getting settled",
+      "requiredItems": [
+        "Rental contract or current address",
+        "Passport/visa",
+        "Letter of admission",
+        "Wohnungsgeberbest\u00e4tigung"
+      ]
+    },
+    {
+      "id": "bank-account",
+      "order": 4,
+      "title": "Bank account",
+      "shortTitle": "Bank account",
+      "summary": "Explore the information you may need when arranging a bank account.",
+      "description": "The Welcome Lounge sheet lists a rental contract or current address, passport, city registration certificate and letter of admission as items to prepare.",
+      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "actions": [
+        "Check the requirements with the bank you choose."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Do not use this sample as administrative guidance."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Everyday essentials",
+      "requiredItems": [
+        "Rental contract or current address",
+        "Passport",
+        "City registration certificate",
+        "Letter of admission"
+      ]
+    },
+    {
+      "id": "semester-contribution",
+      "order": 5,
+      "title": "Semester contribution",
+      "shortTitle": "Semester contribution",
+      "summary": "Check the semester contribution and Thoska fee that apply to your enrollment.",
+      "description": "For Winter Semester 2026/27, the university lists EUR 358.20 for new first-semester students and new enrollments, including the one-time EUR 20 Thoska fee. It lists EUR 338.20 for students already enrolled; exchange students are excluded from the one-time fee. Check the official page for the amount, payment deadline, bank details and payment reference that apply to you before transferring.",
+      "why": "Check the current university information for this step.",
+      "actions": [
+        "Check the current university payment instructions for your student status.",
+        "Use the official bank details and payment reference."
+      ],
+      "documents": [],
+      "faqs": [
+        {
+          "id": "guidance",
+          "question": "Where are the confirmed instructions?",
+          "answer": "They are not available in this preview yet. Ask the Welcome Lounge team for the current guidance."
+        }
+      ],
+      "importantNotes": [
+        "Sample content based on the supplied Welcome Lounge first-steps PDF. Check the linked official information for current details."
+      ],
+      "category": "first-week",
+      "isActive": true,
+      "isDemo": true,
+      "eyebrow": "Payment",
+      "requiredItems": [
+        "Payment reference required by the university (the supplied sheet lists name and application number)."
+      ]
     },
     {
       "id": "enrollment",
-      "order": 3,
+      "order": 6,
       "title": "Enrollment & student ID",
       "shortTitle": "Enrollment & student ID",
-      "summary": "Find your enrollment information and get to know your student ID.",
-      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
-      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "summary": "Complete your enrolment and collect your Thoska and university login.",
+      "description": "The Welcome Lounge sheet points to Campus.Office for your enrolment certificate, Thoska student ID and university login. Current new-student instructions say the card and login are handed over in person at the start of the semester; follow your admission email for the exact process and timing.",
+      "why": "Enrolment provides your university status and access details.",
       "actions": [
-        "Official action steps will appear here after review by the International Office."
+        "Follow your current admission and enrolment instructions.",
+        "Collect your Thoska and university login when the university makes them available."
       ],
       "documents": [],
       "faqs": [
@@ -83,15 +192,16 @@
       "eyebrow": "Your university setup"
     },
     {
-      "id": "city-registration",
-      "order": 4,
-      "title": "City registration (Anmeldung)",
-      "shortTitle": "City registration / Anmeldung",
-      "summary": "Find guidance about registering your address in Weimar.",
-      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
-      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "id": "residence-permit",
+      "order": 7,
+      "title": "Residence permit",
+      "shortTitle": "Residence permit",
+      "summary": "Check whether you need a residence permit and follow the current instructions for your situation.",
+      "description": "The Welcome Lounge sheet says the team sends appointment instructions by email after arrival. Current university guidance explains who needs a permit and how to start the process; requirements depend on your situation.",
+      "why": "Check the current university information for this step.",
       "actions": [
-        "Official action steps will appear here after review by the International Office."
+        "Read the current university guidance.",
+        "Follow the instructions sent by the Welcome Lounge and the immigration office."
       ],
       "documents": [],
       "faqs": [
@@ -102,23 +212,27 @@
         }
       ],
       "importantNotes": [
-        "Do not use this sample as administrative guidance."
+        "Sample content based on the supplied Welcome Lounge first-steps PDF. Check the linked official information for current details."
       ],
       "category": "first-week",
       "isActive": true,
       "isDemo": true,
-      "eyebrow": "Getting settled"
+      "eyebrow": "After registration",
+      "requiredItems": [
+        "The email and document instructions sent for your case."
+      ]
     },
     {
-      "id": "bank-account",
-      "order": 5,
-      "title": "Bank account",
-      "shortTitle": "Bank account",
-      "summary": "Explore the information you may need when arranging a bank account.",
-      "description": "Sample content: the International Office guidance for this topic has not been published yet.",
-      "why": "This section will explain how this topic fits into your arrival in Weimar.",
+      "id": "semester-ticket",
+      "order": 8,
+      "title": "Deutschlandsemesterticket",
+      "shortTitle": "Deutschlandsemesterticket",
+      "summary": "Activate your semester ticket after you receive your university login.",
+      "description": "The Welcome Lounge sheet lists your university login, the Abonummer sent to your university email, your date of birth and the Erfurt Mobil app. Check the current Welcome Lounge or university instructions before activation.",
+      "why": "Check the current university information for this step.",
       "actions": [
-        "Official action steps will appear here after review by the International Office."
+        "Check your university email for the Abonummer.",
+        "Follow the current ticket instructions in Erfurt Mobil."
       ],
       "documents": [],
       "faqs": [
@@ -129,16 +243,22 @@
         }
       ],
       "importantNotes": [
-        "Do not use this sample as administrative guidance."
+        "Sample content based on the supplied Welcome Lounge first-steps PDF. Check the linked official information for current details."
       ],
       "category": "first-week",
       "isActive": true,
       "isDemo": true,
-      "eyebrow": "Everyday essentials"
+      "eyebrow": "Getting around",
+      "requiredItems": [
+        "University login",
+        "Abonummer from your university email",
+        "Date of birth",
+        "Erfurt Mobil app"
+      ]
     },
     {
       "id": "program-tutors",
-      "order": 6,
+      "order": 9,
       "title": "Meetup with Program Tutors",
       "shortTitle": "Meetup with Program Tutors",
       "summary": "Meet your program tutors and find out how to connect with them.",
@@ -165,7 +285,7 @@
     },
     {
       "id": "campus",
-      "order": 7,
+      "order": 10,
       "title": "Campus & departments",
       "shortTitle": "Campus & departments",
       "summary": "Get to know your department and the places you will use on campus.",
@@ -192,7 +312,7 @@
     },
     {
       "id": "welcome-events",
-      "order": 8,
+      "order": 11,
       "title": "Welcome events",
       "shortTitle": "Welcome events",
       "summary": "Discover ways to connect with other new students.",
@@ -219,7 +339,7 @@
     },
     {
       "id": "language-courses",
-      "order": 9,
+      "order": 12,
       "title": "Language courses",
       "shortTitle": "Language courses",
       "summary": "Find opportunities to build your language skills.",

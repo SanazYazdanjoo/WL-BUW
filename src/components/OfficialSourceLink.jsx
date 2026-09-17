@@ -35,22 +35,25 @@ export default function OfficialSourceLink({
     url: configured.url,
     status: "unavailable",
   };
+  const directUrl = mapping?.url;
   const section = mapping?.sectionId
     ? source.data?.sections?.find((item) => item.id === mapping.sectionId)
     : null;
-  const url = section?.officialUrl || source.url || configured.url;
-  let note = checkedLabel(source.lastSuccessfulCheck);
-  if (compact && source.status === "current") note = "";
+  const url = directUrl || section?.officialUrl || source.url || configured.url;
+  let note = directUrl
+    ? "Check the official page for current information."
+    : checkedLabel(source.lastSuccessfulCheck);
+  if (!directUrl && compact && source.status === "current") note = "";
   let className = "official-source";
-  if (source.status === "stale") {
+  if (!directUrl && source.status === "stale") {
     note = compact
       ? "Latest information could not be verified recently."
       : "We could not verify the latest information recently.";
     className += " is-stale";
-  } else if (source.status === "needs-review") {
+  } else if (!directUrl && source.status === "needs-review") {
     note = compact ? "Some details need review." : "Please confirm current details on the official page.";
     className += " needs-review";
-  } else if (source.status === "unavailable") {
+  } else if (!directUrl && source.status === "unavailable") {
     note = compact ? "Live verification is unavailable." : "Check the official page for current information.";
     className += " is-unavailable";
   }

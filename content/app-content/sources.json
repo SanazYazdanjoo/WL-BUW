@@ -27,8 +27,13 @@
   "topicMappings": {
     "enrollment": { "sourceId": "preparingStudies", "sectionId": "enrolment" },
     "city-registration": { "sourceId": "preparingStudies", "sectionId": "registering-your-address-and-applying-for-a-residence-permit" },
-    "insurance": { "sourceId": "preparingStudies", "sectionId": "health-insurance" },
+    "insurance": { "sourceId": "preparingStudies", "url": "https://www.uni-weimar.de/en/university/studies/student-services/studierendenbuero-student-office/student-health-insurance/" },
+    "accommodation": { "sourceId": "preparingStudies", "url": "https://www.uni-weimar.de/en/university/international/for-internationals-in-weimar/" },
     "bank-account": { "sourceId": "preparingStudies", "sectionId": "opening-a-german-bank-account" },
+    "semester-contribution": { "sourceId": "preparingStudies", "url": "https://www.uni-weimar.de/en/university/studies/student-services/studierendenbuero-student-office/semester-contribution/" },
+    "residence-permit": { "sourceId": "preparingStudies", "url": "https://www.uni-weimar.de/en/university/international/to-weimar/fulltime-students/preparing-your-studies/register-in-weimar/" },
+    "semester-ticket": { "sourceId": "preparingStudies", "url": "https://www.uni-weimar.de/de/universitaet/international/nach-weimar/austauschstudium/international-welcome/willkommensveranstaltungen/welcome-instructions/" },
+    "campus": { "sourceId": "preparingStudies", "sectionId": "orientation-and-counselling" },
     "campus-departments": { "sourceId": "preparingStudies", "sectionId": "orientation-and-counselling" },
     "welcome-events": { "sourceId": "welcomeEvents" }
   }

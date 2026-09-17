@@ -130,6 +130,10 @@ The current survey review covers four responses, all from Welcome Lounge tutors.
 
 This evidence supports targeted navigation, help, and handover refinements, not a larger student interface or new collection of student data. It is insufficient to justify AI, complex search, analytics, notifications, or replacing WhatsApp/Excel.
 
+## D25: Preserve the journey and append PDF-informed steps (2026-09-17)
+
+The supplied Welcome Lounge first-steps PDF is an input to the bundled demo fallback, not a replacement for the reviewed semester workbook or authoritative university sources. Preserve all existing semantic topics, reorder where useful, and add distinct topics for semester contribution, residence permit, and Deutschlandsemesterticket. Exclude Summer Semester 2026 information. Link topics to allowlisted university pages; semester-specific payment details must be checked against the current official page. Keep all additions visibly demo until International Office review and publish an approved workbook through the existing workflow. Do not alter the already published Nextcloud content implicitly.
+
 ## D24: Preserve concise student flow and make maintenance status legible (2026-09-17)
 
 Keep the public path minimal: Journey → topic → official source → optional browser-only completion, with Events, Info, and Help as separate destinations. `/info` is an editorial list into existing content rather than a new content hub; Help distinguishes common information from human support and keeps the configured WhatsApp fallback. Staff dashboard refinements surface today's check-ins, attributed updates, and handovers without introducing analytics. Coordinator semester setup reports current status and mismatched semester labels, links to existing preview/import/refresh/export operations, and never silently corrects content. MasterExcel remains import/export/backup compatibility, not a replacement target. No source-code editing is required for workbook content publication, but real workbook and institutional operating procedures still need validation.

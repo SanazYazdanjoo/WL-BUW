@@ -41,6 +41,11 @@ test("source configuration is validated and only the approved HTTPS host is fetc
   assert.equal(approvedSourceUrl("file:///etc/passwd"), "");
   assert.equal(approvedSourceUrl("https://user:pass@www.uni-weimar.de/a"), "");
   assert.equal(approvedSourceUrl(officialSourceConfig.sources.welcomeEvents.url), officialSourceConfig.sources.welcomeEvents.url);
+  const directMapping = structuredClone(officialSourceConfig);
+  directMapping.topicMappings.accommodation.url = "https://www.uni-weimar.de/en/housing/";
+  assert.equal(validateSourceConfig(directMapping).topicMappings.accommodation.url, directMapping.topicMappings.accommodation.url);
+  directMapping.topicMappings.accommodation.url = "https://example.org/unsafe";
+  assert.throws(() => validateSourceConfig(directMapping));
 });
 
 test("Preparing Studies extracts bounded section labels and safe official/external links", () => {

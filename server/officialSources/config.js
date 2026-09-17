@@ -73,16 +73,19 @@ export function validateSourceConfig(value) {
   );
   const topicMappings = {};
   for (const [topicId, mapping] of Object.entries(value.topicMappings || {})) {
+    const url = mapping?.url === undefined ? "" : approvedSourceUrl(mapping.url);
     if (
       !/^[a-z0-9][a-z0-9-]{0,79}$/.test(topicId) ||
       !SOURCE_IDS.includes(mapping?.sourceId) ||
       (mapping.sectionId !== undefined &&
-        !/^[a-z0-9][a-z0-9-]{0,119}$/.test(mapping.sectionId))
+        !/^[a-z0-9][a-z0-9-]{0,119}$/.test(mapping.sectionId)) ||
+      (mapping.url !== undefined && !url)
     )
       fail();
     topicMappings[topicId] = {
       sourceId: mapping.sourceId,
       ...(mapping.sectionId ? { sectionId: mapping.sectionId } : {}),
+      ...(url ? { url } : {}),
     };
   }
   return { version: 1, enabled: value.enabled, sources, topicMappings };

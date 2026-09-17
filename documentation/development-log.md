@@ -176,3 +176,7 @@ Documentation now records the limited research scope, product rationale, Info/He
 ## 2026-09-17 - Reorder the fallback journey
 
 Reordered the bundled onboarding fallback to Health insurance, Accommodation, Enrollment & student ID, City registration, Bank account, Meetup with Program Tutors, Campus & departments, Welcome events, and Language courses. Accommodation and the tutor meetup are explicitly demo entries with neutral copy; existing topic IDs were retained. A focused test now asserts semantic topic order. Published workbook content remains authoritative and must be reviewed in Semester setup if the same order should be used in a published journey.
+
+## 2026-09-17 - Extend the fallback from the Welcome Lounge first-steps PDF
+
+Kept every existing journey topic, moved City registration and Bank account ahead of enrollment, and added Semester contribution, Residence permit, and Deutschlandsemesterticket topics. Reordered Language courses last. PDF-derived details remain demo content; references to Summer Semester 2026 were excluded. Semester contribution figures were checked against the current official Winter Semester 2026/27 page and the topic links directly to the university's source. Added approved-host validation for topic-specific official URLs and linked the relevant official pages. The fallback cannot update a currently published Nextcloud workbook; coordinators must preview and publish an approved workbook separately. No Nextcloud content was changed from this environment.
