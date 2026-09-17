@@ -71,6 +71,8 @@ Public content adds health-insurance, useful-links and rundfunk collections and 
 
 The student client requests `/api/content` once for all seven collections to reduce mobile round trips. The server validates a complete atomic release in one Nextcloud read. Before the first release, it fetches legacy collections concurrently and marks missing/invalid ones as samples. Individual content routes remain for compatibility and download authorization.
 
+The existing root API catch-all is preserved for local compatibility. Vercel's deployed route check showed that it did not receive multi-segment URLs in this project. More specific `api/content/[kind].js`, `api/nextcloud/[...path].js` and `api/staff/[...path].js` entrypoints now forward to the same shared `server/vercel-handler.js` and `server/api.js` middleware. This keeps path validation and authorization in one implementation.
+
 `src/staff/` isolates staff routes, services, workspace and coordinator pages from student pages. Sessions/CSRF stay in memory/cookies; operational records are never written to localStorage. Browser progress retains the legacy key for existing content and uses a publication revision suffix for resets. Native print styles consume the same normalized published collections.
 
 See the workbook, MasterExcel and staff-operation guides for schemas, limits, workflows and known pilot limitations. These sections supersede the earlier unimplemented staff architecture description.
