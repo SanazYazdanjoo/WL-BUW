@@ -1,49 +1,21 @@
-import { Link, Outlet } from 'react-router-dom';
-import { useSheetData } from '../hooks/useSheetData';
+﻿import { Link, Outlet, useSearchParams } from 'react-router-dom';
+import { nextcloudFolderUrl, useNextcloudData } from '../hooks/useNextcloudData';
 
 export default function Layout() {
-  // Fetch the directory here so the sidebar knows what links to build
-const { directory, allContent, isLoading, error } = useSheetData();
+  const [params] = useSearchParams();
+  const path = params.get('path') || '';
+  const data = useNextcloudData(path);
   return (
     <div className="app-container">
-      <header className="app-header">
-        <h1>Information Directory</h1>
-      </header>
-      
+      <header className="app-header"><h1>Welcome Lounge · Files</h1></header>
       <div className="app-body">
         <aside className="app-sidebar">
-          <h3>
-    <Link to="/" className="sidebar-home-link">All Topics</Link>
-  </h3>
-          
-          {isLoading && <p>Loading topics...</p>}
-          {error && <p className="error-text">Error loading topics</p>}
-          
-          {!isLoading && !error && (
-            <nav>
-              <ul className="sidebar-list">
-                {directory.map((topic) => (
-                  <li key={topic.id}>
-                    <Link to={`/topic/${encodeURIComponent(topic.id)}`} className="sidebar-link">
-  {topic.title}
-</Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
+          <Link to="/" className="sidebar-home-link">All files</Link>
+          <a href={nextcloudFolderUrl} target="_blank" rel="noopener noreferrer" className="sidebar-link">Open Nextcloud</a>
         </aside>
-        
-        <main className="app-main">
-          {/* <Outlet /> is the placeholder where React Router injects the current page. */}
-          {/* We pass the directory context down so the search page can use it instantly. */}
-<Outlet context={{ directory, allContent, isLoading, error }} />
-        </main>
+        <main className="app-main"><Outlet context={{ ...data, path }} /></main>
       </div>
-      
-      <footer className="app-footer">
-        <p>Admin Directory System</p>
-      </footer>
+      <footer className="app-footer"><p>Welcome.Lounge_WiSe2026_27 / S.Y</p></footer>
     </div>
   );
 }

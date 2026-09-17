@@ -294,3 +294,14 @@ body {
   letter-spacing: 0.05em;
   border-top: 1px solid var(--border-light);
 }
+
+.folder-breadcrumbs { margin-top: 20px; overflow-wrap: anywhere; }
+.folder-breadcrumbs a, .file-actions a, .error-container a { color: var(--accent-color); }
+.file-actions { display: flex; gap: 24px; flex-wrap: wrap; }
+.topic-heading, .topic-card h2 { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .app-body { flex-direction: column; }
+  .app-sidebar { width: 100%; padding: 16px 24px; }
+  .app-main { padding: 32px 20px; }
+  .topic-content { padding: 24px; }
+}

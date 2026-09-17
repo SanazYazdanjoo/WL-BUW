@@ -1,7 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+﻿import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import DirectoryIndex from './pages/DirectoryIndex';
-import FaqTopic from './pages/FaqTopic';
+import FileDetails from './pages/FileDetails';
 
 export default function App() {
   return (
@@ -12,7 +12,7 @@ export default function App() {
           {/* index loads at the exact "/" path */}
           <Route index element={<DirectoryIndex />} />
           
-          <Route path="topic/:topicId" element={<FaqTopic />} />
+          <Route path="topic/:topicId" element={<FileDetails />} />
           <Route path="*" element={<DirectoryIndex />} />
         </Route>
       </Routes>
