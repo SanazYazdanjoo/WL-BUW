@@ -1,5 +1,6 @@
 import FAQAccordion from "../components/FAQAccordion";
 import OfficialSourceLink from "../components/OfficialSourceLink";
+import JourneyMap from "../components/JourneyMap";
 import { findTopic } from "../services/topics";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import {
@@ -9,7 +10,6 @@ import {
   EscalationCard,
   FeedbackPrompt,
   JourneyProgress,
-  JourneyStep,
 } from "../components/Journey";
 
 export function JourneyPage() {
@@ -24,19 +24,10 @@ export function JourneyPage() {
       </header>
       <JourneyProgress topics={topics} progress={progress} />
       {topics.some((topic) => topic.isDemo) && (
-        <p className="content-note">Sample content · not official guidance.</p>
+        <p className="content-note">Sample content — official information is still being reviewed.</p>
       )}
       {topics.length ? (
-        <ol className="journey" aria-label="Your first steps">
-          {topics.map((topic, index) => (
-            <JourneyStep
-              key={topic.id}
-              topic={topic}
-              index={index}
-              completed={progress.completed.includes(topic.id)}
-            />
-          ))}
-        </ol>
+        <JourneyMap topics={topics} completedTopicIds={progress.completed} />
       ) : (
         <p className="empty-state">No journey steps are available yet.</p>
       )}

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { whatsappLink } from "../../shared/content";
 import { feedbackService } from "../services/feedback";
 
@@ -14,66 +13,16 @@ export function JourneyProgress({ topics, progress }) {
     progress.completed.includes(topic.id),
   ).length;
   return (
-    <section className="progress-panel" aria-label="Journey progress">
-      <strong aria-live="polite">
+    <section className="journey-progress" aria-label="Journey progress">
+      <p aria-live="polite">
         {count} of {topics.length} completed
-      </strong>
-      <progress
-        max={topics.length || 1}
-        value={count}
-        aria-label={`${count} of ${topics.length} steps completed`}
-      />
+      </p>
       {!progress.available && (
-        <span className="progress-storage" role="status">
+        <span className="journey-progress-warning" role="status">
           Progress is not being saved in this browser.
         </span>
       )}
-      {count > 0 && (
-        <button className="text-button" onClick={progress.reset}>
-          Reset
-        </button>
-      )}
     </section>
-  );
-}
-
-export function JourneyStep({ topic, completed, index }) {
-  return (
-    <li className={`journey-step${completed ? " is-complete" : ""}`}>
-      <Link
-        className="journey-row"
-        to={`/journey/${topic.id}`}
-        aria-labelledby={`${topic.id}-title ${topic.id}-state`}
-        aria-describedby={`${topic.id}-summary`}
-      >
-        <span className="node" aria-hidden="true">
-          {completed ? "✓" : String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="step-content">
-          <span className="step-title-line">
-            <span id={`${topic.id}-title`} className="step-title">
-              {topic.title}
-            </span>
-            {completed && (
-              <span id={`${topic.id}-state`} className="completion-label">
-                Done
-              </span>
-            )}
-            {!completed && (
-              <span id={`${topic.id}-state`} className="sr-only">
-                Step {index + 1}, not completed
-              </span>
-            )}
-          </span>
-          <span id={`${topic.id}-summary`} className="step-summary">
-            {topic.summary}
-          </span>
-          <span className="step-open">
-            Open <span aria-hidden="true">→</span>
-          </span>
-        </span>
-      </Link>
-    </li>
   );
 }
 

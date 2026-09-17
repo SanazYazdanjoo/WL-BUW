@@ -18,7 +18,11 @@ export default function Layout() {
         Skip to content
       </a>
       <AppHeader key={pathname} />
-      <main id="main" tabIndex="-1">
+      <main
+        id="main"
+        className={pathname === "/" || pathname === "/journey" ? "main-wide" : undefined}
+        tabIndex="-1"
+      >
         {content.loading ? (
           <div className="loading-state" role="status">
             <span className="loading-node" aria-hidden="true" />
@@ -34,7 +38,11 @@ export default function Layout() {
       </main>
       <footer className="app-footer">
         <div className="footer-inner">
-          <Link to="/staff">Staff area</Link>
+          <span>Welcome Lounge · Bauhaus-Universität Weimar</span>
+          <nav aria-label="Footer">
+            <a href="https://www.uni-weimar.de/en/" target="_blank" rel="noopener noreferrer">University ↗</a>
+            <Link to="/staff">Staff</Link>
+          </nav>
         </div>
       </footer>
     </div>
