@@ -1,4 +1,4 @@
-﻿# Welcome Lounge Digital Companion
+# Welcome Lounge Digital Companion
 
 A mobile-first arrival companion for incoming international students at Bauhaus-Universität Weimar. This is an operational Welcome Lounge pilot, not a thesis project. It aims to reduce repetitive tutor questions and make arrival easier. The existing React + Vite application has been retained.
 
@@ -82,4 +82,3 @@ Use `/staff/content` to change semester/contact settings and publish reviewed wo
 ## Handover
 
 See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), and [decisions](documentation/decisions.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts or analytics are present. Private operational records use Nextcloud; permanent institutional authentication remains future work.
-

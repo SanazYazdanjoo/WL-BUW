@@ -1,4 +1,4 @@
-﻿# Development log
+# Development log
 
 ## 2026-09-17: Nextcloud migration
 
@@ -99,4 +99,3 @@ Private stored state now validates record shapes, field lengths and collection l
 **Production routing follow-up:** After pushing the pilot, live probes showed the root Vercel catch-all answered `/api` plus one following segment, but Vercel returned platform `NOT_FOUND` for nested content, download and staff endpoints. Added Vercel rewrites for these paths to the existing single-segment catch-all; its adapter restores the bounded route before entering shared middleware. The extra nested function files were removed. Unit tests cover nested content and staff normalization. After the routing follow-up was pushed, live checks confirmed `/api/content/config` returns 200, `/api/staff/session` returns safe 401, `/api/nextcloud/files` returns safe 404, and a document download returns safe 503 because Nextcloud credentials are unavailable. Browser refresh of `/journey/enrollment` succeeds without browser errors. No project, domain or protection setting was changed.
 
 Real source workbooks were not present locally, so exact institutional layouts and real Nextcloud writes are unverified. Staff codes remain unconfigured/disabled by default. No Nextcloud records were created during verification; the browser fixture used only isolated in-memory synthetic data. The changes were pushed through GitHub and the existing automatic Vercel deployment. No project, protection, or integration settings were changed. Feedback persistence, institutional identity, dedicated events/after-arrival editing, audit browsing and retention policy remain outstanding.
-
