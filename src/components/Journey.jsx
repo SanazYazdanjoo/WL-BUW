@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { whatsappLink } from "../../shared/content";
 import { feedbackService } from "../services/feedback";
+
 export function DemoNotice() {
   return (
     <p className="notice">
@@ -10,35 +11,41 @@ export function DemoNotice() {
     </p>
   );
 }
+
 export function JourneyProgress({ topics, progress }) {
-  const count = topics.filter((t) => progress.completed.includes(t.id)).length;
+  const count = topics.filter((topic) =>
+    progress.completed.includes(topic.id),
+  ).length;
+  const percent = topics.length ? Math.round((count / topics.length) * 100) : 0;
   return (
     <section className="progress-panel" aria-label="Your progress">
-      <div>
+      <div className="progress-heading">
         <strong aria-live="polite">
-          {count} of {topics.length} steps completed
+          {count} of {topics.length} steps done
         </strong>
-        <progress
-          max={topics.length || 1}
-          value={count}
-          aria-label="Completed journey steps"
-        />
+        <span aria-hidden="true">{percent}%</span>
       </div>
-      <p>
-        Your progress is stored only on this browser. No account is required.
-      </p>
+      <progress
+        max={topics.length || 1}
+        value={count}
+        aria-label={`${count} of ${topics.length} steps completed`}
+      />
+      <p>Your progress stays in this browser. No account needed.</p>
       {!progress.available && (
         <p role="status">
-          Your browser cannot save progress. It will last only while this page
-          stays open.
+          Progress can’t be saved by this browser and may be lost when you
+          leave.
         </p>
       )}
-      <button className="text-button" onClick={progress.reset}>
-        Reset progress
-      </button>
+      {count > 0 && (
+        <button className="text-button" onClick={progress.reset}>
+          Reset progress
+        </button>
+      )}
     </section>
   );
 }
+
 export function JourneyStep({ topic, completed, index }) {
   return (
     <li className={`journey-step${completed ? " is-complete" : ""}`}>
@@ -49,7 +56,7 @@ export function JourneyStep({ topic, completed, index }) {
         aria-describedby={`${topic.id}-summary`}
       >
         <span className="node" aria-hidden="true">
-          {completed ? "\u2713" : index + 1}
+          {completed ? "✓" : index + 1}
         </span>
         <div className="step-content">
           <span className="step-context">{topic.eyebrow}</span>
@@ -60,13 +67,20 @@ export function JourneyStep({ topic, completed, index }) {
             {completed ? "Completed" : `Step ${index + 1} · Not completed`}
           </span>
           <div className="step-description">
-            <h2 id={`${topic.id}-title`}>{topic.title}</h2>
+            <h3 id={`${topic.id}-title`}>{topic.title}</h3>
             <p id={`${topic.id}-summary`}>{topic.summary}</p>
           </div>
           <span className="step-meta">
             <span className="card-link">
-              Open step <span aria-hidden="true">→</span>
+              {completed ? "Review step" : "Open step"}{" "}
+              <span aria-hidden="true">→</span>
             </span>
+            {topic.requiredItems.length > 0 && (
+              <small>{topic.requiredItems.length} things to prepare</small>
+            )}
+            {topic.documents.length > 0 && (
+              <small>{topic.documents.length} documents</small>
+            )}
             {topic.isDemo && <small>Sample content</small>}
           </span>
         </div>
@@ -74,14 +88,21 @@ export function JourneyStep({ topic, completed, index }) {
     </li>
   );
 }
+
 export function EscalationCard({ config }) {
   const link = whatsappLink(config);
   return (
     <section className="escalation">
-      <h2>Still stuck?</h2>
+      <p className="eyebrow">
+        <span className="help-triangle" aria-hidden="true">
+          ▲
+        </span>{" "}
+        Still stuck?
+      </p>
+      <h2>Need a human?</h2>
       <p>
-        If this page did not answer your question, ask the Welcome Lounge
-        tutors.
+        Some situations are easier to solve with a real person. Ask the Welcome
+        Lounge tutors.
       </p>
       <p>{config.helpText}</p>
       {link ? (
@@ -102,14 +123,15 @@ export function EscalationCard({ config }) {
     </section>
   );
 }
+
 export function ActionList({ actions }) {
   return (
-    <section>
-      <h2>What you need to do</h2>
+    <section className="action-section">
+      <h2>What to do</h2>
       {actions.length ? (
         <ol className="action-list">
-          {actions.map((action, i) => (
-            <li key={i}>{action}</li>
+          {actions.map((action, index) => (
+            <li key={index}>{action}</li>
           ))}
         </ol>
       ) : (
@@ -118,6 +140,7 @@ export function ActionList({ actions }) {
     </section>
   );
 }
+
 export function DocumentList({ documents }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -131,10 +154,17 @@ export function DocumentList({ documents }) {
       );
       if (!response.ok) throw new Error("Unavailable");
       const url = URL.createObjectURL(await response.blob());
-      const a = window.document.createElement("a");
-      a.href = url;
-      a.download = document.path.split("/").at(-1);
-      a.click();
+      const anchor = window.document.createElement("a");
+      anchor.href = url;
+      const extension =
+        document.path
+          .split("/")
+          .at(-1)
+          .match(/\.[a-z0-9]{1,8}$/i)?.[0] || "";
+      anchor.download = /\.[a-z0-9]{1,8}$/i.test(document.label)
+        ? document.label
+        : `${document.label || "Download"}${extension}`;
+      anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
       setError(
@@ -145,14 +175,27 @@ export function DocumentList({ documents }) {
     }
   }
   return (
-    <section>
+    <section className="documents-section">
       <h2>Documents</h2>
       {documents.length ? (
         <ul className="document-list">
-          {documents.map((d) => (
-            <li key={d.path}>
-              <button disabled={Boolean(busy)} onClick={() => download(d)}>
-                {busy === d.path ? "Downloading…" : `Download ${d.label}`}
+          {documents.map((document) => (
+            <li key={document.path}>
+              <button
+                className="document-card"
+                disabled={Boolean(busy)}
+                onClick={() => download(document)}
+              >
+                <span className="document-symbol" aria-hidden="true">
+                  ■
+                </span>
+                <span className="document-copy">
+                  <span className="eyebrow">Document</span>
+                  <strong>{document.label}</strong>
+                </span>
+                <span className="document-download">
+                  {busy === document.path ? "Downloading…" : "Download ↘"}
+                </span>
               </button>
             </li>
           ))}
@@ -164,6 +207,7 @@ export function DocumentList({ documents }) {
     </section>
   );
 }
+
 export function FeedbackPrompt({ topicId, faqId }) {
   const [message, setMessage] = useState("");
   async function submit(answer) {

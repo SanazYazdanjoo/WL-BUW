@@ -103,3 +103,7 @@ Pilot authentication uses server-only random shared tutor/admin codes and signed
 Workbook step IDs are numbered and stable within a semester; a publication progress revision isolates browser completion when the coordinator resets/reuses steps. Normal text-only publication can retain the revision. Required items remain separate from approved downloadable documents. The exact real workbook formats require validation before first publication.
 
 ExcelJS's UUID transitive dependency is overridden to 11.1.1 to avoid the audited vulnerable version. The v4 call used by ExcelJS is compatible; workbook read/write tests pass.
+
+## D18: Arrival companion visual hierarchy (2026-09-17)
+
+Keep the student experience calm and editorial, but make the next useful action visible immediately. The home derives progress and the next active incomplete topic from existing browser progress and validated topic content. It may show one event only when active content confirms it is upcoming; demo entries are excluded. A completed journey points to existing events, explore and help routes. “At a glance” only summarizes supported item, document and action counts. Existing routes, schemas, progress key/revision, public document authorization, WhatsApp configuration and staff/product boundaries remain unchanged. Bauhaus geometry has limited meaning (circle for journey, square for documents, triangle for help); CSS transitions honor reduced-motion preferences. No points, streaks, identity, analytics, new dependencies or external services are introduced.
