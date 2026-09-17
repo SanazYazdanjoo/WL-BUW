@@ -66,6 +66,10 @@ node scripts/check-content.js /path/to/draft/app-content
 
 Back up the four JSON files and public documents independently of code. Transfer repository and deployment ownership plus content access to the International Office. Replace personal credentials with an institutional service account and revoke old credentials after verification. Move the content structure through the approved process, then change only `NEXTCLOUD_ROOT_FOLDER` for an institutional root. Document the new responsible content reviewer and access owners without recording passwords.
 
+## Official source freshness
+
+Official-source settings and manual refresh procedures are in [official-source-sync.md](official-source-sync.md). The generated JSON cache is under `official-source-cache/` below `NEXTCLOUD_ROOT_FOLDER`; do not copy it into `documents/` or publish it. `npm run sources:dry-run` checks the live pages without writing. Persistent sync requires configured Nextcloud credentials and has not been verified from an environment without those credentials. The staff `/staff/sources` view is available only after the existing admin pilot authentication is configured. The optional secret-protected internal route is disabled by default; no scheduled Vercel job is configured.
+
 Staff authentication, storage, retention rules and authorized roles remain decisions. The staff boundary is unwired; do not expose operational adapters until authentication and authorization tests exist. Feedback is not persisted. Hosting-level access logs may contain IP addresses; establish institutional privacy information before public launch.
 
 ## Staff/workbook operations update — 2026-09-17

@@ -129,15 +129,21 @@ export async function loadContent(kind, env, fetchImpl = fetch) {
     return { source: "demo", data: validateContent(kind, samples[kind]) };
   }
 }
-export function contentMiddleware(env, fetchImpl = fetch) {
+export function contentMiddleware(env, fetchImpl = fetch, loadOfficialSources = async () => ({})) {
   return async (req, res, next) => {
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/content") {
       const status = req.method === "GET" ? 200 : 405;
-      const body =
-        status === 200
-          ? await loadContentBundle(env, fetchImpl)
-          : { error: "Content not available." };
+      let body = status === 200
+        ? await loadContentBundle(env, fetchImpl)
+        : { error: "Content not available." };
+      if (status === 200) {
+        try {
+          body.officialSources = await loadOfficialSources();
+        } catch {
+          body.officialSources = {};
+        }
+      }
       res.writeHead(status, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",

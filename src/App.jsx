@@ -10,6 +10,7 @@ import {
 } from "./staff/WorkspacePages";
 import { ImportPage, PrintCenter } from "./staff/CoordinatorPages";
 import InformationPage from "./pages/InformationPage";
+import OfficialSourcesPage from "./staff/OfficialSourcesPage";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import {
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="data" element={<ImportPage />} />
           <Route path="content" element={<ImportPage editorial />} />
+          <Route path="sources" element={<OfficialSourcesPage />} />
           <Route path="print" element={<PrintCenter />} />
           <Route path="*" element={<NotFound />} />
         </Route>

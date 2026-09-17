@@ -100,6 +100,7 @@ export default function StaffLayout() {
                 ? [
                     ["data", "Import & export"],
                     ["content", "Content & semester"],
+                    ["sources", "Official information"],
                     ["print", "Print center"],
                   ]
                 : []),

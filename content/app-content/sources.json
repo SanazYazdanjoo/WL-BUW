@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "enabled": true,
+  "sources": {
+    "preparingStudies": {
+      "enabled": true,
+      "label": "Preparing your studies",
+      "url": "https://www.uni-weimar.de/en/university/international/to-weimar/fulltime-students/preparing-your-studies/",
+      "refreshHours": 24,
+      "staleAfterHours": 72,
+      "retryMinutes": 60,
+      "minSections": 3,
+      "maxCountChange": 4
+    },
+    "welcomeEvents": {
+      "enabled": true,
+      "label": "Welcome events",
+      "url": "https://www.uni-weimar.de/en/university/international/to-weimar/fulltime-students/welcome-events/",
+      "refreshHours": 6,
+      "staleAfterHours": 24,
+      "retryMinutes": 60,
+      "minEvents": 1,
+      "maxEvents": 40,
+      "maxCountChange": 6
+    }
+  },
+  "topicMappings": {
+    "enrollment": { "sourceId": "preparingStudies", "sectionId": "enrolment" },
+    "city-registration": { "sourceId": "preparingStudies", "sectionId": "registering-your-address-and-applying-for-a-residence-permit" },
+    "insurance": { "sourceId": "preparingStudies", "sectionId": "health-insurance" },
+    "bank-account": { "sourceId": "preparingStudies", "sectionId": "opening-a-german-bank-account" },
+    "campus-departments": { "sourceId": "preparingStudies", "sectionId": "orientation-and-counselling" },
+    "welcome-events": { "sourceId": "welcomeEvents" }
+  }
+}

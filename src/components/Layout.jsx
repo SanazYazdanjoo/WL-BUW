@@ -43,5 +43,13 @@ export default function Layout() {
 
 function ProgressOutlet({ content }) {
   const progress = useProgress(content.onboarding.data.progressRevision);
-  return <Outlet context={{ content, progress }} />;
+  return (
+    <Outlet
+      context={{
+        content,
+        progress,
+        officialSources: content.officialSources || {},
+      }}
+    />
+  );
 }

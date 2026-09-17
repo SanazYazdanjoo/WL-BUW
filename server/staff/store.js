@@ -34,6 +34,10 @@ export function staffPaths(env) {
     editorial,
     state: `${dirs.staff}/state.json`,
     release: "app-content/published.json",
+    officialSources: {
+      preparingStudies: "official-source-cache/preparing-studies.json",
+      welcomeEvents: "official-source-cache/welcome-events.json",
+    },
   };
 }
 export function createPrivateStore(env, fetchImpl = fetch) {
@@ -43,6 +47,7 @@ export function createPrivateStore(env, fetchImpl = fetch) {
     path === paths.editorial ||
     path === paths.state ||
     path === paths.release ||
+    Object.values(paths.officialSources).includes(path) ||
     /^app-content\/(config|onboarding|events|after-arrival|useful-links|health-insurance|rundfunk)\.json$/.test(
       path,
     ) ||

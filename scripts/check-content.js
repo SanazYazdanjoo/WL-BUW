@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { validateContent } from "../shared/content.js";
+import { officialSourceConfig, validateSourceConfig } from "../server/officialSources/config.js";
 const directory = resolve(process.argv[2] || "content/app-content");
 let failed = false;
 for (const kind of CONTENT_KINDS) {
@@ -20,5 +21,12 @@ for (const kind of CONTENT_KINDS) {
       `${kind}.json: invalid or missing; see documentation/content-guide.md`,
     );
   }
+}
+try {
+  validateSourceConfig(officialSourceConfig);
+  console.log("sources.json: valid");
+} catch {
+  failed = true;
+  console.error("sources.json: invalid; see documentation/official-source-sync.md");
 }
 process.exitCode = failed ? 1 : 0;

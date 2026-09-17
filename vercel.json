@@ -2,6 +2,14 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/content/official/:source",
+      "destination": "/api/content?__api_path=content/official/:source"
+    },
+    {
+      "source": "/api/internal/sync-official-sources",
+      "destination": "/api?__api_path=internal/sync-official-sources"
+    },
+    {
       "source": "/api/content/:kind",
       "destination": "/api/content?__api_path=content/:kind"
     },

@@ -130,6 +130,8 @@ test("private storage confines paths and makes conditional writes", async () => 
   );
   await assert.rejects(store.read("documents/private.xlsx"));
   assert.equal(calls.length, 0);
+  await assert.rejects(store.read("official-source-cache/unrelated.json"));
+  assert.equal(calls.length, 0);
   await assert.rejects(
     store.writeJson(store.paths.state, {}, '"v1"'),
     (error) => error.status === 409,

@@ -76,3 +76,11 @@ The existing root API catch-all is preserved for local compatibility. Vercel's d
 `src/staff/` isolates staff routes, services, workspace and coordinator pages from student pages. Sessions/CSRF stay in memory/cookies; operational records are never written to localStorage. Browser progress retains the legacy key for existing content and uses a publication revision suffix for resets. Native print styles consume the same normalized published collections.
 
 See the workbook, MasterExcel and staff-operation guides for schemas, limits, workflows and known pilot limitations. These sections supersede the earlier unimplemented staff architecture description.
+
+## Official BUW sources
+
+`server/officialSources/` separates validated source configuration, bounded server fetches, Cheerio parsing, normalized-data validation, Nextcloud cache service and HTTP routes. Only fixed `www.uni-weimar.de` HTTPS URLs in `content/app-content/sources.json` can be fetched. Source URLs, per-source refresh/stale/retry limits, plausibility limits and topic section mappings live there. `server/api.js` composes the routes with the current API; Vercel rewrites preserve the existing catch-all, and local Node/Vite paths use the same service.
+
+Public content responses expose only normalized source records. `src/hooks/useContent.js` provides canonical source-link fallback when an API record is absent. `OfficialSourceLink` renders official links and quiet freshness copy. The topic mapping chooses a discovered official subpage when available and otherwise uses the canonical Preparing your studies URL. The Events page shows validated upcoming events, omits unverified dates, and always links the official programme. Existing local event/content entries remain separate and demo-labelled.
+
+The cache service persists fixed server-owned JSON locations through the private staff WebDAV store. These paths are exactly allowlisted for that store but are not in the public document subtree or file-list API. ETag conditional writes protect concurrent updates. Normalized stable hashes distinguish unchanged checks from content changes. Count anomalies are held in `pendingReview`; individual contradictions carry warnings and uncertain date/time values remain empty. Source raw HTML is never stored or returned. See `official-source-sync.md` for operation and status semantics.

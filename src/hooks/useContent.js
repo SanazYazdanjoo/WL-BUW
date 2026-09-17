@@ -1,6 +1,7 @@
 import healthInsurance from "../../content/app-content/health-insurance.json";
 import usefulLinks from "../../content/app-content/useful-links.json";
 import rundfunk from "../../content/app-content/rundfunk.json";
+import sourcesConfig from "../../content/app-content/sources.json";
 import { useEffect, useState } from "react";
 import { validateContent } from "../../shared/content";
 import config from "../../content/app-content/config.json";
@@ -16,6 +17,23 @@ const samples = {
   "useful-links": usefulLinks,
   rundfunk,
 };
+function fallbackSources() {
+  return Object.fromEntries(
+    Object.entries(sourcesConfig.sources).map(([sourceId, source]) => [
+      sourceId,
+      {
+        sourceId,
+        label: source.label,
+        url: source.url,
+        status: "unavailable",
+        lastSuccessfulCheck: "",
+        lastChangedAt: "",
+        warnings: [],
+        data: null,
+      },
+    ]),
+  );
+}
 export function useContent() {
   const [state, setState] = useState({ loading: true });
   const [attempt, setAttempt] = useState(0);
@@ -49,7 +67,11 @@ export function useContent() {
           }
         });
         if (active)
-          setState({ loading: false, ...Object.fromEntries(entries) });
+          setState({
+            loading: false,
+            ...Object.fromEntries(entries),
+            officialSources: bundle.officialSources || fallbackSources(),
+          });
       })
       .catch(() => {
         if (active)
@@ -61,6 +83,7 @@ export function useContent() {
                 { source: "demo", data: validateContent(kind, sample) },
               ]),
             ),
+            officialSources: fallbackSources(),
           });
       })
       .finally(() => clearTimeout(timeout));

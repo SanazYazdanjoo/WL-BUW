@@ -12,6 +12,8 @@ A mobile-first arrival companion for incoming international students at Bauhaus-
 
 See [workbook publication](documentation/content-workbook-guide.md), [MasterExcel import/export](documentation/master-excel-guide.md) and [staff setup](documentation/staff-operations-guide.md).
 
+Official BUW references use a server-side parser and private Nextcloud last-known-good cache. Events update as structured facts; Preparing your studies supplies section names and links without replacing local onboarding guidance. See [official source synchronization](documentation/official-source-sync.md).
+
 ## Run locally
 
 Use Node 22.12+ (Node 22 LTS recommended) and npm.
@@ -36,6 +38,10 @@ Restart after environment changes. Never use `VITE_` for credentials. The upstre
 npm test
 npm run lint
 npm run build
+npm run content:check
+npm run sources:check
+# Optional live parse (no cache write):
+npm run sources:dry-run
 npm run preview
 # Or serve dist and API with the standalone Node server:
 npm start
@@ -63,6 +69,7 @@ app-content/
   useful-links.json
   rundfunk.json
   published.json  # created by confirmed workbook publication
+official-source-cache/ # generated private cache, not public documents
 content-source/  # private editorial workbook
 content-backups/ # private publication backups
 staff-data/      # private MasterExcel, state.json and backups
@@ -78,6 +85,8 @@ Start with [the example files](content/app-content). See the [content guide](doc
 Downloads must be inside `documents/` **and explicitly referenced by an active, non-demo topic** in the current validated Nextcloud onboarding or after-arrival content. Unlinked files cannot be downloaded. Keep only approved public material in this area; personal records and case notes must remain elsewhere. There is no public folder-listing API. Removing a reference revokes download access on the next request.
 
 Use `/staff/content` to change semester/contact settings and publish reviewed workbook content. Legacy `config.json` editing is supported before the first release; afterward `published.json` takes precedence. Changes are read at runtime on reload without rebuilding. Missing/invalid configuration disables WhatsApp rather than reusing a cached invitation. Changing the root later requires one environment-variable change plus placing the same content structure at the new location.
+
+Source schedules and topic-to-official-section mappings are changed in `content/app-content/sources.json`. The Nextcloud cache is generated under `official-source-cache/`. To allow the optional internal refresh route in Vercel, set `OFFICIAL_SOURCE_SYNC_ENABLED=true` and a server-only random `OFFICIAL_SOURCE_SYNC_SECRET` (at least 32 characters); it is disabled by default. The existing staff source page and local sync command are described in [the source sync guide](documentation/official-source-sync.md). No Vercel Cron schedule is currently configured.
 
 ## Handover
 

@@ -1,4 +1,5 @@
 import FAQAccordion from "../components/FAQAccordion";
+import OfficialSourceLink from "../components/OfficialSourceLink";
 import { findTopic } from "../services/topics";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import {
@@ -50,7 +51,7 @@ export function JourneyPage() {
 
 export function TopicPage({ later = false }) {
   const { topicId } = useParams();
-  const { content, progress } = useOutletContext();
+  const { content, progress, officialSources } = useOutletContext();
   const topics = content[later ? "after-arrival" : "onboarding"].data.topics;
   const topic = findTopic(topics, topicId);
   if (!topic) return <NotFound />;
@@ -139,12 +140,16 @@ export function TopicPage({ later = false }) {
           </section>
         )}
       </div>
+      {!later && (
+        <OfficialSourceLink sources={officialSources} topicId={topic.id} />
+      )}
       <EscalationCard config={content.config.data} />
     </article>
   );
 }
 
 export function InfoPage() {
+  const { officialSources } = useOutletContext();
   const links = [
     {
       label: "University portals",
@@ -174,6 +179,11 @@ export function InfoPage() {
           </Link>
         ))}
       </nav>
+      <OfficialSourceLink
+        sources={officialSources}
+        sourceId="preparingStudies"
+        label="Preparing your studies"
+      />
     </section>
   );
 }
@@ -230,12 +240,71 @@ function EventCard({ event }) {
   );
 }
 
+function OfficialEvent({ event, today }) {
+  const start = event.date ? new Date(`${event.date}T12:00:00Z`) : null;
+  const end = event.endDate ? new Date(`${event.endDate}T12:00:00Z`) : start;
+  if (end && end.toISOString().slice(0, 10) < today) return null;
+  const dateText = start
+    ? new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "Europe/Berlin",
+      }).format(start) +
+      (event.endDate
+        ? `–${new Intl.DateTimeFormat("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            timeZone: "Europe/Berlin",
+          }).format(end)}`
+        : "")
+    : "";
+  const times = event.startTime
+    ? event.endTime
+      ? `${event.startTime}–${event.endTime}`
+      : event.startTime
+    : "";
+  return (
+    <article className="event-row">
+      {dateText && <time dateTime={event.date}>{dateText}</time>}
+      <h2>{event.title}</h2>
+      {event.sourceStatus === "needs-review" ? (
+        <p className="event-review-note">
+          Please check the official programme for the current date and time.
+        </p>
+      ) : (
+        <p className="event-meta">
+          {[times, event.location, event.language].filter(Boolean).join(" · ")}
+        </p>
+      )}
+      {event.descriptionSnippet && <p>{event.descriptionSnippet}</p>}
+      {event.registrationUrl && (
+        <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">
+          Register ↗
+        </a>
+      )}
+      <a href={event.detailUrl} target="_blank" rel="noopener noreferrer">
+        Official details ↗
+      </a>
+    </article>
+  );
+}
+
 export function EventsPage() {
-  const { content } = useOutletContext();
+  const { content, officialSources } = useOutletContext();
   const today = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Berlin",
   }).format(new Date());
   const events = content.events.data.events;
+  const official = officialSources?.welcomeEvents;
+  const publishedOfficial = official?.data?.events || [];
+  const verified = publishedOfficial.filter(
+    (event) => event.date && event.sourceStatus === "current" && (event.endDate || event.date) >= today,
+  ).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+  const ambiguous = publishedOfficial.filter(
+    (event) => !event.date || event.sourceStatus === "needs-review",
+  );
   const upcoming = events.filter(
     (event) => !event.isDemo && event.date >= today,
   );
@@ -243,10 +312,33 @@ export function EventsPage() {
   return (
     <section className="events-page">
       <h1>Events</h1>
-      {upcoming.length ? (
-        upcoming.map((event) => <EventCard key={event.id} event={event} />)
-      ) : (
-        <p>No upcoming events.</p>
+      {official?.status === "stale" && (
+        <p className="source-freshness-note">
+          We could not verify the latest event information recently. Check the official programme.
+        </p>
+      )}
+      {official?.status === "needs-review" && (
+        <p className="source-freshness-note">
+          Some event details need checking. Please confirm them in the official programme.
+        </p>
+      )}
+      {verified.map((event) => (
+        <OfficialEvent key={event.id} event={event} today={today} />
+      ))}
+      {ambiguous.length > 0 && (
+        <section className="ambiguous-events">
+          <h2>Check the official programme</h2>
+          {ambiguous.map((event) => (
+            <OfficialEvent key={event.id} event={event} today={today} />
+          ))}
+        </section>
+      )}
+      {upcoming
+        .filter((event) => !publishedOfficial.some((officialEvent) =>
+          officialEvent.title.toLowerCase() === event.title.toLowerCase() && officialEvent.date === event.date))
+        .map((event) => <EventCard key={event.id} event={event} />)}
+      {!verified.length && !ambiguous.length && !upcoming.length && (
+        <p>No upcoming events are listed here.</p>
       )}
       {samples.length > 0 && (
         <section className="sample-events">
@@ -256,6 +348,11 @@ export function EventsPage() {
           ))}
         </section>
       )}
+      <OfficialSourceLink
+        sources={officialSources}
+        sourceId="welcomeEvents"
+        label="Official Welcome Events programme"
+      />
     </section>
   );
 }
