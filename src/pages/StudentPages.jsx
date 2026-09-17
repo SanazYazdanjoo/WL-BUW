@@ -1,12 +1,9 @@
-import FAQAccordion from "../components/FAQAccordion";
 import OfficialSourceLink from "../components/OfficialSourceLink";
 import JourneyMap from "../components/JourneyMap";
 import { findTopic } from "../services/topics";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import {
-  ActionList,
   DemoNotice,
-  DocumentList,
   EscalationCard,
   FeedbackPrompt,
 } from "../components/Journey";
@@ -26,11 +23,6 @@ export function JourneyPage() {
       ) : (
         <p className="empty-state">No journey steps are available yet.</p>
       )}
-      <nav className="journey-secondary-links" aria-label="More help">
-        <Link to="/events">Events</Link>
-        <Link to="/info">Useful information</Link>
-        <Link to="/help">Help</Link>
-      </nav>
     </>
   );
 }
@@ -43,93 +35,56 @@ export function TopicPage({ later = false }) {
   if (!topic) return <NotFound />;
 
   const completed = progress.completed.includes(topic.id);
-  const completedCount = topics.filter((item) =>
-    progress.completed.includes(item.id),
-  ).length;
-  const actionFallback =
-    topic.actions.length === 0 && topic.description !== topic.summary
-      ? topic.description
-      : "";
+  const description = topic.description?.trim() || "";
+  const isDemoPlaceholder = topic.isDemo && /^sample content:/i.test(description);
+  const summary = topic.summary?.trim() || (isDemoPlaceholder ? "" : description);
+  const stepNumber = String(topic.order ?? topics.indexOf(topic) + 1).padStart(2, "0");
+  const descriptionStartsWithSummary = summary &&
+    description.toLocaleLowerCase().startsWith(summary.toLocaleLowerCase());
+  const additionalDescription = isDemoPlaceholder
+    ? ""
+    : descriptionStartsWithSummary
+      ? description.slice(summary.length).replace(/^[\s:.,;—–-]+/, "").trim()
+      : description && description !== summary
+        ? description
+        : "";
 
   return (
     <article className="topic">
       <Link className="back-link" to={later ? "/info" : "/journey"}>
-        ← Back to first steps
+        {later ? "← Back to useful information" : "← Back to first steps"}
       </Link>
       <header className="topic-heading">
-        <p className="eyebrow">
-          {later ? "Useful information" : `Step ${topic.order}`}
-        </p>
-        <h1>{topic.title}</h1>
-        <p>{topic.summary}</p>
+        <div className="topic-heading-main">
+          <p className="eyebrow topic-step-label">
+            {later ? "Useful information" : `Step ${stepNumber}`}
+          </p>
+          <div className="topic-title-row">
+            <h1>{topic.title}</h1>
+            {!later && (
+              <button
+                className={`topic-completion${completed ? " is-complete" : ""}`}
+                aria-label={completed ? "Mark topic incomplete" : "Mark topic complete"}
+                aria-pressed={completed}
+                onClick={() => progress.toggle(topic.id)}
+              >
+                {completed ? "✓ Completed" : "Complete"}
+              </button>
+            )}
+          </div>
+        </div>
+        {summary && <p className="topic-summary">{summary}</p>}
       </header>
-      {topic.isDemo && <DemoNotice />}
-      <div className="topic-content">
-        {(topic.actions.length > 0 || actionFallback) && (
-          <ActionList actions={topic.actions} fallback={actionFallback} />
-        )}
-        {(topic.requiredItems.length > 0 || topic.requiredDocumentsText) && (
-          <section className="topic-section">
-            <h2>What you need</h2>
-            {topic.requiredDocumentsText && (
-              <p className="source-text">{topic.requiredDocumentsText}</p>
-            )}
-            {topic.requiredItems.length > 0 && (
-              <ul>
-                {topic.requiredItems.map((item, index) => (
-                  <li className="source-text" key={index}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-        {topic.documents.length > 0 && (
-          <DocumentList
-            key={`documents-${topic.id}`}
-            documents={topic.documents}
-          />
-        )}
-        {!topic.isDemo && topic.importantNotes.length > 0 && (
-          <section className="topic-section">
-            <h2>Important</h2>
-            <ul>
-              {topic.importantNotes.map((note, index) => (
-                <li key={index}>{note}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {topic.faqs.length > 0 && (
-          <FAQAccordion key={`faqs-${topic.id}`} faqs={topic.faqs} />
-        )}
-        {!later && (
-          <section className="topic-section completion-section">
-            <button
-              className="primary"
-              aria-pressed={completed}
-              onClick={() => progress.toggle(topic.id)}
-            >
-              {completed ? "Mark as not done" : "Mark as done"}
-            </button>
-            {completed && (
-              <p className="completion-status" role="status" aria-live="polite">
-                Done · {completedCount} of {topics.length} completed
-              </p>
-            )}
-            {!progress.available && (
-              <p className="completion-status" role="status">
-                Progress cannot be saved in this browser.
-              </p>
-            )}
-          </section>
-        )}
-      </div>
-      {!later && (
-        <OfficialSourceLink sources={officialSources} topicId={topic.id} />
+      {additionalDescription && (
+        <div className="topic-copy">
+          {additionalDescription.split(/\n\s*\n/).map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+        </div>
       )}
-      <EscalationCard config={content.config.data} />
+      {!later && (
+        <OfficialSourceLink sources={officialSources} topicId={topic.id} compact />
+      )}
     </article>
   );
 }

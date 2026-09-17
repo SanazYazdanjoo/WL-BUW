@@ -156,3 +156,7 @@ Added a restrained mouse-proximity effect to the semantic journey map: nodes gli
 ## 2026-09-17 - Refine journey map interaction and states
 
 Journey nodes glide slightly away from nearby mouse pointers while the decorative SVG path follows. The effect is limited to fine pointers and disabled for reduced motion. Connector and circle outlines now use 2px black strokes; incomplete nodes fill with BUW magenta on hover/focus, while completed nodes remain black with a white check. Removed the Journey header progress strip and sample notice; completion remains visible in the map.
+
+## 2026-09-17 - Round journey row transitions outward
+
+Journey connector turns at the end of each serpentine row now curve outward, using measured node positions and the active column count. The single-column mobile route remains unchanged. The sticky-footer flex shell now gives the main element full width so tablet breakpoints correctly select the two-column journey.

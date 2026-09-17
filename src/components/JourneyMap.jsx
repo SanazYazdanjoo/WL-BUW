@@ -2,12 +2,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { arrangeJourneyTopics, findNextJourneyTopic } from "../services/journeyLayout";
 
-function curveBetween(start, end, index, columns, copyBottom) {
+function curveBetween(start, end, index, columns, copyBottom, mapWidth, edgeSpace) {
   if (columns === 1) {
     const turnY = Math.min(Math.max(start.y + 25, copyBottom + 9), end.y - 25);
     const direction = Math.sign(end.x - start.x) || 1;
     const radius = Math.min(18, Math.abs(end.x - start.x) / 4, (turnY - start.y) / 3, (end.y - turnY) / 3);
     return `M ${start.x} ${start.y} L ${start.x} ${turnY - radius} C ${start.x} ${turnY - radius / 3} ${start.x + direction * radius / 3} ${turnY} ${start.x + direction * radius} ${turnY} L ${end.x - direction * radius} ${turnY} C ${end.x - direction * radius / 3} ${turnY} ${end.x} ${turnY + radius / 3} ${end.x} ${turnY + radius} L ${end.x} ${end.y}`;
+  }
+  if (index % columns === columns - 1) {
+    const outside = start.x >= mapWidth / 2 ? 1 : -1;
+    const dy = end.y - start.y;
+    const desiredRadius = Math.min(82, Math.max(58, Math.abs(dy) * 0.42));
+    const availableSpace = outside > 0 ? edgeSpace?.right : edgeSpace?.left;
+    const radius = Math.min(desiredRadius, availableSpace ?? desiredRadius);
+    return `M ${start.x} ${start.y} C ${start.x + outside * radius} ${start.y} ${end.x + outside * radius} ${end.y} ${end.x} ${end.y}`;
   }
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -84,7 +92,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
         const next = points[index + 1];
         const path = pathRefs.current[index];
         if (point && next && path) {
-          path.setAttribute("d", curveBetween(point, next, index, columns, geometry.copyBottoms[index]));
+          path.setAttribute("d", curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index]));
         }
       });
       if (moving) frame = window.requestAnimationFrame(animate);
@@ -135,10 +143,14 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
         const copy = copyRefs.current[index];
         return copy ? copy.getBoundingClientRect().bottom - bounds.top : 0;
       });
-      const signature = JSON.stringify({ width, height, points, copyBottoms });
+      const edgeSpaces = points.map((point) => point && ({
+        left: Math.max(0, bounds.left + point.x),
+        right: Math.max(0, window.innerWidth - bounds.left - point.x),
+      }));
+      const signature = JSON.stringify({ width, height, points, copyBottoms, edgeSpaces });
       if (signature !== geometryRef.current) {
         geometryRef.current = signature;
-        setGeometry({ width, height, points, copyBottoms });
+        setGeometry({ width, height, points, copyBottoms, edgeSpaces });
       }
     };
 
@@ -172,7 +184,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
             return (
               <path
                 key={`${topics[index].id}-${topics[index + 1].id}`}
-                d={curveBetween(point, next, index, columns, geometry.copyBottoms[index])}
+                d={curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index])}
                 className={isProgressed ? "journey-path-segment is-progressed" : "journey-path-segment"}
                 ref={(element) => { pathRefs.current[index] = element; }}
               />
@@ -217,14 +229,12 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                 >
                   <span className="journey-map-title">
                     <span className="journey-map-title-text">{topic.title}</span>
-                    <span aria-hidden="true" className="journey-map-arrow">→</span>
                     {isComplete && <span className="sr-only">, completed</span>}
                     {isNext && <span className="sr-only">, next incomplete step</span>}
                   </span>
                   <span className="journey-map-summary" id={`${topic.id}-summary`}>
                     {topic.summary}
                   </span>
-                  {isComplete && <span className="journey-map-done">Done</span>}
                 </span>
               </Link>
             </li>

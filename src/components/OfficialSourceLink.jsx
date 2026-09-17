@@ -22,6 +22,7 @@ export default function OfficialSourceLink({
   topicId,
   sourceId: requestedSourceId,
   label,
+  compact = false,
 }) {
   const mapping = topicId ? sourcesConfig.topicMappings[topicId] : null;
   const sourceId = requestedSourceId || mapping?.sourceId;
@@ -39,6 +40,10 @@ export default function OfficialSourceLink({
     : null;
   const url = section?.officialUrl || source.url || configured.url;
   let note = checkedLabel(source.lastSuccessfulCheck);
+  if (compact && source.status === "current") note = "";
+  if (compact && source.status === "stale") {
+    note = "Latest information could not be verified.";
+  }
   let className = "official-source";
   if (source.status === "stale") {
     note = "We could not verify the latest information recently.";
@@ -51,10 +56,19 @@ export default function OfficialSourceLink({
     className += " is-unavailable";
   }
   return (
-    <aside className={className}>
+    <aside className={`${className}${compact ? " is-compact" : ""}`}>
       <a href={url} target="_blank" rel="noopener noreferrer">
-        {label || "Official information"} <span aria-hidden="true">↗</span>
-        <span className="official-source-name">Bauhaus-Universität Weimar</span>
+        {compact ? (
+          <>
+            {label || "Official information"} · Bauhaus-Universität Weimar
+            <span aria-hidden="true"> ↗</span>
+          </>
+        ) : (
+          <>
+            {label || "Official information"} <span aria-hidden="true">↗</span>
+            <span className="official-source-name">Bauhaus-Universität Weimar</span>
+          </>
+        )}
       </a>
       {note && <small>{note}</small>}
     </aside>

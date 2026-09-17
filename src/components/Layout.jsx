@@ -1,5 +1,5 @@
 ﻿import { useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import AppHeader from "./AppHeader";
 import { useContent } from "../hooks/useContent";
 import { useProgress } from "../hooks/useProgress";
@@ -39,10 +39,6 @@ export default function Layout() {
       <footer className="app-footer">
         <div className="footer-inner">
           <span>Welcome Lounge · Bauhaus-Universität Weimar</span>
-          <nav aria-label="Footer">
-            <a href="https://www.uni-weimar.de/en/" target="_blank" rel="noopener noreferrer">University ↗</a>
-            <Link to="/staff">Staff</Link>
-          </nav>
         </div>
       </footer>
     </div>
