@@ -1,51 +1,31 @@
-# Existing Vercel deployment verification
+﻿# Existing Vercel deployment verification
 
-Checked 2026-09-17. The user confirmed an existing GitHub-connected Vercel project with working automatic deployments. Keep GitHub as the source of truth: commit/push, then the existing Vercel integration builds the commit. No new project, CI workflow, relinking, remote setting change or deployment was performed here.
+Checked 2026-09-17 after the GitHub push. This is the user's existing Git-connected project and production domain; no replacement project, integration, or project-level protection change was made.
 
-Observed URL: https://wl-11f32lbt9-sanazyazdanjoos-projects.vercel.app/
+- Production URL: https://wl-buw.vercel.app/
+- Project ID supplied by the user: `prj_VrjEwDB09VK3PldfyLvnfZn9bxIQ`
+- Latest repository commit at this check: `420e4f2` (`Remove ineffective nested function routes`), pushed to `main`.
 
-## Production domain clarification
+## Hosted smoke checks
 
-The user subsequently supplied the production domain **https://wl-buw.vercel.app/** and existing project ID **`prj_VrjEwDB09VK3PldfyLvnfZn9bxIQ`**. These identify the existing project; do not create a replacement or change the integration.
-
-On 2026-09-17 the production homepage returned HTTP 200 without authentication. Browser inspection showed the previous `Info-Directory` / `Welcome Lounge · Files` UI with “Files are unavailable.” `/journey/enrollment`, `/api/content/config`, and `/api/nextcloud/files` returned HTTP 404. Thus this production domain is already publicly accessible, but it is not serving the new P0 implementation. The new API and Vercel configuration are still uncommitted locally. Connector project inspection returned 403; remote settings and the exact deployed commit remain unverified.
-
-No protection change is needed to make this production domain reachable. The earlier protection finding applies to the supplied deployment-specific URL, not this production alias. Next, release the reviewed changes through the existing Git integration, then rerun acceptance checks against `https://wl-buw.vercel.app/`.
-
-## Access finding
-
-Anonymous GET requests to `/`, `/journey/enrollment`, `/api/content/config`, and `/api/nextcloud/files` returned HTTP 302 to `vercel.com/sso-api`. This is a Deployment Protection barrier. The connected Vercel account exposed no teams; the protected-URL tool returned 403. The underlying deployment's app behavior, deployed commit, project settings and environment-variable configuration could not be inspected. Protection was not disabled, and no successful bypass/share URL was created.
-
-The final student URL must work anonymously. The project owner must explicitly review the intended URL/environment and any proposed access-setting change before it is made. Do not disable protection as a side effect of a deployment or test.
-
-## Required acceptance checks
-
-| Requirement | Local evidence | Existing hosted deployment |
+| Request | Result | Meaning |
 | --- | --- | --- |
-| Frontend loads | Desktop/mobile browser checks passed | Production alias loads the old file-browser UI; new UI not deployed |
-| Routes refresh correctly | Standalone deep-link checks and browser topic reload passed | Production topic deep link returns 404; new rewrites not deployed |
-| Server-side Nextcloud calls work | Shared API tested with mocked upstream; Vercel entry point tested through Node HTTP | Authenticated live Nextcloud read still pending |
-| Secrets unavailable to browser | Production build with unique server-only sentinel credentials scanned: no sentinel values or credential variable names in `dist`; server API errors sanitized | Deployed assets and actual environment settings still need review |
-| Document downloads work | Binary attachment test preserves bytes and forced-download headers | Approved real document download still pending |
-| Missing credentials fail safely | Actual Vercel handler returns demo config and document 503 without upstream requests | Verify only in an isolated test environment; do not remove working production credentials to test |
-| Production build succeeds | `npm run build` passed; 20 tests and lint passed | New implementation has not yet been pushed/deployed |
+| `/` | 200, React app loads | Frontend is public |
+| `/journey/enrollment` | Browser renders the sample topic | Client-side deep links refresh correctly |
+| `/api/content` | 200, seven labelled sample collections | Bundle API is routed |
+| `/api/content/config` | 200 | Rewritten nested content API reaches shared middleware |
+| `/api/staff/session` without cookie | 401 JSON | Nested staff API reaches application auth |
+| `/api/nextcloud/files` | 404 JSON | Generic directory browsing is unavailable |
+| `/api/nextcloud/download?path=documents/test.pdf` | 503 safe JSON | Download route works, but Nextcloud credentials are unavailable |
 
-These are local implementation checks, not a declaration that hosted Vercel support is complete.
+Browser inspection at `/journey/enrollment` showed the expected Welcome Lounge sample topic and no browser errors. `/journey/first-step-01` shows the proper not-found state because no workbook has been published to production. The `/api/content` response identifies all collections as `demo`; it does not show a real Nextcloud release.
 
-The Vercel entry point is also tested with controlled upstream responses: configured-root JSON reads and unchanged binary attachment downloads pass through the actual exported handler. These tests use fake credentials and mocked Nextcloud responses, not the live university account.
+Nested routing initially returned Vercel's platform `NOT_FOUND`. That issue was fixed with narrow rewrites in `vercel.json` to the existing shared catch-all and a server-side adapter that restores only bounded API path segments. The live checks above confirm the rewrites reached application middleware.
 
-## Repeatable check after Git deployment
+## Limits and remaining setup
 
-Run the read-only script against the URL produced by the existing Git integration:
+Production content currently falls back to demo data. A real Nextcloud read, approved document download, Excel workbook preview/import, persistence write, ETag conflict, backup and print handout from institutional content have not been tested against the university account. No real workbook was present under `local-data/`. Staff access remains unusable until its Vercel environment values and Nextcloud permissions are configured; do not treat the 401 session check as proof that staff credentials are configured.
 
-```sh
-node scripts/check-deployment.js https://DEPLOYMENT-HOST documents/enrollment/approved.pdf
-```
+The hosted production alias was anonymously reachable in these checks. The earlier deployment-specific URL may still have Deployment Protection. No protection setting was changed. Vercel project APIs could not inspect settings because the connected Vercel tool returned no teams; environment variables and the exact deployment record were not inspected.
 
-Replace the document path with an existing approved public document. The script checks frontend HTML/deep-link responses, all four live content endpoints, disabled listing access and streamed download headers/bytes. It does not follow protection redirects, create bypasses or print response bodies. It exits nonzero if protection blocks access, content is still a demo fallback, a document is not supplied or a check fails. Browser rendering, client-secret auditing, file integrity comparison and isolated missing-credential verification remain separate steps.
-
-## Configuration inspection
-
-The committed baseline had no `vercel.json`, API entry point or tracked CI files. The current uncommitted P0 implementation adds `vercel.json` and `api/[...path].js`; no pre-existing configuration was overwritten. There is no local `.vercel` project link. Existing remote project settings could not be read and were not changed.
-
-The API invokes `server/api.js`, shared with Vite and the standalone Node server. Current configuration supplies the Vite framework, SPA rewrite excluding API/assets, function duration and response security headers. It contains no secrets, Git integration changes, project identifiers or protection settings. Configure Nextcloud credentials only through Environment Variables in the existing Vercel project.
+Before the semester pilot, configure server-only Nextcloud credentials and the required staff codes in the existing Vercel project's Environment Variables; upload both workbooks and review their previews; confirm a content publication; then repeat authenticated read, download, import, backup and conditional-write checks. Keep the student's production URL publicly accessible through the project's existing intended access configuration. Do not expose workbooks or private staff folders as public Nextcloud shares.

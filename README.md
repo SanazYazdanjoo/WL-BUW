@@ -1,4 +1,4 @@
-# Welcome Lounge Digital Companion
+﻿# Welcome Lounge Digital Companion
 
 A mobile-first arrival companion for incoming international students at Bauhaus-Universität Weimar. This is an operational Welcome Lounge pilot, not a thesis project. It aims to reduce repetitive tutor questions and make arrival easier. The existing React + Vite application has been retained.
 
@@ -47,7 +47,7 @@ Existing production URL: **https://wl-buw.vercel.app/**. Existing project ID: `p
 
 This repository is already connected to an existing Vercel project. Keep GitHub as the source of truth: **commit/push -> Vercel automatic Git deployment**. Do not create another project, replace the integration, or add a separate CI system. Check the existing project settings against Vite, `npm run build`, output `dist`, and Node 22.x before changing anything. Add server credentials only through that project's Vercel Environment Variables.
 
-`api/[...path].js` runs the shared Node API; `vercel.json` preserves API/assets and rewrites frontend deep links to the SPA. This follows Vercel's [Vite Functions guidance](https://vercel.com/docs/frameworks/frontend/vite). There is no Next.js dependency. Push reviewed changes through the existing Git integration and follow the [operations smoke checks](documentation/operations.md). The supplied deployment redirects anonymous requests to Vercel authentication; protection was not changed. Live application/API/download verification remains pending. See [deployment verification](documentation/deployment-verification.md).
+`api/[...path].js` runs the shared Node API; `vercel.json` preserves API/assets and rewrites frontend deep links to the SPA. This follows Vercel's [Vite Functions guidance](https://vercel.com/docs/frameworks/frontend/vite). There is no Next.js dependency. Push reviewed changes through the existing Git integration and follow the [operations smoke checks](documentation/operations.md). The supplied deployment redirects anonymous requests to Vercel authentication; protection was not changed. After pushing to main, hosted smoke checks confirmed frontend refresh, nested content/staff routing and safe missing-credential behavior. Real Nextcloud content and downloads remain unverified because production credentials and workbooks are not available. See [deployment verification](documentation/deployment-verification.md).
 
 ## Content maintenance
 
@@ -82,3 +82,4 @@ Use `/staff/content` to change semester/contact settings and publish reviewed wo
 ## Handover
 
 See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), and [decisions](documentation/decisions.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts or analytics are present. Private operational records use Nextcloud; permanent institutional authentication remains future work.
+
