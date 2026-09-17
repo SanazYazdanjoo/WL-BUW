@@ -57,14 +57,13 @@ export default function InformationPage({ kind, title }) {
   const result = content[kind];
   return (
     <article className="topic">
-      <Link to="/journey">Back to your journey</Link>
+      <Link className="back-link" to="/info">
+        ← Useful information
+      </Link>
       <header className="page-heading">
-        <p className="eyebrow">
-          {result.data.semesterLabel || content.config.data.semesterLabel}
-        </p>
         <h1>{title}</h1>
         {result.data.publishedAt && (
-          <p>Published {result.data.publishedAt.slice(0, 10)}</p>
+          <p>Updated {result.data.publishedAt.slice(0, 10)}</p>
         )}
       </header>
       <InformationSections kind={kind} data={result.data} />

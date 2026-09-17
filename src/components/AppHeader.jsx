@@ -45,7 +45,7 @@ export default function AppHeader() {
           Journey
         </NavLink>
         <NavLink to="/events">Events</NavLink>
-        <NavLink to="/after-arrival">Explore</NavLink>
+        <NavLink to="/info">Info</NavLink>
         <NavLink to="/help">Help</NavLink>
       </nav>
     </header>

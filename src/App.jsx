@@ -17,6 +17,7 @@ import {
   EventsPage,
   FeedbackPage,
   HelpPage,
+  InfoPage,
   JourneyPage,
   NotFound,
   TopicPage,
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="journey" element={<JourneyPage />} />
           <Route path="journey/:topicId" element={<TopicPage />} />
           <Route path="events" element={<EventsPage />} />
+          <Route path="info" element={<InfoPage />} />
           <Route path="after-arrival" element={<AfterArrivalPage />} />
           <Route path="after-arrival/:topicId" element={<TopicPage later />} />
           <Route

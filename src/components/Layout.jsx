@@ -26,44 +26,15 @@ export default function Layout() {
             <p>Your steps will appear here in a moment.</p>
           </div>
         ) : (
-          <>
-            {Object.values(content).some((v) => v?.source === "demo") && (
-              <aside className="service-notice">
-                Preview content · Some guidance is not available yet. Samples
-                are labelled below.{" "}
-                <button className="text-button" onClick={content.retry}>
-                  Try again
-                </button>
-              </aside>
-            )}
-            <ProgressOutlet
-              key={content.onboarding.data.progressRevision}
-              content={content}
-            />
-          </>
+          <ProgressOutlet
+            key={content.onboarding.data.progressRevision}
+            content={content}
+          />
         )}
       </main>
       <footer className="app-footer">
         <div className="footer-inner">
-          <p>Welcome Lounge · Bauhaus-Universität Weimar</p>
-          <nav aria-label="Footer navigation">
-            <a
-              href="https://www.uni-weimar.de/en/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              University ↗
-            </a>
-            <a
-              href="https://www.uni-weimar.de/en/university/international/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              International Office ↗
-            </a>
-            <Link to="/help">Help & privacy</Link>
-            <Link to="/staff">Staff area</Link>
-          </nav>
+          <Link to="/staff">Staff area</Link>
         </div>
       </footer>
     </div>

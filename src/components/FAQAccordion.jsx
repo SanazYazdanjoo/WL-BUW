@@ -30,12 +30,10 @@ function FAQItem({ faq }) {
 export default function FAQAccordion({ faqs }) {
   return (
     <section className="faq-section">
-      <h2>Frequently asked questions</h2>
-      {faqs.length ? (
-        faqs.map((faq) => <FAQItem key={faq.id} faq={faq} />)
-      ) : (
-        <p>No questions published for this topic yet.</p>
-      )}
+      <h2>Questions</h2>
+      {faqs.map((faq) => (
+        <FAQItem key={faq.id} faq={faq} />
+      ))}
     </section>
   );
 }

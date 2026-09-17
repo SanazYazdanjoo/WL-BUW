@@ -5,10 +5,7 @@ import { feedbackService } from "../services/feedback";
 
 export function DemoNotice() {
   return (
-    <p className="notice">
-      Sample content · Awaiting International Office review. This is not
-      administrative guidance.
-    </p>
+    <p className="content-note">Sample content · not official guidance.</p>
   );
 }
 
@@ -16,30 +13,24 @@ export function JourneyProgress({ topics, progress }) {
   const count = topics.filter((topic) =>
     progress.completed.includes(topic.id),
   ).length;
-  const percent = topics.length ? Math.round((count / topics.length) * 100) : 0;
   return (
-    <section className="progress-panel" aria-label="Your progress">
-      <div className="progress-heading">
-        <strong aria-live="polite">
-          {count} of {topics.length} steps done
-        </strong>
-        <span aria-hidden="true">{percent}%</span>
-      </div>
+    <section className="progress-panel" aria-label="Journey progress">
+      <strong aria-live="polite">
+        {count} of {topics.length} completed
+      </strong>
       <progress
         max={topics.length || 1}
         value={count}
         aria-label={`${count} of ${topics.length} steps completed`}
       />
-      <p>Your progress stays in this browser. No account needed.</p>
       {!progress.available && (
-        <p role="status">
-          Progress can’t be saved by this browser and may be lost when you
-          leave.
-        </p>
+        <span className="progress-storage" role="status">
+          Progress is not being saved in this browser.
+        </span>
       )}
       {count > 0 && (
         <button className="text-button" onClick={progress.reset}>
-          Reset progress
+          Reset
         </button>
       )}
     </section>
@@ -56,34 +47,31 @@ export function JourneyStep({ topic, completed, index }) {
         aria-describedby={`${topic.id}-summary`}
       >
         <span className="node" aria-hidden="true">
-          {completed ? "✓" : index + 1}
+          {completed ? "✓" : String(index + 1).padStart(2, "0")}
         </span>
-        <div className="step-content">
-          <span className="step-context">{topic.eyebrow}</span>
-          <span
-            id={`${topic.id}-state`}
-            className={completed ? "completion-label" : "sr-only"}
-          >
-            {completed ? "Completed" : `Step ${index + 1} · Not completed`}
-          </span>
-          <div className="step-description">
-            <h3 id={`${topic.id}-title`}>{topic.title}</h3>
-            <p id={`${topic.id}-summary`}>{topic.summary}</p>
-          </div>
-          <span className="step-meta">
-            <span className="card-link">
-              {completed ? "Review step" : "Open step"}{" "}
-              <span aria-hidden="true">→</span>
+        <span className="step-content">
+          <span className="step-title-line">
+            <span id={`${topic.id}-title`} className="step-title">
+              {topic.title}
             </span>
-            {topic.requiredItems.length > 0 && (
-              <small>{topic.requiredItems.length} things to prepare</small>
+            {completed && (
+              <span id={`${topic.id}-state`} className="completion-label">
+                Done
+              </span>
             )}
-            {topic.documents.length > 0 && (
-              <small>{topic.documents.length} documents</small>
+            {!completed && (
+              <span id={`${topic.id}-state`} className="sr-only">
+                Step {index + 1}, not completed
+              </span>
             )}
-            {topic.isDemo && <small>Sample content</small>}
           </span>
-        </div>
+          <span id={`${topic.id}-summary`} className="step-summary">
+            {topic.summary}
+          </span>
+          <span className="step-open">
+            Open <span aria-hidden="true">→</span>
+          </span>
+        </span>
       </Link>
     </li>
   );
@@ -93,49 +81,36 @@ export function EscalationCard({ config }) {
   const link = whatsappLink(config);
   return (
     <section className="escalation">
-      <p className="eyebrow">
-        <span className="help-triangle" aria-hidden="true">
-          ▲
-        </span>{" "}
-        Still stuck?
-      </p>
-      <h2>Need a human?</h2>
-      <p>
-        Some situations are easier to solve with a real person. Ask the Welcome
-        Lounge tutors.
-      </p>
-      <p>{config.helpText}</p>
+      <h2>Still need help?</h2>
       {link ? (
-        <a href={link} target="_blank" rel="noopener noreferrer">
-          Join the Welcome Lounge WhatsApp group for {config.semesterLabel} ↗
-        </a>
+        <>
+          <p>{config.contactLabel || "Welcome Lounge tutors"}</p>
+          <a href={link} target="_blank" rel="noopener noreferrer">
+            WhatsApp · {config.semesterLabel} ↗
+          </a>
+        </>
       ) : (
         <p>
-          The current Welcome Lounge contact link has not been published yet.
+          {config.helpText ||
+            "The current Welcome Lounge contact link has not been published yet."}
         </p>
-      )}
-      {link && (
-        <small>
-          WhatsApp is an external service. Joining may share your phone number
-          with group members.
-        </small>
       )}
     </section>
   );
 }
 
-export function ActionList({ actions }) {
+export function ActionList({ actions, fallback = "" }) {
   return (
-    <section className="action-section">
+    <section className="topic-section">
       <h2>What to do</h2>
-      {actions.length ? (
+      {actions.length > 0 ? (
         <ol className="action-list">
           {actions.map((action, index) => (
             <li key={index}>{action}</li>
           ))}
         </ol>
       ) : (
-        <p>No action steps published yet.</p>
+        <p className="source-text">{fallback || "No actions published yet."}</p>
       )}
     </section>
   );
@@ -144,6 +119,7 @@ export function ActionList({ actions }) {
 export function DocumentList({ documents }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+
   async function download(document) {
     setBusy(document.path);
     setError("");
@@ -168,41 +144,34 @@ export function DocumentList({ documents }) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
       setError(
-        "This document could not be downloaded. Please try again or ask the Welcome Lounge team.",
+        "Document unavailable. Try again later or ask the Welcome Lounge.",
       );
     } finally {
       setBusy("");
     }
   }
+
   return (
-    <section className="documents-section">
+    <section className="topic-section">
       <h2>Documents</h2>
-      {documents.length ? (
-        <ul className="document-list">
-          {documents.map((document) => (
-            <li key={document.path}>
-              <button
-                className="document-card"
-                disabled={Boolean(busy)}
-                onClick={() => download(document)}
-              >
-                <span className="document-symbol" aria-hidden="true">
-                  ■
-                </span>
-                <span className="document-copy">
-                  <span className="eyebrow">Document</span>
-                  <strong>{document.label}</strong>
-                </span>
-                <span className="document-download">
-                  {busy === document.path ? "Downloading…" : "Download ↘"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No documents published for this topic yet.</p>
-      )}
+      <ul className="document-list">
+        {documents.map((document) => (
+          <li key={document.path}>
+            <button
+              className="document-button"
+              disabled={Boolean(busy)}
+              onClick={() => download(document)}
+            >
+              <span>
+                {busy === document.path
+                  ? "Downloading…"
+                  : `Download ${document.label}`}
+              </span>
+              <span aria-hidden="true">↘</span>
+            </button>
+          </li>
+        ))}
+      </ul>
       {error && <p role="alert">{error}</p>}
     </section>
   );
@@ -210,6 +179,7 @@ export function DocumentList({ documents }) {
 
 export function FeedbackPrompt({ topicId, faqId }) {
   const [message, setMessage] = useState("");
+
   async function submit(answer) {
     try {
       const result = await feedbackService.submit({
@@ -223,10 +193,11 @@ export function FeedbackPrompt({ topicId, faqId }) {
       setMessage("Feedback could not be sent. Please try again later.");
     }
   }
+
   return (
     <section className="feedback">
-      <h2>Did this answer your question?</h2>
-      <p>Preview only: feedback collection is not connected yet.</p>
+      <h2>Was this useful?</h2>
+      <p>Feedback is not stored yet.</p>
       <div className="button-row">
         <button onClick={() => submit(true)}>Yes</button>
         <button onClick={() => submit(false)}>No</button>
