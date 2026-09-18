@@ -1,5 +1,11 @@
 # Development log
 
+## 2026-09-18: Workspace layout repair and safe cleanup audit
+
+Fixed the empty-staff-roster gate so the dashboard is no longer rendered inside the narrow sign-in panel. Coordinators now see the full-width Content editor when they open Content to add the initial roster; the dashboard shows only the setup prompt until that roster exists. Removed the unused Tailwind Vite plugin/dependencies, unreferenced starter images/icons, unused FAQ accordion and old topic presentation components/styles. Kept `favicon.ico`, the Journey map, source sync/RSS, local progress, legacy workbook readers, and operational fallbacks.
+
+The production public-content response was observed to use Nextcloud unified-workbook content but contain zero active Journey topics. No private Nextcloud credentials were available locally, so staff acceptance flows and real ETag/If-Match conflict behavior were not verified. No production data was moved or deleted; the legacy cutover/archive gate remains open.
+
 ## 2026-09-17: Nextcloud migration
 
 **Request:** Remove Google Sheets and connect the supplied Nextcloud folder, supporting all file formats.

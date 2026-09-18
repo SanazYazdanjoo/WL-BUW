@@ -6,9 +6,9 @@ A mobile-first service for incoming international students at Bauhaus-Universit√
 
 The public student app remains read-only and anonymous. Journey completion stays in browser storage. Events, RSS and official-source synchronization remain separate automatic sources.
 
-A six-sheet `Welcome-Lounge.xlsx` staff workbook is implemented as the unified persistent store. It contains Settings, Content, Students, Activity, Staff and Shifts. Server-side ExcelJS parsing validates each read/write; the web app receives only active, approved public content. Staff mutations use Nextcloud conditional writes and private backups. The app looks for `Welcome-Lounge.xlsx` by default and switches to it when present; while it is missing, the existing published-content and operational stores remain active for migration. Existing workbooks and JSON files are not automatically deleted.
+A six-sheet `Welcome-Lounge.xlsx` staff workbook is implemented as the unified store for content and staff operations. It contains Settings, Content, Students, Activity, Staff and Shifts. Server-side ExcelJS parsing validates each read/write; the public app receives only approved content. Staff mutations use Nextcloud conditional writes and private backups. The app reads the unified workbook when it is available. Older publication and operational stores remain as migration/emergency fallbacks until the live acceptance gate is complete; no repository cleanup automatically changes or deletes Nextcloud data.
 
-This is an operational pilot. The current deployment still needs the workbook-mode environment setting, migration from the existing Nextcloud files, and a live acceptance check for WebDAV ETag/conditional PUT behavior. No live university storage write or Vercel setting change is claimed by local tests.
+This is an operational pilot. On 18 September 2026, the production public-content endpoint reported the unified workbook as its source, but returned no active Journey topics. The staff roster and operational flows, migration completeness, and live WebDAV ETag/conditional PUT behavior still require authenticated acceptance checks. No live university storage write or Vercel setting change is claimed by local tests.
 
 Early tutor feedback is preliminary and directional, based on four Welcome Lounge tutors. It is not representative of all staff or students. See [research findings](documentation/research-findings.md).
 
@@ -57,7 +57,7 @@ When unified workbook mode is enabled, the source of truth for human-maintained 
 
 Existing `Welcome-Lounge-Content.xlsx`, `MasterExcel.xlsx`, published JSON and `staff-data/state.json` remain untouched. To start unified workbook mode, upload a prepared `Welcome-Lounge.xlsx` to the configured app-folder root. The app never derives the semester from the folder name. Generated JSON and bundled files remain fixtures/fallbacks and automatic systems are kept separate from workbook content.
 
-The old [content workbook guide](documentation/content-workbook-guide.md) and [MasterExcel guide](documentation/master-excel-guide.md) describe legacy migration inputs. For normal work, use the staff web interface. See [semester handover](documentation/semester-handover.md), [operations](documentation/operations.md), [technical implementation](documentation/technical-implementation.md) and [decisions](documentation/decisions.md).
+The old [content workbook guide](documentation/content-workbook-guide.md) and [MasterExcel guide](documentation/master-excel-guide.md) describe legacy migration inputs and are not the current editing workflow. For normal work, use the staff web interface. See [semester handover](documentation/semester-handover.md), [operations](documentation/operations.md), [technical implementation](documentation/technical-implementation.md) and [decisions](documentation/decisions.md).
 
 ## Public documents and automatic sources
 

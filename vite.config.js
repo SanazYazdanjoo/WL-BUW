@@ -1,7 +1,6 @@
 ﻿import { defineConfig, loadEnv } from "vite";
 import { applicationApi } from "./server/api.js";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const middleware = applicationApi({
@@ -11,7 +10,6 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      tailwindcss(),
       {
         name: "nextcloud-api",
         configureServer(server) {

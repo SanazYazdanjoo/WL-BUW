@@ -1,6 +1,6 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { serializeUnifiedWorkbook, parseUnifiedWorkbook } from "../server/excel/unifiedWorkbook.js";
+import { serializeUnifiedWorkbook, parseUnifiedWorkbook, publicContentFromWorkbook } from "../server/excel/unifiedWorkbook.js";
 import { createUnifiedRepository } from "../server/staff/unifiedRepository.js";
 
 function memoryStore(initialBytes) {
@@ -49,6 +49,28 @@ test("parallel staff edits using one workbook ETag cannot silently overwrite one
   const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
   assert.ok(["Update A", "Update B"].includes(stored.data.content[0].title));
   assert.ok([...store.files.keys()].some((path) => path.startsWith("backups/manual/")));
+});
+
+test("removing a journey step deletes its workbook row and removes the generated topic", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    content: [
+      { id: "health-insurance", section: "First Step", order: 1, title: "Health insurance", text: "Confirm insurance.", link: "https://www.uni-weimar.de/en/university/", active: true },
+      { id: "enrollment", section: "First Step", order: 2, title: "Enrollment", text: "Complete enrollment.", link: "https://www.uni-weimar.de/en/university/", active: true },
+    ],
+    staff: [{ id: staffId, name: "Tutor Example", role: "admin", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "admin", staffId };
+  const current = await repo.contentStatus();
+  assert.deepEqual(current.content.onboarding.topics.map((topic) => topic.id), ["health-insurance", "enrollment"]);
+
+  await repo.deleteContent(actor, { id: "health-insurance", etag: current.etag });
+
+  const parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.deepEqual(parsed.data.content.map((item) => item.id), ["enrollment"]);
+  assert.deepEqual(publicContentFromWorkbook(parsed).onboarding.topics.map((topic) => topic.id), ["enrollment"]);
 });
 
 test("autosaves merge independent student fields and report same-field conflicts", async () => {

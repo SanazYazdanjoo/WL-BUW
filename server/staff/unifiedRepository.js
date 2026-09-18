@@ -322,6 +322,16 @@ export function createUnifiedRepository(store) {
         appendActivity(data, actor, "Content Update", { note: `${existing ? "Updated" : "Added"} ${next.section}: ${next.title}` });
       }, { major: true });
     },
+    async deleteContent(actor, input) {
+      const id = text(input.id || "", 100).trim();
+      if (!id) throw new StaffError(400, "Choose a content item to remove.");
+      return mutate(actor, input, "content removed", (data) => {
+        const index = data.content.findIndex((entry) => entry.id === id);
+        if (index < 0) throw new StaffError(404, "Content item not found.");
+        const [removed] = data.content.splice(index, 1);
+        appendActivity(data, actor, "Content Update", { note: `Removed ${removed.section}: ${removed.title}` });
+      }, { major: true, safeRetry: true });
+    },
     async autosaveContent(actor, input) {
       return mutateFields(actor, input, {
         id: input.id, collection: "content", allowed: ["title", "text", "link", "active", "order"], reason: "content update", activityType: "Content Update",

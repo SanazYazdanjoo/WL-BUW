@@ -98,6 +98,7 @@ export function staffMiddleware(
         "students/create": ["read", "addStudent", true],
         "staff/save": ["admin", "saveStaff", true],
         "content/save": ["admin", "saveContent", true],
+        "content/delete": ["admin", "deleteContent", true],
         "content/autosave": ["admin", "autosaveContent", true],
         "content/deactivate": ["admin", "deactivateContent", true],
         "settings/save": ["admin", "saveSettings", true],

@@ -149,13 +149,24 @@ export default function StaffLayout() {
               </section>
             </main>
           ) : roster?.etag && roster.staff.length === 0 && (session.role === "admin" || !session.staffId) ? (
-            <main id="staff-main" className="staff-main staff-login-main">
-              <section className="staff-login-panel" aria-labelledby="staff-setup-title">
-                <p className="staff-eyebrow">STAFF SETUP</p>
-                <h1 id="staff-setup-title">Add the staff list</h1>
-                <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
-                {session.role === "admin" ? <><Link to="/staff/content">Open Content setup</Link><Outlet context={{ session, refreshRoster: loadRoster }} /></> : <p>Ask a coordinator to add the team.</p>}
-              </section>
+            <main id="staff-main" className={`staff-main${location.pathname === "/staff/content" ? "" : " staff-login-main"}`}>
+              {location.pathname === "/staff/content" ? (
+                <>
+                  <section className="staff-setup-panel" aria-labelledby="staff-setup-title">
+                    <p className="staff-eyebrow">STAFF SETUP</p>
+                    <h2 id="staff-setup-title">Add the staff list</h2>
+                    <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
+                  </section>
+                  <Outlet context={{ session, refreshRoster: loadRoster }} />
+                </>
+              ) : (
+                <section className="staff-login-panel" aria-labelledby="staff-setup-title">
+                  <p className="staff-eyebrow">STAFF SETUP</p>
+                  <h1 id="staff-setup-title">Add the staff list</h1>
+                  <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
+                  {session.role === "admin" ? <Link to="/staff/content">Open Content setup</Link> : <p>Ask a coordinator to add the team.</p>}
+                </section>
+              )}
             </main>
           ) : (
           <>
