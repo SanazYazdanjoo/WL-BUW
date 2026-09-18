@@ -3,8 +3,19 @@ import { Link, useParams, useOutletContext } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
+import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
 const status = (value) =>
   value === true ? "Yes" : value === false ? "No" : "Unknown";
+const localDateInput = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+const emptyStudent = () => ({ name: "", matriculationNumber: "", country: "", studyProgram: "", phone: "", email: "", notes: "", dateAdded: localDateInput() });
+const studyProgramOptions = (workspace) => [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
+function SuggestedInput({ label, name, value, onChange, options, maxLength = 300, type = "text" }) {
+  const listId = `student-${name}-options`;
+  return <label>{label}<input type={type} list={listId} maxLength={maxLength} value={value || ""} onChange={(event) => onChange(event.target.value)} /><datalist id={listId}>{options.map((option) => <option key={option} value={option} />)}</datalist></label>;
+}
 function State({ error }) {
   return error ? (
     <p role="alert">{error}</p>
@@ -22,7 +33,6 @@ function StudentTable({ students }) {
             <th>Matriculation no.</th>
             <th>Study program</th>
             <th>Enrolled</th>
-            <th>Backpack</th>
           </tr>
         </thead>
         <tbody>
@@ -36,7 +46,6 @@ function StudentTable({ students }) {
               <td>{s.matriculationNumber || "Unknown"}</td>
               <td>{s.studyProgram}</td>
               <td>{status(s.enrolled)}</td>
-              <td>{status(s.receivedBackpack)}</td>
             </tr>
           ))}
         </tbody>
@@ -110,7 +119,6 @@ function AttentionList({ students }) {
       {students.map((student) => {
         const issues = [];
         if (student.enrolled !== true) issues.push("Enrollment not confirmed");
-        if (student.receivedBackpack !== true) issues.push("Backpack not confirmed");
         return (
           <li key={student.id}>
             <Link to={`/staff/students/${student.id}`}>
@@ -125,50 +133,75 @@ function AttentionList({ students }) {
 }
 
 export function Dashboard() {
+  const { session } = useOutletContext();
   const { workspace, error } = useWorkspace();
   if (!workspace) return <State error={error} />;
   const { data, today } = workspace;
   const shifts = data.shifts.filter((s) => s.date === today);
   const checkinsToday = data.checkins.filter((checkin) => checkin.date === today);
   const attentionStudents = data.students
-    .filter((student) => student.enrolled !== true || student.receivedBackpack !== true)
+    .filter((student) => student.enrolled !== true)
     .slice(0, 20);
   const dayLabel = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "full",
     timeZone: "Europe/Berlin",
   }).format(new Date(`${today}T12:00:00Z`));
+  const setupItems = [
+    !data.semesterLabel && {
+      title: "Set the semester",
+      text: session?.role === "admin" ? "Add the current semester in Content." : "Ask a coordinator to add the current semester in Content.",
+      to: session?.role === "admin" ? "/staff/content" : null,
+    },
+    data.shifts.length === 0 && {
+      title: "Add the shift schedule",
+      text: "Add upcoming Welcome Lounge shifts so tutors can see who is on duty.",
+      to: "/staff/shifts",
+    },
+  ].filter(Boolean);
   return (
     <div className="staff-page staff-dashboard">
       <header className="staff-page-heading staff-dashboard-heading">
-        <p className="staff-eyebrow">TODAY · {data.semesterLabel || "SEMESTER NOT SET"}</p>
-        <h1>Welcome Lounge</h1>
-        <p className="staff-page-lead">{dayLabel}</p>
+        <p className="staff-eyebrow">TODAY is {dayLabel}</p>
       </header>
-      <p className="staff-checkin-count">
-        <strong>{checkinsToday.length}</strong> students checked in today
-      </p>
-      <nav className="staff-quick-actions" aria-label="Today’s actions">
-        <Link to="/staff/students">Find a student <span aria-hidden="true">→</span></Link>
-        <Link to="/staff/students">Check in a visitor <span aria-hidden="true">→</span></Link>
-        <Link to="/staff/handover">Add handover <span aria-hidden="true">→</span></Link>
-      </nav>
-      <div className="staff-dashboard-grid">
-        <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
-          <h2 id="today-shifts-heading">Today’s shifts</h2>
-          <Shifts shifts={shifts} />
-        </section>
-        <section className="staff-dashboard-section" aria-labelledby="today-checkins-heading">
-          <h2 id="today-checkins-heading">Checked in today</h2>
-          <TodayCheckins checkins={checkinsToday} students={data.students} />
-        </section>
-        <section className="staff-dashboard-section staff-dashboard-attention" aria-labelledby="attention-heading">
-          <h2 id="attention-heading">Needs attention</h2>
-          <AttentionList students={attentionStudents} />
-        </section>
-        <section className="staff-dashboard-section" aria-labelledby="handover-heading">
-          <h2 id="handover-heading">Latest handover</h2>
-          <HandoverEntries entries={data.handover} today={today} limit={5} />
-        </section>
+      <div className="staff-dashboard-layout">
+        <div className="staff-dashboard-content">
+          <p className="staff-checkin-count">
+            <strong>{checkinsToday.length}</strong> students checked in today
+          </p>
+          <nav className="staff-quick-actions" aria-label="Today’s actions">
+            <Link to="/staff/students">Find a student <span aria-hidden="true">→</span></Link>
+            <Link to="/staff/students">Check in a visitor <span aria-hidden="true">→</span></Link>
+            <Link to="/staff/handover">Add handover <span aria-hidden="true">→</span></Link>
+          </nav>
+          <div className="staff-dashboard-grid">
+            <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
+              <h2 id="today-shifts-heading">Today’s shifts</h2>
+              <Shifts shifts={shifts} />
+            </section>
+            <section className="staff-dashboard-section" aria-labelledby="today-checkins-heading">
+              <h2 id="today-checkins-heading">Checked in today</h2>
+              <TodayCheckins checkins={checkinsToday} students={data.students} />
+            </section>
+            <section className="staff-dashboard-section staff-dashboard-attention" aria-labelledby="attention-heading">
+              <h2 id="attention-heading">Needs attention</h2>
+              <AttentionList students={attentionStudents} />
+            </section>
+            <section className="staff-dashboard-section" aria-labelledby="handover-heading">
+              <h2 id="handover-heading">Latest handover</h2>
+              <HandoverEntries entries={data.handover} today={today} limit={5} />
+            </section>
+          </div>
+        </div>
+        {setupItems.length > 0 && <aside className="staff-setup-note" aria-labelledby="staff-setup-note-title">
+          <p className="staff-setup-note-label">WORKSPACE SETUP</p>
+          <h2 id="staff-setup-note-title">A couple of things to set up</h2>
+          <p className="staff-setup-note-intro">Complete these when you prepare the workspace.</p>
+          <ol>{setupItems.map((item) => <li key={item.title}>
+            <strong>{item.title}</strong>
+            <span>{item.text}</span>
+            {item.to && <Link to={item.to}>Go to {item.title.toLowerCase()} <span aria-hidden="true">→</span></Link>}
+          </li>)}</ol>
+        </aside>}
       </div>
     </div>
   );
@@ -176,18 +209,13 @@ export function Dashboard() {
 export function Students() {
   const { workspace, error, act } = useWorkspace();
   const [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all"),
-    [newStudent, setNewStudent] = useState({ name: "", matriculationNumber: "", country: "", studyProgram: "" });
+    [newStudent, setNewStudent] = useState(emptyStudent);
   if (!workspace) return <State error={error} />;
   const students = workspace.data.students.filter(
     (s) =>
       `${s.name} ${s.matriculationNumber}`
         .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (filter === "all" ||
-        (filter === "enrollment"
-          ? s.enrolled !== true
-          : s.receivedBackpack !== true)),
+        .includes(search.toLowerCase()),
   );
   return (
     <>
@@ -197,67 +225,64 @@ export function Students() {
           Search name or matriculation number
           <input value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
-        <label>
-          Show
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All students</option>
-            <option value="enrollment">Enrollment incomplete or unknown</option>
-            <option value="backpack">Backpack not received or unknown</option>
-          </select>
-        </label>
       </div>
       {workspace.unified && <details className="staff-dashboard-section">
         <summary>Add student record</summary>
-        <form className="staff-form" onSubmit={async (event) => {
+        <form className="staff-form staff-student-create-form" onSubmit={async (event) => {
           event.preventDefault();
-          if (await act("students/create", newStudent)) setNewStudent({ name: "", matriculationNumber: "", country: "", studyProgram: "" });
+          if (await act("students/create", newStudent)) setNewStudent(emptyStudent());
         }}>
+          {error && <p className="staff-student-create-error" role="alert">{error}</p>}
           <label>Full name<input required maxLength={200} value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} /></label>
           <label>Matriculation number<input inputMode="numeric" maxLength={100} value={newStudent.matriculationNumber} onChange={(e) => setNewStudent({ ...newStudent, matriculationNumber: e.target.value })} /></label>
-          <label>Country<input maxLength={200} value={newStudent.country} onChange={(e) => setNewStudent({ ...newStudent, country: e.target.value })} /></label>
-          <label>Study programme<input maxLength={300} value={newStudent.studyProgram} onChange={(e) => setNewStudent({ ...newStudent, studyProgram: e.target.value })} /></label>
-          <button className="primary">Add student</button>
+          <SuggestedInput label="Country" name="country" value={newStudent.country} options={COUNTRY_OPTIONS} onChange={(country) => setNewStudent({ ...newStudent, country })} maxLength={200} />
+          <SuggestedInput label="Study programme" name="study-program" value={newStudent.studyProgram} options={studyProgramOptions(workspace)} onChange={(studyProgram) => setNewStudent({ ...newStudent, studyProgram })} />
+          <label>Phone number<input type="tel" maxLength={100} value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} /></label>
+          <label>Email<input type="email" maxLength={254} value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} /></label>
+          <label>Note / Comment<textarea maxLength={4000} value={newStudent.notes} onChange={(e) => setNewStudent({ ...newStudent, notes: e.target.value })} /></label>
+          <div className="staff-student-create-controls"><label>Date added<input type="date" value={newStudent.dateAdded} readOnly /></label><button className="primary">Add</button></div>
         </form>
       </details>}
       <StudentTable students={students} />
     </>
   );
 }
-function StudentEditor({ student, save }) {
+function StudentEditor({ student, save, programOptions }) {
   const autosave = useAutosave({
     enrolled: student.enrolled,
-    receivedBackpack: student.receivedBackpack,
     accommodation: student.accommodation,
     cityRegistration: student.cityRegistration,
     address: student.address,
     country: student.country,
     studyProgram: student.studyProgram,
     notes: student.notes,
-  }, save);
+    phone: student.phone || "",
+    email: student.email || "",
+  }, save, { validate: (draft) => draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "" });
   const { draft, setField } = autosave;
   return (
     <div className="staff-form">
       <div className="staff-autosave-position"><SaveStatus {...autosave} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
-      {["enrolled", "receivedBackpack"].map((field) => (
-        <label key={field}>
-          {field === "enrolled" ? "Enrolled" : "Received backpack"}
+      <label>
+          Enrolled
           <select
-            value={String(draft[field])}
-            onChange={(e) => setField(field, e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}
+            value={String(draft.enrolled)}
+            onChange={(e) => setField("enrolled", e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}
           >
             <option value="null">Unknown</option>
             <option value="true">Yes</option>
             <option value="false">No</option>
           </select>
-        </label>
-      ))}
+      </label>
+      <SuggestedInput label="Country" name="country" value={draft.country} options={COUNTRY_OPTIONS} onChange={(value) => setField("country", value)} maxLength={200} />
+      <SuggestedInput label="Study programme" name="study-program" value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} />
+      <label>Phone number<input type="tel" maxLength={100} value={draft.phone} onChange={(e) => setField("phone", e.target.value)} /></label>
+      <label>Email<input type="email" maxLength={254} value={draft.email} onChange={(e) => setField("email", e.target.value)} /></label>
       {[
-        ["country", "Country"],
-        ["studyProgram", "Study programme"],
         ["accommodation", "Accommodation"],
         ["cityRegistration", "City registration appointment"],
         ["address", "Address"],
-        ["notes", "Case notes"],
+        ["notes", "Note / Comment"],
       ].map(([field, label]) => (
         <label key={field}>
           {label}
@@ -297,10 +322,12 @@ export function StudentDetail() {
     receivedBackpack: "Welcome materials",
     accommodation: "Accommodation",
     cityRegistration: "City registration appointment",
-    notes: "Case notes",
+    notes: "Note / Comment",
     address: "Address",
     country: "Country",
     studyProgram: "Study programme",
+    phone: "Phone number",
+    email: "Email",
   };
   return (
     <>
@@ -313,9 +340,13 @@ export function StudentDetail() {
       <dl>
         <dt>Country</dt>
         <dd>{s.country}</dd>
+        <dt>Phone number</dt>
+        <dd>{s.phone || "Not supplied"}</dd>
+        <dt>Email</dt>
+        <dd>{s.email || "Not supplied"}</dd>
         <dt>Address</dt>
         <dd className="source-text">{s.address || "Not supplied"}</dd>
-        <dt>Imported date</dt>
+        <dt>Date added</dt>
         <dd>{s.legacyDate || "Unknown"}</dd>
       </dl>
       {error && <p role="alert">{error}</p>}
@@ -333,6 +364,7 @@ export function StudentDetail() {
       <StudentEditor
         key={s.id}
         student={s}
+        programOptions={studyProgramOptions(workspace)}
         save={(patch, base) => autosave("students/update", s.id, patch, base)}
       />
       {recentUpdates.length > 0 && (

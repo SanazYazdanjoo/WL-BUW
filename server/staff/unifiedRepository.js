@@ -190,7 +190,7 @@ export function createUnifiedRepository(store) {
     const students = (staffData?.students || []).map((student) => {
       const id = /^stu_[0-9a-f-]{36}$/i.test(student.id || "") ? student.id : idFor("stu");
       if (student.id) legacyStudentIds.set(student.id, id);
-      return { id, legacyDate: student.legacyDate || student.dateAdded || "", name: student.name || "", matriculationNumber: String(student.matriculationNumber || ""), country: student.country || "", studyProgram: student.studyProgram || "", enrolled: student.enrolled ?? null, accommodation: student.accommodation || "", address: student.address || "", receivedBackpack: student.receivedBackpack ?? null, cityRegistration: student.cityRegistration || "", notes: student.notes || "", updatedAt: student.updatedAt || "", updatedBy: student.updatedBy || "" };
+      return { id, legacyDate: student.legacyDate || student.dateAdded || "", name: student.name || "", matriculationNumber: String(student.matriculationNumber || ""), country: student.country || "", studyProgram: student.studyProgram || "", enrolled: student.enrolled ?? null, accommodation: student.accommodation || "", address: student.address || "", receivedBackpack: student.receivedBackpack ?? null, cityRegistration: student.cityRegistration || "", notes: student.notes || "", phone: student.phone || "", email: student.email || "", updatedAt: student.updatedAt || "", updatedBy: student.updatedBy || "" };
     });
     const shifts = [];
     for (const shift of staffData?.shifts || []) {
@@ -234,22 +234,25 @@ export function createUnifiedRepository(store) {
     },
     async updateStudent(actor, input) {
       if (input.patch && input.base) return mutateFields(actor, input, {
-        id: input.id, collection: "students", allowed: ["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes"],
+        id: input.id, collection: "students", allowed: ["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"],
         reason: "student update", activityType: "Student Update",
         validate(record, patch) {
           for (const [field, value] of Object.entries(patch)) {
             if (["enrolled", "receivedBackpack"].includes(field) && ![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
-            if (typeof value === "string" && value.length > (field === "notes" ? 4000 : 12000)) throw new StaffError(400, "A student field is too long.");
+            if (typeof value === "string" && value.length > (field === "notes" ? 4000 : field === "email" ? 254 : field === "phone" ? 100 : 12000)) throw new StaffError(400, "A student field is too long.");
+            if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new StaffError(400, "Enter a valid email address.");
           }
         },
       });
-      const allowed = new Set(["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes"]);
+      const allowed = new Set(["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"]);
       if (!input.patch || Object.keys(input.patch).length === 0 || Object.keys(input.patch).some((field) => !allowed.has(field))) throw new StaffError(400, "Only the listed student support details can be changed.");
       return mutate(actor, input, "student update", (data) => {
         const student = data.students.find((item) => item.id === input.id);
         if (!student) throw new StaffError(404, "Student not found.");
         for (const [field, value] of Object.entries(input.patch)) {
           if (["enrolled", "receivedBackpack"].includes(field) && ![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
+          if (typeof value === "string" && value.length > (field === "notes" ? 4000 : field === "email" ? 254 : field === "phone" ? 100 : 12000)) throw new StaffError(400, "A student field is too long.");
+          if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new StaffError(400, "Enter a valid email address.");
           student[field] = typeof value === "string" ? text(value) : value;
         }
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: Object.keys(input.patch).join(",") });
@@ -259,11 +262,18 @@ export function createUnifiedRepository(store) {
       return mutate(actor, input, "student added", (data) => {
         const name = text(input.name || "", 200).trim();
         if (!name) throw new StaffError(400, "Enter the student's full name.");
-        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber: text(input.matriculationNumber || "", 100), country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), enrolled: null, accommodation: "", address: "", receivedBackpack: null, cityRegistration: "", notes: "", updatedAt: now(), updatedBy: actor.name };
+        const matriculationNumber = text(input.matriculationNumber || "", 100).trim();
+        const normalizedMatriculationNumber = matriculationNumber.toLocaleLowerCase("en");
+        if (normalizedMatriculationNumber && data.students.some((student) => String(student.matriculationNumber || "").trim().toLocaleLowerCase("en") === normalizedMatriculationNumber)) {
+          throw new StaffError(409, "A student with this matriculation number already exists.");
+        }
+        const email = text(input.email || "", 254).trim();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new StaffError(400, "Enter a valid email address.");
+        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: "", address: "", receivedBackpack: null, cityRegistration: "", notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
         data.students.push(student);
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: "Student created" });
         return student.id;
-      }, { major: true });
+      }, { major: true, safeRetry: true });
     },
     async checkIn(actor, input) {
       return mutate(actor, input, "daily operations", (data) => {

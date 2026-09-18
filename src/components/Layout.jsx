@@ -17,7 +17,7 @@ export default function Layout() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <AppHeader key={pathname} />
+      <AppHeader key={pathname} semesterLabel={content.config?.data?.semesterLabel || content.onboarding?.data?.semesterLabel || ""} />
       <main
         id="main"
         className={pathname === "/" || pathname === "/journey" ? "main-wide" : undefined}

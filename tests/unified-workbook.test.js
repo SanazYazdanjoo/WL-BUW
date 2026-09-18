@@ -41,6 +41,26 @@ test("parser locates headers, preserves supplied IDs, assigns stable IDs to blan
   assert.equal(JSON.stringify(publicContent).includes("Students"), false);
 });
 
+test("student contact fields round-trip and older workbooks without them remain readable", async () => {
+  const student = { id: "stu_12345678-1234-4234-8234-123456789abc", name: "Example Student", country: "Germany", studyProgram: "European Urban Studies", phone: "+49 123 456", email: "student@example.org", notes: "Call after arrival" };
+  const current = await loadWorkbook(Buffer.from(await createUnifiedWorkbook({ settings, students: [student] }).xlsx.writeBuffer()));
+  const parsed = await parseUnifiedWorkbook(Buffer.from(await current.xlsx.writeBuffer()));
+  assert.equal(parsed.data.students[0].phone, student.phone);
+  assert.equal(parsed.data.students[0].email, student.email);
+  assert.equal(parsed.data.students[0].notes, student.notes);
+
+  const legacySheet = current.getWorksheet("Students");
+  legacySheet.spliceColumns(13, 2);
+  const legacy = await parseUnifiedWorkbook(Buffer.from(await current.xlsx.writeBuffer()));
+  assert.equal(legacy.data.students[0].name, student.name);
+  assert.equal(legacy.data.students[0].notes, student.notes);
+  assert.equal(legacy.data.students[0].phone, "");
+  assert.equal(legacy.data.students[0].email, "");
+  const upgradedBytes = Buffer.from(await createUnifiedWorkbook(legacy.data).xlsx.writeBuffer());
+  const upgraded = await parseUnifiedWorkbook(upgradedBytes);
+  assert.equal(upgraded.data.students[0].studyProgram, student.studyProgram);
+});
+
 test("blank content IDs are unique and active First Step links outside BUW are warned without rewriting", async () => {
   const parsed = await parseUnifiedWorkbook(await workbookBytes([
     { section: "First Step", order: 1, title: "Accommodation", text: "Find housing information.", link: "https://example.org/housing", active: true },

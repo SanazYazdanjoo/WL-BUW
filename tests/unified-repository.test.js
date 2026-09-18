@@ -106,6 +106,27 @@ test("a student autosave and check-in racing against one workbook both persist",
   assert.equal(parsed.data.activity.filter((item) => item.type === "Check-in" && item.studentId === studentId).length, 1);
 });
 
+test("student creation stores phone, email and note/comment in the private workbook", async () => {
+  const staffId = "staff_32345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  const { etag } = await repo.workspace();
+  await repo.addStudent(actor, { etag, name: "New Student", matriculationNumber: "12345", country: "Germany", studyProgram: "European Urban Studies", phone: "+49 123", email: "student@example.org", notes: "Call after arrival" });
+  const { data } = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.match(data.students[0].legacyDate, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(data.students[0].matriculationNumber, "12345");
+  assert.equal(data.students[0].phone, "+49 123");
+  assert.equal(data.students[0].email, "student@example.org");
+  assert.equal(data.students[0].notes, "Call after arrival");
+  const latest = await repo.workspace();
+  await assert.rejects(repo.addStudent(actor, { etag: latest.etag, name: "Invalid Email", email: "not-an-email" }), (error) => error.status === 400);
+  await assert.rejects(repo.addStudent(actor, { etag: latest.etag, name: "Duplicate Student", matriculationNumber: " 12345 " }), (error) => error.status === 409 && error.message === "A student with this matriculation number already exists.");
+});
+
 test("template initialization is explicit, inactive and never overwrites an existing workbook", async () => {
   const store = memoryStore(null);
   const repo = createUnifiedRepository(store);

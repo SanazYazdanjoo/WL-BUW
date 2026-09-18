@@ -35,7 +35,7 @@ function ContentItemEditor({ item, save, onDone }) {
 
 export function ContentManagementPage() {
   const { session, refreshRoster } = useOutletContext();
-  const [data, setData] = useState(null), [status, setStatus] = useState(null), [form, setForm] = useState(null), [staffForm, setStaffForm] = useState(null), [settingsForm, setSettingsForm] = useState(null), [semesterLabel, setSemesterLabel] = useState(""), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  const [data, setData] = useState(null), [status, setStatus] = useState(null), [form, setForm] = useState(null), [staffForm, setStaffForm] = useState(null), [settingsForm, setSettingsForm] = useState(null), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
   const reload = useCallback(async () => {
     try {
       const [content, workbookStatus] = await Promise.all([staffRequest("content"), staffRequest("workbook/status")]);
@@ -62,6 +62,7 @@ export function ContentManagementPage() {
       setForm(null); setStaffForm(null);
       await reload();
       if (action === "staff/save") await refreshRoster?.();
+      if (action === "settings/save") window.dispatchEvent(new Event("staff-semester-updated"));
       return result;
     } catch (e) { setError(e.message); return null; }
     finally { setBusy(false); }
@@ -71,23 +72,9 @@ export function ContentManagementPage() {
     await reload();
     return result;
   }
-  async function initialize() {
-    if (!window.confirm("Create Welcome-Lounge.xlsx from the existing private content and staff data? Existing files will be kept unchanged.")) return;
-    setBusy(true); setError("");
-    try { await staffRequest("workbook/initialize", { csrf: session.csrf, body: { confirm: true, semesterLabel } }); setMessage("The unified workbook was created. Review its content and settings before making further changes."); await reload(); }
-    catch (e) { setError(e.message); }
-    finally { setBusy(false); }
-  }
-  async function createTemplate() {
-    if (!window.confirm("Create a new workbook with inactive fictional examples? It will not include existing content or student data.")) return;
-    setBusy(true); setError("");
-    try { await staffRequest("workbook/create-template", { csrf: session.csrf, body: { confirm: true, semesterLabel } }); setMessage("The safe starter workbook was created. Replace the inactive examples and add the staff list."); await reload(); await refreshRoster?.(); }
-    catch (e) { setError(e.message); }
-    finally { setBusy(false); }
-  }
   if (error && !status) return <div className="staff-page"><h1>Content</h1><p role="alert">{error}</p><button onClick={reload}>Retry</button></div>;
   if (!status) return <p role="status">Loading workbook status…</p>;
-  if (!data) return <div className="staff-page"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : `Welcome-Lounge.xlsx is ${status.workbook === "missing" ? "not initialized" : status.workbook === "invalid" ? "not readable" : "not available"}.`}</p><p>Existing workbooks and published content have not been changed.</p>{status.workbook === "missing" && <><form className="staff-form" onSubmit={(event) => { event.preventDefault(); initialize(); }}><label>Current semester<input required maxLength={100} value={semesterLabel} onChange={(event) => setSemesterLabel(event.target.value)} placeholder="e.g. Winter Semester 2026/27" /></label><div className="button-row"><button className="primary" disabled={busy}>Import existing data</button><button type="button" disabled={busy || !semesterLabel.trim()} onClick={createTemplate}>Create from safe template</button><a href="/api/staff/workbook/template">Download template</a></div></form><p>The template has inactive examples only. Choose Import to migrate existing public and staff data; existing files remain unchanged.</p></>}{error && <p role="alert">{error}</p>}</div>;
+  if (!data) return <div className="staff-page"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1>{status.workbook === "missing" ? <section className="staff-dashboard-section"><h2>Upload the operational workbook</h2><p>Upload <strong>Welcome-Lounge.xlsx</strong> to the root of the configured Nextcloud app folder. Then refresh this page; the app will read it automatically.</p><p>This is separate from <strong>content-source/Welcome-Lounge-Content.xlsx</strong>, which contains public student information.</p></section> : <p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : status.workbook === "invalid" ? "Welcome-Lounge.xlsx was found but could not be read. Check that it is the operational workbook and that the configured Nextcloud account can access it." : "Welcome-Lounge.xlsx is not available. Check that it is uploaded to the configured Nextcloud app folder and that the app has access."}</p>}{error && <p role="alert">{error}</p>}<button type="button" onClick={reload}>Refresh workbook status</button></div>;
   const items = data.items;
   return <div className="staff-page staff-content-page">
     <header className="staff-page-heading"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p className="staff-page-lead">Changes save automatically. They appear on the student site after the next request.</p></header>

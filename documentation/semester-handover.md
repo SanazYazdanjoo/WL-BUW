@@ -6,7 +6,7 @@ This is the short operational handover for a colleague who maintains the student
 
 Edit the private Nextcloud workbook `content-source/Welcome-Lounge-Content.xlsx`. Use stable IDs, update active rows and review dates, and keep student data out of it. Then open **Staff â†’ Content**, preview the update, review every change and warning, and publish. Saving the workbook does not itself change the student site. The publish operation saves a timestamped private backup and updates the runtime release in Nextcloud; it does not require GitHub or a Vercel deployment.
 
-If the workbook does not exist, use **Download a clean workbook template** in Staff â†’ Content and upload the downloaded file to the specified private folder. Never replace an existing workbook without a recoverable copy.
+If the operational workbook does not exist, prepare `Welcome-Lounge.xlsx` in the documented six-sheet format and upload it to the root of the configured Nextcloud app folder. Staff → Content can refresh the status after upload. The app setup screen does not create, import, or download this workbook. Never replace an existing workbook without a recoverable copy.
 
 ## Current Nextcloud location (temporary)
 

@@ -18,18 +18,20 @@ The server-side filename defaults to `Welcome-Lounge.xlsx`; `NEXTCLOUD_WORKBOOK_
 
 - **Settings**: one `Setting | Value` table for Semester, WhatsApp Group URL, WhatsApp Enabled, Last Reviewed, and the app-managed Workbook Version. No credentials belong here.
 - **Content**: one row per student-facing item: Section, Order, Title, Text, Link, Active, ID. Sections are First Step, Useful Info, Student Support, Community, and Help. The app generates IDs for new rows and keeps existing IDs stable; First Step IDs preserve browser progress.
-- **Students**: private student support records. Matriculation numbers are stored as text, and app-generated IDs—not matriculation numbers—are primary identifiers.
+- **Students**: private student support records, including country, study programme, phone, email and Note / Comment. Matriculation numbers are stored as text, and app-generated IDs—not matriculation numbers—are primary identifiers. Older workbooks without the Phone and Email columns remain readable; the app adds those columns the next time a workbook update is saved.
+
+In the staff student form, Country suggestions use a standard country-name list. Study programme suggestions include the university's published programme names and values already present in the student/tutor roster; tutors can type another value when needed. The programme suggestions are convenience values, not an authoritative validation list.
 - **Activity**: private chronological check-ins, handovers, student/content updates and operational changes. The app adds rows and attributes them to the selected staff identity.
 - **Staff**: names, role, programme and optional contact details used for display and attribution. Authentication secrets remain in server environment configuration.
 - **Shifts**: shift date/time, up to three tutors, event and notes. Summaries are calculated from rows; no formula sheet is used.
 
 Normal staff should use the staff web interface. Direct Excel editing is a fallback: keep sheet names and headings unchanged, preserve IDs, and save the file in Nextcloud. The app reads the latest ETag before a mutation. Stale browser forms receive a plain-language conflict and must be reloaded; conditional `If-Match` writes prevent silent last-writer-wins updates. Whether the university Nextcloud deployment enforces these WebDAV preconditions is an operational acceptance check; automated tests verify that the conditions are sent and that conflicts are surfaced, not the live university server behavior.
 
-## Migration and first setup
+## First setup
 
-In Staff → Content, a coordinator can initialize `Welcome-Lounge.xlsx` from existing private state, the previous content workbook, published content, and MasterExcel when present. The server validates sources before writing and creates the target only if it does not already exist. A stale or invalid source stops migration with an actionable error. Existing files remain untouched. If no current semester can be derived, enter the semester in the setup form; the app does not infer it from the root-folder name.
+Prepare the operational workbook using the documented six-sheet structure, save it with the exact filename `Welcome-Lounge.xlsx`, and upload it to the root of the configured Nextcloud app folder. Do not put it in `content-source/`: `content-source/Welcome-Lounge-Content.xlsx` is a separate public-content source. After uploading, open Staff → Content and select **Refresh workbook status**. When the workbook is available, the app reads and updates it directly. The app does not infer the semester from the folder name.
 
-The generated local template is available with `npm run workbook:template` at `templates/Welcome-Lounge-Template.xlsx`. It contains exactly the six tabs, inactive fictional content rows, dropdowns, filters and no real student data. Set the semester before using it as an application workbook.
+The coordinator setup page does not create, import, or download operational workbooks. This avoids accidental initialization from the wrong source; existing files remain untouched until the prepared workbook is uploaded.
 
 ## Public/private boundary
 

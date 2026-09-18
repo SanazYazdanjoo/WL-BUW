@@ -7,7 +7,7 @@ export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
-  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes"],
+  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes", "Phone", "Email"],
   Activity: ["ID", "Timestamp", "Type", "Student ID", "Actor", "Note"],
   Staff: ["ID", "Name", "Role", "Program", "Email", "Phone", "Telegram", "Active"],
   Shifts: ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"],
@@ -41,11 +41,13 @@ const dateCell = (value, context, optional = true) => {
   if (!cellText(value)) return optional ? "" : (() => { throw new WorkbookError(`${context} is required.`); })();
   try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or YYYY-MM-DD.`); }
 };
+const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email"]) };
 const readTable = (workbook, name) => {
   const sheet = workbook.getWorksheet(name);
   if (!sheet) throw new WorkbookError(`The ${name} sheet is missing.`);
   const allRows = rows(sheet);
-  const header = allRows.find(({ values }) => HEADERS[name].every((label) => values.map(key).includes(key(label))));
+  const requiredHeaders = HEADERS[name].filter((label) => !OPTIONAL_HEADERS[name]?.has(label));
+  const header = allRows.find(({ values }) => requiredHeaders.every((label) => values.map(key).includes(key(label))));
   if (!header) throw new WorkbookError(`The ${name} sheet has missing or renamed column headings.`);
   const headers = header.values.map(key);
   return { sheet, header, dataRows: allRows.filter((row) => row.number > header.number), col: Object.fromEntries(HEADERS[name].map((label) => [label, headers.indexOf(key(label))])) };
@@ -114,7 +116,7 @@ export async function parseUnifiedWorkbook(bytes) {
     studentIds.add(id);
     const enrolled = bool(valueAt(row, tables.Students, "Enrolled"), `Students row ${row.number} Enrolled`);
     const receivedBackpack = bool(valueAt(row, tables.Students, "Backpack Received"), `Students row ${row.number} Backpack Received`);
-    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation: cellText(valueAt(row, tables.Students, "Accommodation")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration: cellText(valueAt(row, tables.Students, "City Registration")), notes: cellText(valueAt(row, tables.Students, "Notes")), updatedAt: "", updatedBy: "" });
+    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation: cellText(valueAt(row, tables.Students, "Accommodation")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration: cellText(valueAt(row, tables.Students, "City Registration")), notes: cellText(valueAt(row, tables.Students, "Notes")), phone: cellText(valueAt(row, tables.Students, "Phone")), email: cellText(valueAt(row, tables.Students, "Email")), updatedAt: "", updatedBy: "" });
   }
   const staff = [], staffIds = new Set();
   for (const row of tables.Staff.dataRows) {
@@ -206,7 +208,7 @@ export function createUnifiedWorkbook(data = {}) {
     contentSheet.getCell(row, 1).dataValidation = { type: "list", allowBlank: true, formulae: ['"First Step,Useful Info,Student Support,Community,Help"'] };
     contentSheet.getCell(row, 6).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
-  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes]));
+  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email]));
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
   addSheet(workbook, "Activity", (data.activity || []).map((a) => [a.id, a.timestamp, a.type, a.studentId, a.actor, a.note]));

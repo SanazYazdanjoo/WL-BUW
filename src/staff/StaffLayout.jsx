@@ -1,13 +1,15 @@
 ﻿import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { staffRequest } from "./service";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
     [loading, setLoading] = useState(true),
     [roster, setRoster] = useState(null),
+    [semesterLabel, setSemesterLabel] = useState(""),
     [actorBusy, setActorBusy] = useState(false),
     [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   async function loadRoster() {
     try { setRoster(await staffRequest("roster")); }
     catch { setRoster({ staff: [], etag: null }); }
@@ -28,6 +30,19 @@ export default function StaffLayout() {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    if (!session) return;
+    let active = true;
+    const loadSemester = () => Promise.allSettled([staffRequest("config"), staffRequest("workspace")]).then(([configResult, workspaceResult]) => {
+      if (!active) return;
+      const published = configResult.status === "fulfilled" ? configResult.value?.config?.semesterLabel || "" : "";
+      const operational = workspaceResult.status === "fulfilled" ? workspaceResult.value?.data?.semesterLabel || "" : "";
+      setSemesterLabel(published || operational);
+    });
+    loadSemester();
+    window.addEventListener("staff-semester-updated", loadSemester);
+    return () => { active = false; window.removeEventListener("staff-semester-updated", loadSemester); };
+  }, [session, location.pathname]);
   async function login(event) {
     event.preventDefault();
     setError("");
@@ -63,6 +78,12 @@ export default function StaffLayout() {
       setError(e.message);
     }
   }
+  function goBack() {
+    const path = location.pathname;
+    if (/^\/staff\/students\/[^/]+$/.test(path)) return navigate("/staff/students");
+    if (path !== "/staff/dashboard") return navigate("/staff/dashboard");
+    navigate("/");
+  }
   return (
     <div className="app-container staff">
       <a className="skip-link" href="#staff-main">
@@ -73,10 +94,16 @@ export default function StaffLayout() {
           <span className="staff-brand-mark" aria-hidden="true" />
           <span>
             <strong>Welcome Lounge</strong>
-            <small>Private staff workspace</small>
+            {semesterLabel && <small>{semesterLabel}</small>}
           </span>
         </Link>
-        {session && <button className="staff-signout" onClick={logout}>Sign out</button>}
+        <span className="staff-header-title">Private staff workspace</span>
+        {session && <div className="staff-header-account">
+          <span className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
+            Signed in as {session.name} · {session.role === "admin" ? "Coordinator" : "Tutor"}
+          </span>
+          <button className="staff-signout" onClick={logout}>Sign out</button>
+        </div>}
       </header>
       {error && <p role="alert">{error}</p>}
       {loading ? (
@@ -132,9 +159,6 @@ export default function StaffLayout() {
             </main>
           ) : (
           <>
-          <p className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
-            Signed in as {session.name} · {session.role === "admin" ? "coordinator" : "tutor"}. Your name is used for pilot activity notes.
-          </p>
           <nav className="staff-nav" aria-label="Staff navigation">
             {[
               ["dashboard", "Today"],
@@ -153,6 +177,10 @@ export default function StaffLayout() {
               </NavLink>
             ))}
           </nav>
+          <div className="staff-page-actions">
+            <button type="button" className="staff-back-button" onClick={goBack} aria-label="Go back">← Back</button>
+            <button type="button" className="staff-cancel-button" onClick={() => navigate("/staff/dashboard")}>Cancel</button>
+          </div>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>

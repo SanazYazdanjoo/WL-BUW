@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
-export default function AppHeader() {
+export default function AppHeader({ semesterLabel = "" }) {
   const [open, setOpen] = useState(false);
   const menuButton = useRef(null);
   const { pathname } = useLocation();
@@ -20,6 +20,7 @@ export default function AppHeader() {
         <span>
           Welcome Lounge
           <span className="university">Bauhaus-Universität Weimar</span>
+          {semesterLabel && <span className="brand-semester">{semesterLabel}</span>}
         </span>
       </Link>
       <button

@@ -49,13 +49,13 @@ npm run workbook:template
 
 ## Vercel
 
-The existing Vercel/GitHub project remains the deployment path. Pushes to `main` trigger the existing Git integration. This repository uses Vite and Node API routes; it is not a Next.js app. Set credentials through the existing project's server-only Environment Variables. After an authorized coordinator creates and reviews `Welcome-Lounge.xlsx`, the app detects it on the next request and uses it. Verify the production domain and run staff, public-content and backup smoke checks after deployment. No Nextcloud credentials or workbook are committed here.
+The existing Vercel/GitHub project remains the deployment path. Pushes to `main` trigger the existing Git integration. This repository uses Vite and Node API routes; it is not a Next.js app. Set credentials through the existing project's server-only Environment Variables. Upload the prepared operational workbook as `Welcome-Lounge.xlsx` to the configured Nextcloud app-folder root; the app detects it on the next request. Verify the production domain and run staff, public-content and backup smoke checks after deployment. No Nextcloud credentials or workbook are committed here.
 
 ## Data ownership and migration
 
 When unified workbook mode is enabled, the source of truth for human-maintained data is `<NEXTCLOUD_ROOT_FOLDER>/Welcome-Lounge.xlsx`. Staff normally use the authenticated UI; the workbook remains a portable handover, backup and emergency fallback. The six sheets and recovery process are described in [the unified workbook guide](documentation/excel-database.md).
 
-Existing `Welcome-Lounge-Content.xlsx`, `MasterExcel.xlsx`, published JSON and `staff-data/state.json` remain untouched. An authorized coordinator can initialize the unified workbook from existing validated data. The app never derives the semester from the folder name. Failed/ambiguous migration stops with an error rather than silently dropping invalid source data. Generated JSON and bundled files remain fixtures/fallbacks and automatic systems are kept separate from workbook content.
+Existing `Welcome-Lounge-Content.xlsx`, `MasterExcel.xlsx`, published JSON and `staff-data/state.json` remain untouched. To start unified workbook mode, upload a prepared `Welcome-Lounge.xlsx` to the configured app-folder root. The app never derives the semester from the folder name. Generated JSON and bundled files remain fixtures/fallbacks and automatic systems are kept separate from workbook content.
 
 The old [content workbook guide](documentation/content-workbook-guide.md) and [MasterExcel guide](documentation/master-excel-guide.md) describe legacy migration inputs. For normal work, use the staff web interface. See [semester handover](documentation/semester-handover.md), [operations](documentation/operations.md), [technical implementation](documentation/technical-implementation.md) and [decisions](documentation/decisions.md).
 
