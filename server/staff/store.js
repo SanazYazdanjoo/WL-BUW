@@ -19,7 +19,8 @@ export function staffPaths(env) {
   if (new Set(Object.values(dirs)).size !== 4)
     throw new StaffError(503, "Staff folders must be separate.");
   const master = env.STAFF_MASTER_WORKBOOK || `${dirs.staff}/MasterExcel.xlsx`,
-    editorial = env.CONTENT_SOURCE_WORKBOOK || `${dirs.source}/Welcome-Lounge-Content.xlsx`;
+    editorial = env.CONTENT_SOURCE_WORKBOOK || `${dirs.source}/Welcome-Lounge-Content.xlsx`,
+    workbookName = env.NEXTCLOUD_WORKBOOK_FILE || "Welcome-Lounge.xlsx";
   if (
     cleanPath(master) !== master ||
     !master.startsWith(dirs.staff + "/") ||
@@ -27,10 +28,16 @@ export function staffPaths(env) {
     !editorial.startsWith(dirs.source + "/")
   )
     throw new StaffError(503, "Workbook folder configuration needs review.");
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}\.xlsx$/i.test(workbookName) || workbookName.includes(".."))
+    throw new StaffError(503, "Unified workbook filename configuration needs review.");
   return {
     ...dirs,
     master,
     editorial,
+    unified: workbookName,
+    unifiedName: workbookName,
+    unifiedBackups: "backups",
+    unifiedBackupStatus: `${dirs.meta}/unified-workbook-backup-status.json`,
     state: `${dirs.staff}/state.json`,
     release: "app-content/published.json",
     history: `${dirs.meta}/publish-history.json`,
@@ -47,6 +54,7 @@ export function createPrivateStore(env, fetchImpl = fetch) {
   const permitted = (path) =>
     path === paths.master ||
     path === paths.editorial ||
+    path === paths.unified ||
     path === paths.state ||
     path === paths.release ||
     Object.values(paths.officialSources).includes(path) ||
@@ -56,7 +64,9 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       ) ||
       path === paths.history ||
       path === paths.workbookStatus ||
+      path === paths.unifiedBackupStatus ||
       path.startsWith(paths.backups + "/") ||
+      path.startsWith(paths.unifiedBackups + "/") ||
     path.startsWith(paths.staff + "/backups/");
   const request = async (path, options = {}) => {
     if (cleanPath(path) !== path || !permitted(path))
@@ -86,8 +96,12 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       );
     }
   };
-  async function read(path, limit = 8 * 1024 * 1024) {
-    const response = await request(path);
+  async function read(path, limit = 8 * 1024 * 1024, etag = "") {
+    const response = await request(path, etag ? { headers: { "If-None-Match": etag } } : {});
+    if (response.status === 304) {
+      await response.body?.cancel();
+      return { value: null, etag, notModified: true };
+    }
     if (response.status === 404) {
       await response.body?.cancel();
       return { value: null, etag: null };

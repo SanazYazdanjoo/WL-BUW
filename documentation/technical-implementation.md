@@ -1,4 +1,4 @@
-# Technical implementation
+﻿# Technical implementation
 
 ## Architecture
 
@@ -61,7 +61,7 @@ The topic schema adds an optional `eyebrow` without breaking existing version-1 
 
 Vercel security headers include CSP, nosniff and referrer policy. Local Vite development allows its normal development tooling. Institutional production review, live Nextcloud/Vercel verification, accessible testing with students, and approved contact/privacy details remain required.
 
-## Workbook/staff implementation update — 2026-09-17
+## Workbook/staff implementation update â€” 2026-09-17
 
 New server modules: `server/excel/` (bounded ExcelJS parsers/export), `server/staff/auth.js` (pilot session/role/CSRF), `store.js` (private confined WebDAV conditional writes), `repository.js` (imports, publication, operational records), `api.js` (protected routes). `server/api.js` composes this with existing public content/download handlers. Vite loads only server configuration prefixes into middleware; no staff/Nextcloud secrets are injected into client code.
 
@@ -96,3 +96,9 @@ The new JourneyMap component renders topic links in semantic source order, while
 `scripts/generate-content-workbook.js` creates the safe seven-sheet template using the existing ExcelJS dependency. `server/excel/editorialContentWorkbook.js` parses it only for staff preview/publish; it checks stable IDs, ordering, dates, booleans, semester/WhatsApp settings, public URLs, sheet headers and size limits, and drops `notes_internal` and editor identity from public content. The older workbook parser remains for transition.
 
 `server/staff/repository.js` binds a short-lived HMAC preview proof to workbook bytes, current release, semester and admin session. Publish rereads/reparses the source, stores a timestamped private folder with the workbook, prior release/content and metadata, then conditionally writes the single atomic `app-content/published.json` runtime release. Private status/history are stored under `content-meta/`; admin restore creates a new release. Students read validated Nextcloud content at runtime, so publishing does not require a Vercel redeployment. Existing structured operational state remains in private Nextcloud with ETag conflict protection; MasterExcel remains separate import/export/backup compatibility.
+
+## Unified workbook mode
+
+When `NEXTCLOUD_WORKBOOK_FILE` is configured (normally `Welcome-Lounge.xlsx`), `server/staff/store.js` confines private WebDAV reads/writes to fixed paths relative to `NEXTCLOUD_ROOT_FOLDER`. `server/excel/unifiedWorkbook.js` owns the six-tab schema, parser, validation, ID assignment, serialization and public active-content projection. `server/staff/unifiedRepository.js` owns semantic mutations, actor attribution, daily/major backups and conditional writes. The React staff pages send only semantic JSON changes; workbook bytes and ExcelJS stay server-side. `server/content.js` checks the configured workbook ETag, reuses its normalized per-instance cache when unchanged, and refreshes on change. If the configured workbook is missing/invalid with no last-good cache, it serves only labelled bundled fallback content rather than a legacy release. Existing published JSON and `staff-data/state.json` remain in use only until workbook mode is explicitly enabled or as migration inputs.
+
+The write path validates the request, parses current workbook bytes, applies a single mutation, serializes and reparses the candidate fully in memory, creates a private pre-change snapshot, and PUTs with `If-Match` against the ETag read for the mutation. A preflight ETag mismatch or WebDAV 409/412 is returned as a plain conflict; the client must reload and review. Automated tests can verify headers and simulated conflicts, but cannot establish that production Nextcloud enforces WebDAV compare-and-swap; that is a required deployment acceptance test. See [the workbook guide](excel-database.md).

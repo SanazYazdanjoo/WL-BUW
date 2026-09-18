@@ -17,3 +17,5 @@ The Welcome Lounge Digital Companion supports anonymous student onboarding at Ba
 The root README distinguishes implemented, partial and pending features. The original file-browser decisions in the history are superseded where stated. Update these documents after meaningful changes; never describe planned work as implemented or include credentials.
 
 Additional maintenance guides: [MasterExcel](master-excel-guide.md) and [Staff operations](staff-operations-guide.md). Public semester text and links come from the workbook; generated runtime JSON is not edited by staff.
+
+| [Unified workbook and recovery](excel-database.md) | Six-sheet Welcome-Lounge.xlsx, staff workflow, migration, privacy, conditional writes and backup recovery |

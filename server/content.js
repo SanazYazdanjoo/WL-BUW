@@ -12,6 +12,8 @@ import config from "../content/app-content/config.json" with { type: "json" };
 import onboarding from "../content/app-content/onboarding.json" with { type: "json" };
 import events from "../content/app-content/events.json" with { type: "json" };
 import afterArrival from "../content/app-content/after-arrival.json" with { type: "json" };
+import { createPrivateStore } from "./staff/store.js";
+import { parseUnifiedWorkbook, publicContentFromWorkbook } from "./excel/unifiedWorkbook.js";
 const samples = {
   config,
   onboarding,
@@ -26,6 +28,52 @@ const samples = {
   "official-links": officialLinks,
 };
 const optionalWorkbookKinds = new Set(["support-resources", "community-resources", "official-links"]);
+const unifiedCache = new Map();
+const legacyOnlyKinds = new Set(["events", "community", "official-links"]);
+function cacheKey(env) {
+  return `${env.NEXTCLOUD_BASE_URL || ""}|${env.NEXTCLOUD_ROOT_FOLDER || ""}|${env.NEXTCLOUD_WORKBOOK_FILE || "Welcome-Lounge.xlsx"}`;
+}
+function unifiedWorkbookEnabled(env) {
+  // The target filename is the safe default. An explicit empty value lets
+  // tests and emergency rollbacks retain the legacy release reader.
+  return env.NEXTCLOUD_WORKBOOK_FILE !== "";
+}
+async function readUnifiedContent(env, fetchImpl) {
+  const key = cacheKey(env);
+  const previous = unifiedCache.get(key);
+  try {
+    const store = createPrivateStore(env, fetchImpl);
+    const file = await store.read(store.paths.unified, 10 * 1024 * 1024, previous?.etag || "");
+    if (file.notModified && previous) return { content: previous.content, status: previous.status };
+    if (!file.value) {
+      if (previous) return { content: previous.content, status: { ...previous.status, stale: true, state: "stale" } };
+      return { missing: true, content: null, status: { etag: "", lastModified: "", stale: false, state: "missing" } };
+    }
+    const parsed = await parseUnifiedWorkbook(file.value);
+    const content = publicContentFromWorkbook(parsed, { config });
+    const status = { etag: file.etag || "", lastModified: file.lastModified || "", stale: false, state: "current" };
+    unifiedCache.set(key, { etag: status.etag, content, status });
+    return { content, status };
+  } catch {
+    if (previous) return { content: previous.content, status: { ...previous.status, stale: true, state: "stale" } };
+    return { unavailable: true, content: null, status: { etag: "", lastModified: "", stale: false, state: "invalid" } };
+  }
+}
+async function legacyExtras(env, fetchImpl) {
+  try {
+    const release = await readPublicJson("app-content/published.json", env, fetchImpl, 4 * 1024 * 1024);
+    const extra = release?.version === 1 && release.content
+      ? Object.fromEntries([...legacyOnlyKinds].map((kind) => [kind, release.content[kind]]).filter(([, value]) => value))
+      : {};
+    try {
+      const automaticCommunity = await readPublicJson("app-content/community.json", env, fetchImpl, 512000);
+      if (automaticCommunity) extra.community = automaticCommunity;
+    } catch { /* The bundled automatic-feed configuration remains available. */ }
+    return extra;
+  } catch {
+    return {};
+  }
+}
 export async function loadContentBundle(env, fetchImpl = fetch) {
   const data = {},
     sources = {};
@@ -35,6 +83,27 @@ export async function loadContentBundle(env, fetchImpl = fetch) {
       data[kind] = validateContent(kind, sample);
     }
     return { sources, data };
+  }
+  const unified = unifiedWorkbookEnabled(env) ? await readUnifiedContent(env, fetchImpl) : null;
+  if (unified?.unavailable) {
+    return { sources: Object.fromEntries(Object.keys(samples).map((kind) => [kind, "demo"])), data: Object.fromEntries(Object.entries(samples).map(([kind, sample]) => [kind, validateContent(kind, sample)])), workbook: { status: unified.status.state, lastModified: "" } };
+  }
+  if (unified) {
+    const extras = await legacyExtras(env, fetchImpl);
+    const data = {};
+    for (const [kind, sample] of Object.entries(samples)) {
+      const value = unified.content[kind] || extras[kind] || sample;
+      try { data[kind] = validateContent(kind, value); }
+      catch { data[kind] = validateContent(kind, sample); }
+    }
+    data["after-arrival"] = validateContent("after-arrival", { version: 1, topics: [] });
+    data["health-insurance"] = validateContent("health-insurance", { version: 1, providers: [] });
+    data.rundfunk = validateContent("rundfunk", { version: 1, title: "Rundfunkbeitrag", sections: [] });
+    return {
+      sources: Object.fromEntries(Object.keys(samples).map((kind) => [kind, unified.status.stale ? "stale" : unified.content[kind] || extras[kind] ? "nextcloud" : "demo"])),
+      data,
+      workbook: { status: unified.status.stale ? "stale" : "current", lastModified: unified.status.lastModified },
+    };
   }
   try {
     const release = await readPublicJson(
@@ -129,6 +198,15 @@ export async function loadContent(kind, env, fetchImpl = fetch) {
   try {
     if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD)
       throw new Error("unconfigured");
+    const unified = unifiedWorkbookEnabled(env) ? await readUnifiedContent(env, fetchImpl) : null;
+    if (unified?.unavailable) return { source: "demo", data: validateContent(kind, samples[kind]), workbook: { status: unified.status.state } };
+    if (unified) {
+      if (unified.content[kind]) return { source: unified.status.stale ? "stale" : "nextcloud", data: validateContent(kind, unified.content[kind]) };
+      if (["after-arrival", "health-insurance", "rundfunk"].includes(kind)) {
+        const empty = kind === "after-arrival" ? { version: 1, topics: [] } : kind === "health-insurance" ? { version: 1, providers: [] } : { version: 1, title: "Rundfunkbeitrag", sections: [] };
+        return { source: "nextcloud", data: validateContent(kind, empty) };
+      }
+    }
     const release = await readPublicJson(
       "app-content/published.json",
       env,

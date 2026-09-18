@@ -35,6 +35,17 @@ export function safeLink(value) {
     return "";
   }
 }
+export function inferLinkLabel(value) {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    if (host === "uni-weimar.de" || host.endsWith(".uni-weimar.de")) return "Official information";
+    if (host === "chat.whatsapp.com") return "Open WhatsApp";
+    if (["t.me", "telegram.me"].includes(host)) return "Open Telegram";
+    return "Open link";
+  } catch {
+    return "Open link";
+  }
+}
 function approvedUniversityUrl(value) {
   const url = safeLink(value);
   if (!url) return fail();
@@ -115,7 +126,9 @@ function topic(v) {
       v.eyebrow === undefined ? "Your first weeks" : text(v.eyebrow, 120),
     summary: text(v.summary),
     description: text(v.description),
-    officialSource: v.officialSource ? approvedUniversityUrl(v.officialSource) : "",
+    // Workbook links are staff-reviewed HTTPS destinations. The parser warns
+    // for non-university First Step domains without silently rewriting them.
+    officialSource: v.officialSource ? (safeLink(v.officialSource) || fail()) : "",
     officialSourceLabel: v.officialSourceLabel === undefined ? "" : text(v.officialSourceLabel, 200),
     lastReviewed: v.lastReviewed ? validDate(v.lastReviewed) : "",
     why: text(v.why),
@@ -212,8 +225,8 @@ export function validateContent(kind, value) {
       ...metadata(value),
       links: unique(
         list(value.links).map((l) => {
-          const url = safeInformationLink(l.url);
-          if (!url) fail();
+          const url = l.url ? safeInformationLink(l.url) : "";
+          if (l.url && !url) fail();
           return {
             id: id(l.id),
             order: l.order === undefined ? 0 : Number.isInteger(l.order) && l.order >= 0 ? l.order : fail(),

@@ -1,4 +1,4 @@
-﻿# MasterExcel guide
+> **Current architecture note (2026-09-18):** The target is the six-sheet `Welcome-Lounge.xlsx` workbook and normal staff edits happen in the web UI. Existing files are retained for migration/fallback. Read [the unified workbook guide](excel-database.md) first; older instructions below describe the previous workflow.`r`n`r`n# MasterExcel guide
 
 MasterExcel is an **import/export format**, not the runtime database. Never put it in `documents/` or `app-content/`. The default source is `staff-data/MasterExcel.xlsx`, relative to the configured application root. No real workbook or personal fixture is committed; local copies belong in ignored `local-data/` or `*.local.xlsx`.
 
@@ -30,3 +30,7 @@ Runtime state is `staff-data/state.json`, containing students, tutors, shifts, s
 `/staff/data` exports a fresh familiar four-sheet workbook. Check-ins, handover and audit remain in the structured state and its backups; the four-sheet export is not a complete operational backup. Back up the whole private subtree for institutional handover. No browser localStorage contains staff records.
 
 The actual MasterExcel layout and live Nextcloud conditional writes still need validation with the institution's files and account permissions before real use.
+
+## Current target
+
+MasterExcel remains an import/export compatibility format and a migration source. It is no longer the live staff source of truth when unified workbook mode is enabled. Normal operations use the authenticated staff interface backed by `Welcome-Lounge.xlsx`; the workbook contains student operations, activity, staff, shifts, settings and content. See [unified workbook guide](excel-database.md).

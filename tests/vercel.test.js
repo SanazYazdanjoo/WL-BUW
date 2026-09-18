@@ -12,6 +12,7 @@ test("Vercel handler reads configured content and streams downloads through shar
     NEXTCLOUD_USERNAME: "vercel-test-account",
     NEXTCLOUD_APP_PASSWORD: "vercel-test-secret",
     NEXTCLOUD_ROOT_FOLDER: "/Institutional-App",
+    NEXTCLOUD_WORKBOOK_FILE: "",
     NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
   };
   const previous = Object.fromEntries(

@@ -184,7 +184,9 @@ export function ImportPage({ editorial = false }) {
         {
           csrf: session.csrf,
           body: publish
-            ? {
+            ? preview.sourceHash
+              ? { sourceHash: preview.sourceHash, etag: preview.etag, reviewed, semesterLabel }
+              : {
                 proof: preview.proof,
                 reviewed,
                 confirm: reviewed,
@@ -192,7 +194,7 @@ export function ImportPage({ editorial = false }) {
                 resetProgress,
                 semesterLabel,
                 newSemester,
-              }
+                }
             : {},
         },
       );

@@ -12,6 +12,7 @@
     "test": "node --test",
     "content:check": "node scripts/check-content.js",
     "content:workbook-template": "node scripts/generate-content-workbook.js",
+    "workbook:template": "node scripts/generate-unified-workbook-template.js",
     "sources:check": "node scripts/check-sources.js",
     "sources:sync": "node scripts/sync-sources.js",
     "sources:dry-run": "node scripts/sync-sources.js --dry-run",

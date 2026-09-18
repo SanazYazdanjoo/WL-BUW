@@ -32,6 +32,7 @@ const env = {
   NEXTCLOUD_APP_PASSWORD: "secret",
   NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
   NEXTCLOUD_ROOT_FOLDER: "/Welcome-Lounge-App",
+  NEXTCLOUD_WORKBOOK_FILE: "",
 };
 test("public subtree rejects private, ambiguous and malicious paths", () => {
   for (const path of [

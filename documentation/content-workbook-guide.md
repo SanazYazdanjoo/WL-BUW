@@ -1,4 +1,4 @@
-# Public content workbook
+> **Current architecture note (2026-09-18):** The target is the six-sheet `Welcome-Lounge.xlsx` workbook and normal staff edits happen in the web UI. Existing files are retained for migration/fallback. Read [the unified workbook guide](excel-database.md) first; older instructions below describe the previous workflow.`r`n`r`n# Public content workbook
 
 The Welcome Lounge Content Workbook is the human-editable source of truth for semester-specific public content. Nextcloud is the persistent storage platform. The application generates a validated runtime release from the workbook; staff do not edit generated JSON. Content changes do not require a Git commit or Vercel redeployment.
 
@@ -10,10 +10,10 @@ This location may later move to an International Office-owned folder such as `/W
 
 ## Normal semester workflow
 
-1. Download the safe workbook template from the admin-only **Staff → Content** page if the source workbook has not yet been set up.
+1. Download the safe workbook template from the admin-only **Staff â†’ Content** page if the source workbook has not yet been set up.
 2. Upload it to the private `content-source/` folder under the application root, named `Welcome-Lounge-Content.xlsx`. Do not overwrite an existing workbook without first making a copy in Nextcloud.
 3. Edit and save the workbook in Nextcloud. Keep existing IDs stable. Do not put student personal information or private tutor notes in this workbook.
-4. In **Staff → Content**, choose **Preview update**. Review the workbook timestamp, active item counts, warnings, semester, WhatsApp state, and item-by-item changes.
+4. In **Staff â†’ Content**, choose **Preview update**. Review the workbook timestamp, active item counts, warnings, semester, WhatsApp state, and item-by-item changes.
 5. Confirm the review and publish. The server rereads the workbook, checks that it still matches the preview, validates again, stores a private backup, then conditionally updates the published release. Students receive the new content from the Nextcloud-backed runtime API on their next load; no deployment is needed.
 
 Only an authenticated admin can preview or publish. A changed workbook or published release invalidates the signed, short-lived preview proof. A semester mismatch requires explicit confirmation; changing the semester while reusing numbered `first-step-*` IDs also requires a progress revision reset so old browser progress is not attached to a different step.
@@ -39,6 +39,10 @@ Official university source checks and University Message Board RSS remain automa
 
 ## Backups and recovery
 
-Before publication, the server stores the source workbook, prior published release, previous validated content collections and publication metadata under a timestamped private `content-backups/` folder. A private `content-meta/publish-history.json` index records who published, when, semester, content hash, changed sections, validation warnings and the associated backup folder. Admins can restore a listed earlier publication in Staff → Content; restore itself creates a new release and another backup. Backups and history are not public and are not automatically deleted. Export/retain backups according to university policy.
+Before publication, the server stores the source workbook, prior published release, previous validated content collections and publication metadata under a timestamped private `content-backups/` folder. A private `content-meta/publish-history.json` index records who published, when, semester, content hash, changed sections, validation warnings and the associated backup folder. Admins can restore a listed earlier publication in Staff â†’ Content; restore itself creates a new release and another backup. Backups and history are not public and are not automatically deleted. Export/retain backups according to university policy.
 
 If a content service fails, the student application uses its bundled, clearly labelled fallback content. It never parses the workbook during student requests. The old legacy workbook parser is retained for transition; new maintenance should use the generated `Welcome-Lounge-Content.xlsx` template and its headers.
+
+## Superseded for the unified workbook
+
+The multiple-sheet content workbook described above is a legacy migration input. The current target uses one `Welcome-Lounge.xlsx` with six purpose-specific tabs and normal web-UI editing. Do not ask staff to maintain both live sources. Existing files are retained and are never deleted automatically. Use [the current unified workbook guide](excel-database.md) for the active architecture and transition procedure.

@@ -1,4 +1,4 @@
-# Operations and deployment
+> **Current architecture note (2026-09-18):** The target is the six-sheet `Welcome-Lounge.xlsx` workbook and normal staff edits happen in the web UI. Existing files are retained for migration/fallback. Read [the unified workbook guide](excel-database.md) first; older instructions below describe the previous workflow.`r`n`r`n# Operations and deployment
 
 ## Local setup
 
@@ -74,13 +74,13 @@ Community RSS and verified resource maintenance is described in [community and s
 
 The staff pilot uses shared codes and private Nextcloud state, but shared-code access and self-declared names do not provide institutional identity verification. Confirm authorized roles, retention rules, service-account ownership and privacy information before long-term use. Feedback is not persisted. Hosting-level access logs may contain IP addresses; establish institutional privacy information before public launch.
 
-## Staff/workbook operations update — 2026-09-17
+## Staff/workbook operations update â€” 2026-09-17
 
 The staff placeholder has been replaced with disabled-by-default pilot access and private Nextcloud persistence. Follow [Staff operations](staff-operations-guide.md), [Editorial workbook](content-workbook-guide.md) and [MasterExcel](master-excel-guide.md). These supersede older instructions to maintain all text through JSON and statements that staff records are unimplemented.
 
 Keep the existing Vercel project and Git deployment workflow. Configure the new server-only environment variables through existing project settings; no project-level protection changes were made. Validate with the actual workbooks and a private test subtree before entering real operational data. Synthetic local verification does not establish live Nextcloud write permissions or production deployment readiness.
 
-## Survey-informed product refinement — 2026-09-17
+## Survey-informed product refinement â€” 2026-09-17
 
 The current directional input comprises four Welcome Lounge tutor responses, not a representative survey of International Office staff or students. Public `/info` is an editorial index into existing material, while `/help` clarifies that the app serves common information and WhatsApp remains human support. The staff dashboard now foregrounds today's check-ins, recent handover and attributed updates. Coordinator `/staff/content` (labelled Semester setup) summarizes status and mismatched semester labels, and links to existing preview, import, official-source refresh and MasterExcel export flows. These changes do not alter source data or auto-correct discrepancies. See [preliminary research findings](research-findings.md).
 
@@ -91,4 +91,8 @@ The current host is `https://nextcloud.uni-weimar.de` and root is `/Welcome.Loun
 
 The location is temporary. For permanent handover, use an institutional service account, copy the app-owned folder structure through the approved process, then update environment settings only. See [semester handover](semester-handover.md).
 
-Staff maintain public content in `content-source/Welcome-Lounge-Content.xlsx`, preview and publish in Staff → Content, and restore from its publication history if needed. The generated JSON release is runtime output. Content changes require no deployment; environment changes do. Official-source and RSS caches remain automatic and separate.
+Staff maintain public content in `content-source/Welcome-Lounge-Content.xlsx`, preview and publish in Staff â†’ Content, and restore from its publication history if needed. The generated JSON release is runtime output. Content changes require no deployment; environment changes do. Official-source and RSS caches remain automatic and separate.
+
+## Current workbook architecture (2026-09-18)
+
+The six-sheet `Welcome-Lounge.xlsx` model supersedes the earlier preview/publish content workbook and the separate operational `staff-data/state.json` as the target for human-maintained data. See [the unified workbook guide](excel-database.md). The app checks the default workbook filename and keeps the previous system active while the file is missing; creating it through the authenticated admin migration action switches the app to the unified source. Existing files are retained as migration/fallback sources.

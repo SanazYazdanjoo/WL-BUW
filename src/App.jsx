@@ -9,6 +9,7 @@ import {
   Reports,
 } from "./staff/WorkspacePages";
 import { ImportPage, PrintCenter } from "./staff/CoordinatorPages";
+import { BackupPage, ContentManagementPage } from "./staff/UnifiedWorkbookPages";
 import InformationPage from "./pages/InformationPage";
 import OfficialSourcesPage from "./staff/OfficialSourcesPage";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -38,7 +39,8 @@ export default function App() {
           <Route path="handover" element={<Handover />} />
           <Route path="reports" element={<Reports />} />
           <Route path="data" element={<ImportPage />} />
-          <Route path="content" element={<ImportPage editorial />} />
+          <Route path="content" element={<ContentManagementPage />} />
+          <Route path="backup" element={<BackupPage />} />
           <Route path="sources" element={<OfficialSourcesPage />} />
           <Route path="print" element={<PrintCenter />} />
           <Route path="*" element={<NotFound />} />

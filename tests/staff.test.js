@@ -133,6 +133,13 @@ test("content workbook template is available only to an authenticated admin", as
     assert.equal(sampleResponse.status, 200);
     assert.match(sampleResponse.headers.get("content-disposition"), /MasterExcel-SAMPLE\.xlsx/);
     assert.deepEqual([...new Uint8Array(await sampleResponse.arrayBuffer()).slice(0, 2)], [80, 75]);
+    const unifiedTemplateUrl = `http://127.0.0.1:${server.address().port}/api/staff/workbook/template`;
+    assert.equal((await fetch(unifiedTemplateUrl)).status, 401);
+    assert.equal((await fetch(unifiedTemplateUrl, { headers: { cookie: `wl_staff=${tutor}` } })).status, 403);
+    const unifiedTemplate = await fetch(unifiedTemplateUrl, { headers: { cookie: `wl_staff=${admin}` } });
+    assert.equal(unifiedTemplate.status, 200);
+    assert.match(unifiedTemplate.headers.get("content-disposition"), /Welcome-Lounge-Template\.xlsx/);
+    assert.deepEqual([...new Uint8Array(await unifiedTemplate.arrayBuffer()).slice(0, 2)], [80, 75]);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

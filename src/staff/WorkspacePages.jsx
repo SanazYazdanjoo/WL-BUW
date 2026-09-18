@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useOutletContext } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
 const status = (value) =>
   value === true ? "Yes" : value === false ? "No" : "Unknown";
@@ -172,9 +172,10 @@ export function Dashboard() {
   );
 }
 export function Students() {
-  const { workspace, error } = useWorkspace();
+  const { workspace, error, act } = useWorkspace();
   const [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all");
+    [filter, setFilter] = useState("all"),
+    [newStudent, setNewStudent] = useState({ name: "", matriculationNumber: "", country: "", studyProgram: "" });
   if (!workspace) return <State error={error} />;
   const students = workspace.data.students.filter(
     (s) =>
@@ -203,6 +204,19 @@ export function Students() {
           </select>
         </label>
       </div>
+      {workspace.unified && <details className="staff-dashboard-section">
+        <summary>Add student record</summary>
+        <form className="staff-form" onSubmit={async (event) => {
+          event.preventDefault();
+          if (await act("students/create", newStudent)) setNewStudent({ name: "", matriculationNumber: "", country: "", studyProgram: "" });
+        }}>
+          <label>Full name<input required maxLength={200} value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} /></label>
+          <label>Matriculation number<input inputMode="numeric" maxLength={100} value={newStudent.matriculationNumber} onChange={(e) => setNewStudent({ ...newStudent, matriculationNumber: e.target.value })} /></label>
+          <label>Country<input maxLength={200} value={newStudent.country} onChange={(e) => setNewStudent({ ...newStudent, country: e.target.value })} /></label>
+          <label>Study programme<input maxLength={300} value={newStudent.studyProgram} onChange={(e) => setNewStudent({ ...newStudent, studyProgram: e.target.value })} /></label>
+          <button className="primary">Add student</button>
+        </form>
+      </details>}
       <StudentTable students={students} />
     </>
   );
@@ -213,6 +227,9 @@ function StudentEditor({ student, busy, save }) {
     receivedBackpack: student.receivedBackpack,
     accommodation: student.accommodation,
     cityRegistration: student.cityRegistration,
+    address: student.address,
+    country: student.country,
+    studyProgram: student.studyProgram,
     notes: student.notes,
   });
   return (
@@ -243,8 +260,11 @@ function StudentEditor({ student, busy, save }) {
         </label>
       ))}
       {[
+        ["country", "Country"],
+        ["studyProgram", "Study programme"],
         ["accommodation", "Accommodation"],
         ["cityRegistration", "City registration appointment"],
+        ["address", "Address"],
         ["notes", "Case notes"],
       ].map(([field, label]) => (
         <label key={field}>
@@ -289,6 +309,9 @@ export function StudentDetail() {
     accommodation: "Accommodation",
     cityRegistration: "City registration appointment",
     notes: "Case notes",
+    address: "Address",
+    country: "Country",
+    studyProgram: "Study programme",
   };
   return (
     <>
@@ -349,22 +372,15 @@ export function StudentDetail() {
     </>
   );
 }
-function Shifts({ shifts }) {
+function Shifts({ shifts, onEdit }) {
   return shifts.length ? (
     shifts.map((s, i) => (
       <section className="information-section" key={i}>
         <h3>{s.date}</h3>
-        <p>
-          10:00–13:00:{" "}
-          {s.first.map((n) => (n === "?" ? "Not assigned" : n)).join(", ") ||
-            "Not assigned"}
-        </p>
-        <p>
-          12:00–15:00:{" "}
-          {s.second.map((n) => (n === "?" ? "Not assigned" : n)).join(", ") ||
-            "Not assigned"}
-        </p>
+        <p>{s.start && s.end ? `${s.start}–${s.end}: ` : "Tutors: "}{(s.tutors || [...s.first, ...s.second]).filter(Boolean).join(", ") || "Not assigned"}</p>
         {s.event && <p className="source-text">{s.event}</p>}
+        {s.notes && <p className="source-text">{s.notes}</p>}
+        {onEdit && <button type="button" onClick={() => onEdit({ id: s.id, date: s.date, start: s.start || "", end: s.end || "", tutor1: (s.tutors || [])[0] || "", tutor2: (s.tutors || [])[1] || "", tutor3: (s.tutors || [])[2] || "", event: s.event || "", notes: s.notes || "" })}>Edit shift</button>}
       </section>
     ))
   ) : (
@@ -372,20 +388,24 @@ function Shifts({ shifts }) {
   );
 }
 export function ShiftPage() {
-  const { workspace, error } = useWorkspace();
+  const { session } = useOutletContext();
+  const { workspace, error, busy, act } = useWorkspace();
+  const [shift, setShift] = useState({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" });
   return !workspace ? (
     <State error={error} />
   ) : (
     <>
       <h1>Welcome Lounge shifts</h1>
-      <Shifts shifts={workspace.data.shifts} />
-      <h2>Calculated shift totals</h2>
-      {workspace.shiftSummary.map((s) => (
-        <p key={s.tutor}>
-          {s.tutor}: {s.first} first shifts, {s.second} second shifts, {s.total}{" "}
-          total
-        </p>
-      ))}
+      <Shifts shifts={workspace.data.shifts} onEdit={workspace.unified && session.role === "admin" ? setShift : null} />
+      {workspace.unified && session.role === "admin" && <details className="staff-dashboard-section" open><summary>{shift.id ? "Edit shift" : "Add shift"}</summary><form className="staff-form" onSubmit={async (event) => { event.preventDefault(); if (await act("shifts/save", { shift })) setShift({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" }); }}>
+        <label>Date<input required type="date" value={shift.date} onChange={(e) => setShift({ ...shift, date: e.target.value })} /></label>
+        <label>Start<input type="time" value={shift.start} onChange={(e) => setShift({ ...shift, start: e.target.value })} /></label>
+        <label>End<input type="time" value={shift.end} onChange={(e) => setShift({ ...shift, end: e.target.value })} /></label>
+        {[1, 2, 3].map((n) => <label key={n}>Tutor {n}<input value={shift[`tutor${n}`]} onChange={(e) => setShift({ ...shift, [`tutor${n}`]: e.target.value })} /></label>)}
+        <label>Important event<input value={shift.event} onChange={(e) => setShift({ ...shift, event: e.target.value })} /></label>
+        <label>Notes<textarea value={shift.notes} onChange={(e) => setShift({ ...shift, notes: e.target.value })} /></label>
+        <div className="button-row"><button className="primary" disabled={busy}>{shift.id ? "Save shift" : "Add shift"}</button>{shift.id && <button type="button" onClick={() => setShift({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" })}>Cancel</button>}</div>
+      </form></details>}
     </>
   );
 }
@@ -410,7 +430,7 @@ export function Tutors() {
 }
 export function Handover() {
   const { workspace, error, busy, act } = useWorkspace();
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(""), [studentId, setStudentId] = useState("");
   if (!workspace) return <State error={error} />;
   return (
     <>
@@ -420,9 +440,10 @@ export function Handover() {
         className="staff-form"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await act("handover", { note })) setNote("");
+          if (await act("handover", { note, studentId })) { setNote(""); setStudentId(""); }
         }}
       >
+        <label>Student (optional)<select value={studentId} onChange={(e) => setStudentId(e.target.value)}><option value="">No specific student</option>{workspace.data.students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
         <label>
           Note for the next shift
           <textarea

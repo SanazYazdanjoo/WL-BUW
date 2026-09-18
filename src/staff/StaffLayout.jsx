@@ -4,13 +4,19 @@ import { staffRequest } from "./service";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
     [loading, setLoading] = useState(true),
+    [roster, setRoster] = useState(null),
+    [actorBusy, setActorBusy] = useState(false),
     [error, setError] = useState("");
   const navigate = useNavigate();
+  async function loadRoster() {
+    try { setRoster(await staffRequest("roster")); }
+    catch { setRoster({ staff: [], etag: null }); }
+  }
   useEffect(() => {
     let active = true;
     staffRequest("session")
       .then((s) => {
-        if (active) setSession(s);
+        if (active) { setSession(s); loadRoster(); }
       })
       .catch((e) => {
         if (active && e.status !== 401) setError(e.message);
@@ -28,13 +34,25 @@ export default function StaffLayout() {
     const form = new FormData(event.currentTarget);
     try {
       await staffRequest("login", {
-        body: { name: form.get("name"), code: form.get("code") },
+        body: { name: form.get("name") || "Staff member", code: form.get("code") },
       });
       setSession(await staffRequest("session"));
+      await loadRoster();
       navigate("/staff/dashboard");
     } catch (e) {
       setError(e.message);
     }
+  }
+  async function chooseStaff(event) {
+    const staffId = event.target.value;
+    if (!staffId) return;
+    setActorBusy(true);
+    setError("");
+    try {
+      await staffRequest("actor/select", { csrf: session.csrf, body: { staffId } });
+      setSession(await staffRequest("session"));
+    } catch (e) { setError(e.message); }
+    finally { setActorBusy(false); }
   }
   async function logout() {
     try {
@@ -74,7 +92,7 @@ export default function StaffLayout() {
           <form onSubmit={login} className="staff-form">
             <label>
               Your name
-              <input name="name" autoComplete="name" required maxLength={100} />
+              <input name="name" autoComplete="name" maxLength={100} />
             </label>
             <label>
               Access code
@@ -91,6 +109,29 @@ export default function StaffLayout() {
         </main>
       ) : (
         <>
+          {roster?.etag && roster.staff.length > 0 && !roster.staff.some((person) => person.id === session.staffId) ? (
+            <main id="staff-main" className="staff-main staff-login-main">
+              <section className="staff-login-panel" aria-labelledby="staff-actor-title">
+                <p className="staff-eyebrow">STAFF IDENTITY</p>
+                <h1 id="staff-actor-title">Who is working?</h1>
+                <p>Choose your name so updates and handovers are attributed to the right person.</p>
+                <label>Your name<select value="" disabled={actorBusy} onChange={chooseStaff}>
+                  <option value="">Choose a staff member</option>
+                  {roster.staff.map((person) => <option value={person.id} key={person.id}>{person.name}{person.program ? ` · ${person.program}` : ""}</option>)}
+                </select></label>
+              </section>
+            </main>
+          ) : roster?.etag && roster.staff.length === 0 && (session.role === "admin" || !session.staffId) ? (
+            <main id="staff-main" className="staff-main staff-login-main">
+              <section className="staff-login-panel" aria-labelledby="staff-setup-title">
+                <p className="staff-eyebrow">STAFF SETUP</p>
+                <h1 id="staff-setup-title">Add the staff list</h1>
+                <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
+                {session.role === "admin" ? <><Link to="/staff/content">Open Content setup</Link><Outlet context={{ session, refreshRoster: loadRoster }} /></> : <p>Ask a coordinator to add the team.</p>}
+              </section>
+            </main>
+          ) : (
+          <>
           <p className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
             Signed in as {session.name} · {session.role === "admin" ? "coordinator" : "tutor"}. Your name is used for pilot activity notes.
           </p>
@@ -98,16 +139,12 @@ export default function StaffLayout() {
             {[
               ["dashboard", "Today"],
               ["students", "Students"],
-              ["shifts", "Shifts"],
-              ["program-tutors", "Program tutors"],
+              ["shifts", "Schedule"],
               ["handover", "Handover"],
-              ["reports", "Reports"],
               ...(session.role === "admin"
                 ? [
-                    ["data", "Import & export"],
                     ["content", "Content"],
-                    ["sources", "Official information"],
-                    ["print", "Print center"],
+                    ["backup", "Backup"],
                   ]
                 : []),
             ].map(([path, title]) => (
@@ -117,8 +154,10 @@ export default function StaffLayout() {
             ))}
           </nav>
           <main id="staff-main" className="staff-main">
-            <Outlet context={{ session }} />
+            <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>
+          </>
+          )}
         </>
       )}
     </div>

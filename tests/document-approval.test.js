@@ -28,6 +28,7 @@ test("only exact references in active non-demo topics authorize downloads, with 
       NEXTCLOUD_APP_PASSWORD: "fake",
       NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
       NEXTCLOUD_ROOT_FOLDER: "/Welcome.Lounge_WiSe2026_27/APP",
+      NEXTCLOUD_WORKBOOK_FILE: "",
     },
     upstream,
   );

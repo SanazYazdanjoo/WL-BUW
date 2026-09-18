@@ -231,3 +231,7 @@ Refined the private staff shell, sign-in presentation, responsive navigation, co
 ## 2026-09-18 - MasterExcel sample workbook
 
 Added an admin-only downloadable MasterExcel sample to Staff → Data. The workbook explains its four expected sheets and includes fictional sample rows; marked sample rows are skipped by the importer so they cannot create fictitious operational records. Documented that `staff-data/state.json` is created automatically on the first successful staff data change and does not need to be uploaded manually.
+
+## 2026-09-18 — Unified Welcome-Lounge.xlsx implementation
+
+Added a server-side six-sheet workbook parser/serializer and private staff repository. Staff UI mutations now have workbook-backed routes for content, semester/WhatsApp settings, students, check-ins, attributed activity, handover, staff and shifts. Public content is projected from active workbook rows only; private Students, Activity, Staff, Shifts, workbook bytes and backups are excluded. One-time migration preserves old files and validates inputs. The implementation uses conditional Nextcloud writes and private snapshots; actual university WebDAV CAS enforcement still needs production acceptance. The app looks for the default `Welcome-Lounge.xlsx` and switches when present, leaving old sources active while it is missing. See [unified workbook docs](excel-database.md).

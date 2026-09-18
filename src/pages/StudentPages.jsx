@@ -103,13 +103,8 @@ export function TopicPage({ later = false }) {
 export function InfoPage() {
   const { content } = useOutletContext();
   const [query, setQuery] = useState("");
-  const portalTitles = content["useful-links"].data.links
-    .map((link) => link.title)
-    .filter(Boolean)
-    .slice(0, 3);
   const laterTopics = content["after-arrival"].data.topics.filter((topic) => topic.isActive);
   const editorialLinks = content["useful-links"].data.links
-    .filter((item) => !/university\s+portals/i.test(item.category))
     .map((item) => ({
       label: item.title,
       detail: item.description,
@@ -117,16 +112,6 @@ export function InfoPage() {
       href: item.url,
     }));
   const links = [
-    {
-      label: "University portals",
-      detail: portalTitles.length ? portalTitles.join(" · ") : "Moodle, BISON and webmail",
-      to: "/useful-links",
-    },
-    {
-      label: "Studo",
-      detail: "App for your studies and campus life",
-      href: "https://studo.com/en",
-    },
     ...editorialLinks,
       ...laterTopics.map((topic) => ({
         label: topic.title,
@@ -139,18 +124,6 @@ export function InfoPage() {
         detail: "Student initiatives, peer support and housing notices",
         to: "/info/community",
       },
-    {
-      label: "University Sport Centre",
-      href: "https://www.uni-weimar.de/en/university/structure/central-university-facilities/university-sports-centre/",
-    },
-    {
-      label: "University Language Centre",
-      href: "https://www.uni-weimar.de/en/university/structure/central-university-facilities/language-centre/",
-    },
-    {
-      label: "Career Service",
-      href: "https://www.uni-weimar.de/en/university/studies/career-services/",
-    },
     {
       label: "Rundfunkbeitrag",
       detail: "Living in Germany",
@@ -176,7 +149,7 @@ export function InfoPage() {
         />
       </label>
       <nav aria-label="Useful information">
-        {visibleLinks.map((item) => <InfoLink item={item} key={item.to || item.href} />)}
+        {visibleLinks.map((item) => <InfoLink item={item} key={item.id || item.to || item.href || item.label} />)}
       </nav>
       {!visibleLinks.length && <p className="info-no-results">No matching information.</p>}
     </section>
@@ -190,15 +163,15 @@ function InfoLink({ item }) {
         <span>{item.label}</span>
         {item.detail && <small>{item.detail}</small>}
       </span>
-      <span aria-hidden="true">{item.href ? "↗" : "→"}</span>
+      {(item.href || item.to) && <span aria-hidden="true">{item.href ? "↗" : "→"}</span>}
     </>
   );
   return item.href ? (
-    <a className="info-link" href={item.href} target="_blank" rel="noopener noreferrer">
-      {content}
-    </a>
-  ) : (
+    <a className="info-link" href={item.href} target="_blank" rel="noopener noreferrer">{content}</a>
+  ) : item.to ? (
     <Link className="info-link" to={item.to}>{content}</Link>
+  ) : (
+    <div className="info-link is-static">{content}</div>
   );
 }
 
@@ -421,6 +394,7 @@ export function EventsPage() {
 
 export function HelpPage() {
   const { content } = useOutletContext();
+  const helpLinks = content["useful-links"].data.links.filter((item) => item.category === "Help");
   return (
     <section className="help-page">
       <h1>Help</h1>
@@ -430,6 +404,12 @@ export function HelpPage() {
         contact the Welcome Lounge.
       </p>
       <EscalationCard config={content.config.data} heading="Welcome Lounge support" />
+      {helpLinks.map((item) => (
+        <a className="info-link" key={item.id} href={item.url} target="_blank" rel="noopener noreferrer">
+          <span className="info-link-copy"><span>{item.title}</span>{item.description && <small>{item.description}</small>}</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      ))}
       <section className="privacy-section">
         <h2>Privacy</h2>
         <p>

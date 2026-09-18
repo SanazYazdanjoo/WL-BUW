@@ -1,12 +1,12 @@
-# Semester handover
+> **Current architecture note (2026-09-18):** The target is the six-sheet `Welcome-Lounge.xlsx` workbook and normal staff edits happen in the web UI. Existing files are retained for migration/fallback. Read [the unified workbook guide](excel-database.md) first; older instructions below describe the previous workflow.`r`n`r`n# Semester handover
 
 This is the short operational handover for a colleague who maintains the student service without editing application code.
 
 ## Public student content
 
-Edit the private Nextcloud workbook `content-source/Welcome-Lounge-Content.xlsx`. Use stable IDs, update active rows and review dates, and keep student data out of it. Then open **Staff → Content**, preview the update, review every change and warning, and publish. Saving the workbook does not itself change the student site. The publish operation saves a timestamped private backup and updates the runtime release in Nextcloud; it does not require GitHub or a Vercel deployment.
+Edit the private Nextcloud workbook `content-source/Welcome-Lounge-Content.xlsx`. Use stable IDs, update active rows and review dates, and keep student data out of it. Then open **Staff â†’ Content**, preview the update, review every change and warning, and publish. Saving the workbook does not itself change the student site. The publish operation saves a timestamped private backup and updates the runtime release in Nextcloud; it does not require GitHub or a Vercel deployment.
 
-If the workbook does not exist, use **Download a clean workbook template** in Staff → Content and upload the downloaded file to the specified private folder. Never replace an existing workbook without a recoverable copy.
+If the workbook does not exist, use **Download a clean workbook template** in Staff â†’ Content and upload the downloaded file to the specified private folder. Never replace an existing workbook without a recoverable copy.
 
 ## Current Nextcloud location (temporary)
 
@@ -24,7 +24,7 @@ All backend storage paths are relative to the configured root. Public APIs do no
 
 ## Automatic information
 
-Official university sources and Welcome Events / RSS refresh stay separate from the content workbook. Review their status in Staff → Sources. Do not edit cache files. When a source cannot be checked, the application retains last-known-good data and shows the appropriate unavailable/stale state rather than claiming a fresh verification.
+Official university sources and Welcome Events / RSS refresh stay separate from the content workbook. Review their status in Staff â†’ Sources. Do not edit cache files. When a source cannot be checked, the application retains last-known-good data and shows the appropriate unavailable/stale state rather than claiming a fresh verification.
 
 ## Private staff operations and MasterExcel
 
@@ -34,6 +34,10 @@ An exported MasterExcel file is not a complete backup of check-ins, handover and
 
 ## If something fails
 
-Students retain labelled local fallback content if Nextcloud content is missing or invalid. A missing workbook is reported in Staff → Content; download the template, upload it to `content-source/`, then preview. A failed/changed preview should be run again before publish. To recover a bad publication, use **Restore** beside the earlier entry in **Previous publications**. If Nextcloud is unavailable, wait and retry; do not edit generated runtime files as a workaround. For code/deployment issues, use the repository README and existing GitHub → Vercel workflow.
+Students retain labelled local fallback content if Nextcloud content is missing or invalid. A missing workbook is reported in Staff â†’ Content; download the template, upload it to `content-source/`, then preview. A failed/changed preview should be run again before publish. To recover a bad publication, use **Restore** beside the earlier entry in **Previous publications**. If Nextcloud is unavailable, wait and retry; do not edit generated runtime files as a workaround. For code/deployment issues, use the repository README and existing GitHub â†’ Vercel workflow.
 
 The pilot's staff authentication is shared-code based and must not be mistaken for permanent institutional identity management. Confirm long-term staff roles, service-account ownership, access revocation, retention and privacy arrangements before institutional handover.
+
+## Current unified workbook handover
+
+The current target source of truth is `Welcome-Lounge.xlsx` in the configured APP root. Normal staff work happens in the web UI. The app uses the default filename when it exists; the old content workbook, MasterExcel, JSON release and `staff-data/state.json` remain untouched as migration inputs and fallback while it is missing. See [unified workbook and recovery](excel-database.md) for migration, privacy, backups and the live Nextcloud conditional-write acceptance check.

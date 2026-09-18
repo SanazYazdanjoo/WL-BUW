@@ -1,6 +1,7 @@
 ﻿import { createOperationsService } from "../operations.js";
 import {
   cookie,
+  encodeSession,
   login,
   sessionFromRequest,
   requireActor,
@@ -9,6 +10,8 @@ import {
 } from "./auth.js";
 import { createPrivateStore } from "./store.js";
 import { createStaffRepository } from "./repository.js";
+import { createUnifiedRepository } from "./unifiedRepository.js";
+import { createUnifiedWorkbookTemplate } from "../excel/unifiedWorkbook.js";
 import { createContentWorkbookBuffer } from "../../scripts/generate-content-workbook.js";
 import { createMasterExcelSampleBuffer } from "../excel/masterExcel.js";
 
@@ -75,6 +78,7 @@ export function staffMiddleware(
         return send(200, {
           name: actor.name,
           role: actor.role,
+          staffId: actor.staffId || "",
           csrf: actor.csrf,
         });
       const reads = {
@@ -91,30 +95,69 @@ export function staffMiddleware(
         "content/preview": ["admin", "previewContentWorkbook"],
         "content/publish": ["admin", "publishContentWorkbook"],
         "content/rollback": ["admin", "rollbackContent"],
+        "students/create": ["read", "addStudent", true],
+        "staff/save": ["admin", "saveStaff", true],
+        "content/save": ["admin", "saveContent", true],
+        "content/deactivate": ["admin", "deactivateContent", true],
+        "settings/save": ["admin", "saveSettings", true],
+        "shifts/save": ["admin", "addShift", true],
+        "workbook/initialize": ["admin", "initialize", true],
+        "workbook/create-template": ["admin", "createFromTemplate", true],
+        "workbook/backup": ["admin", "createBackup", true],
       };
+      let legacyRepository;
+      const getLegacyRepository = () => (legacyRepository ||= repositoryFactory());
+      const unifiedStore = createPrivateStore(env, fetchImpl);
+      const unifiedRepository = createUnifiedRepository(unifiedStore);
+      const hasUnifiedWorkbook = async () => Boolean(env.NEXTCLOUD_WORKBOOK_FILE !== "" && env.NEXTCLOUD_USERNAME && env.NEXTCLOUD_APP_PASSWORD && (await unifiedStore.read(unifiedStore.paths.unified, 10 * 1024 * 1024)).value);
       if (req.method === "POST") {
         checkMutation(req, actor);
         if (action === "logout")
           return send(200, { ok: true }, { "Set-Cookie": cookie("", env) });
+        if (action === "actor/select") {
+          const input = await readBody(req);
+          const roster = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).staffRoster();
+          const person = roster.staff.find((entry) => entry.id === input.staffId);
+          if (!person) throw new StaffError(400, "Choose an active staff member from the list.");
+          const token = encodeSession({ id: person.id, name: person.name, role: actor.role, staffId: person.id }, env);
+          return send(200, { ok: true, name: person.name }, { "Set-Cookie": cookie(token, env) });
+        }
         const route = writes[action];
         if (!route) throw new StaffError(404, "Staff action not found.");
         requireActor(actor, route[0]);
         const input = await readBody(req);
-        const repository = repositoryFactory();
+        const repository = getLegacyRepository();
         const operations = createOperationsService({
           authorize: async (session) => requireActor(session),
           repository,
         });
-        return send(
-          200,
-          await (operations[route[1]]
-            ? operations[route[1]](actor, input)
-            : repository[route[1]](actor, input)),
-        );
+        let result;
+        if (route[2]) result = await unifiedRepository[route[1]](actor, input);
+        else if (["updateStudent", "checkIn", "addHandover", "previewMasterExcelImport", "commitMasterExcelImport"].includes(route[1]) && await hasUnifiedWorkbook()) result = await unifiedRepository[route[1]](actor, input);
+        else if (["previewContentWorkbook", "publishContentWorkbook", "rollbackContent"].includes(route[1]) && await hasUnifiedWorkbook()) throw new StaffError(409, "Public content is now edited in the staff Content page and saved directly to the Welcome Lounge workbook.");
+        else result = await (operations[route[1]] ? operations[route[1]](actor, input) : repository[route[1]](actor, input));
+        return send(200, result);
+      }
+      if (req.method === "GET" && action === "workbook/status") {
+        requireActor(actor, "admin");
+        if (env.NEXTCLOUD_WORKBOOK_FILE === "") return send(200, { connected: true, workbook: "not-configured", fileName: unifiedStore.paths.unifiedName });
+        return send(200, await unifiedRepository.status());
+      }
+      if (req.method === "GET" && action === "workbook/download") {
+        requireActor(actor, "admin");
+        const data = await unifiedRepository.downloadWorkbook();
+        res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": 'attachment; filename="Welcome-Lounge.xlsx"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+        return res.end(Buffer.from(data));
+      }
+      if (req.method === "GET" && action === "workbook/template") {
+        requireActor(actor, "admin");
+        const data = await createUnifiedWorkbookTemplate();
+        res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": 'attachment; filename="Welcome-Lounge-Template.xlsx"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+        return res.end(Buffer.from(data));
       }
       if (req.method === "GET" && action === "data/export") {
         requireActor(actor, "admin");
-        const data = await repositoryFactory().exportMasterExcel();
+        const data = await (await hasUnifiedWorkbook() ? unifiedRepository.exportMasterExcel() : getLegacyRepository().exportMasterExcel());
         res.writeHead(200, {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -150,10 +193,19 @@ export function staffMiddleware(
         return res.end(Buffer.from(data));
       }
       const route = reads[action];
+      if (req.method === "GET" && action === "roster") {
+        requireActor(actor);
+        if (await hasUnifiedWorkbook()) return send(200, await unifiedRepository.staffRoster());
+        return send(200, { staff: [], etag: null });
+      }
       if (req.method !== "GET" || !route)
         throw new StaffError(404, "Staff action not found.");
       requireActor(actor, route[0]);
-      return send(200, await repositoryFactory()[route[1]]());
+      if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {
+        const result = action === "workspace" ? await unifiedRepository.workspace() : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
+        return send(200, result);
+      }
+      return send(200, await getLegacyRepository()[route[1]]());
     } catch (error) {
       return send(
         error instanceof StaffError
