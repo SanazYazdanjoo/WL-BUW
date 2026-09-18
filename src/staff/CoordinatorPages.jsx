@@ -267,9 +267,16 @@ export function ImportPage({ editorial = false }) {
         {editorial && <span>Nothing is published until you review and confirm it.</span>}
       </div>
       {!editorial && (
-        <p>
-          <a href="/api/staff/data/export">Export current MasterExcel</a>
-        </p>
+        <div className="content-workbook-help">
+          <p><strong>MasterExcel workbook</strong></p>
+          <p>Download the sample to see the expected sheets and columns. Its fictional example rows are automatically skipped during import.</p>
+          <p>
+            <a href="/api/staff/data/template">Download sample MasterExcel.xlsx</a>
+            {" · "}
+            <a href="/api/staff/data/export">Export current MasterExcel</a>
+          </p>
+          <p><code>staff-data/state.json</code> is created automatically when the first staff change is saved. You do not need to upload it.</p>
+        </div>
       )}
       {preview && (
         <section className="staff-review" aria-labelledby="review-heading">

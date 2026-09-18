@@ -6,6 +6,7 @@ import { parseContentWorkbook } from "../server/excel/contentWorkbook.js";
 import {
   parseMasterExcel,
   exportMasterExcel,
+  createMasterExcelSampleBuffer,
   shiftSummary,
 } from "../server/excel/masterExcel.js";
 test("editorial workbook preserves variable-count source text, items, directories and review warnings", async () => {
@@ -85,6 +86,14 @@ test("MasterExcel ignores empty FALSE rows, preserves IDs and derives correct to
   const again = await parseMasterExcel(exported);
   assert.equal(again.students[0].name, r.students[0].name);
   assert.deepEqual(shiftSummary(again.shifts), r.summary);
+});
+test("MasterExcel sample workbook documents its format and sample rows never import", async () => {
+  const bytes = await createMasterExcelSampleBuffer();
+  const parsed = await parseMasterExcel(bytes);
+  assert.deepEqual(parsed.students, []);
+  assert.deepEqual(parsed.programTutors, []);
+  assert.deepEqual(parsed.shifts, []);
+  assert.deepEqual(parsed.summary, []);
 });
 test("MasterExcel missing IDs remain unknown and numeric cell values are safely represented", async () => {
   const r = await parseMasterExcel(

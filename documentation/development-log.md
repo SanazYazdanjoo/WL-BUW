@@ -227,3 +227,7 @@ Operational state remains private structured Nextcloud storage with ETag conflic
 ## 2026-09-18 - Staff workspace presentation pass
 
 Refined the private staff shell, sign-in presentation, responsive navigation, coordinator content review, and Today dashboard hierarchy. Kept authentication, Nextcloud storage, content publishing, student records, and permission behavior unchanged. Verified staff screens locally with synthetic test-only session/data at mobile and desktop widths.
+
+## 2026-09-18 - MasterExcel sample workbook
+
+Added an admin-only downloadable MasterExcel sample to Staff → Data. The workbook explains its four expected sheets and includes fictional sample rows; marked sample rows are skipped by the importer so they cannot create fictitious operational records. Documented that `staff-data/state.json` is created automatically on the first successful staff data change and does not need to be uploaded manually.

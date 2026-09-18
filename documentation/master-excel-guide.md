@@ -2,6 +2,8 @@
 
 MasterExcel is an **import/export format**, not the runtime database. Never put it in `documents/` or `app-content/`. The default source is `staff-data/MasterExcel.xlsx`, relative to the configured application root. No real workbook or personal fixture is committed; local copies belong in ignored `local-data/` or `*.local.xlsx`.
 
+Download the coordinator-only **sample MasterExcel.xlsx** from Staff → Data. It includes fictional examples and an Instructions sheet. Example rows are marked `SAMPLE — DO NOT IMPORT` and the importer skips them automatically. Replace or delete the examples before using the workbook as a source; preview the import and verify its counts before confirming.
+
 Required sheets: `Students_List`, `Program_Tutors`, `Welcome_Lounge_Shifts`, `Shifts_Summary`.
 
 Students columns: date, Full name, Matr-no., Country, Study Program, Enrolled, Accomodation, Address, Received Backpack, City registration appointment, Notes. False-only template rows are ignored. Unknown booleans remain unknown. Numeric matriculation values become strings; leading zeros are retained when Excel stores them as text. Zeros already lost in numeric cells cannot be reconstructed. Notes are preserved without interpretation. The legacy date is not treated as an expected arrival date or a check-in.
@@ -23,7 +25,7 @@ New semester explicitly backs up the current aggregate and starts fresh with the
 
 ## Storage and export
 
-Runtime state is `staff-data/state.json`, containing students, tutors, shifts, separate check-ins, separate handover entries and audit metadata. Every save uses ETag/If-Match; new files use If-None-Match. A conflict asks the tutor to reload. This small-pilot aggregate intentionally prioritizes simple atomic saves over high write concurrency. Limits: 1,000 imported students and 8 MB total state. It is not a high-volume database.
+Runtime state is `staff-data/state.json`, containing students, tutors, shifts, separate check-ins, separate handover entries and audit metadata. It is created automatically on the first successful staff data change (for example, importing records, adding a shift/check-in, or saving a handover); staff do not create or upload it manually. Its absence in a new `staff-data/` folder is normal. Every save uses ETag/If-Match; new files use If-None-Match. A conflict asks the tutor to reload. This small-pilot aggregate intentionally prioritizes simple atomic saves over high write concurrency. Limits: 1,000 imported students and 8 MB total state. It is not a high-volume database.
 
 `/staff/data` exports a fresh familiar four-sheet workbook. Check-ins, handover and audit remain in the structured state and its backups; the four-sheet export is not a complete operational backup. Back up the whole private subtree for institutional handover. No browser localStorage contains staff records.
 

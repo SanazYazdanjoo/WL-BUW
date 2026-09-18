@@ -10,6 +10,7 @@ import {
 import { createPrivateStore } from "./store.js";
 import { createStaffRepository } from "./repository.js";
 import { createContentWorkbookBuffer } from "../../scripts/generate-content-workbook.js";
+import { createMasterExcelSampleBuffer } from "../excel/masterExcel.js";
 
 async function readBody(req) {
   if (!(req.headers["content-type"] || "").startsWith("application/json"))
@@ -119,6 +120,19 @@ export function staffMiddleware(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "Content-Disposition":
             'attachment; filename="MasterExcel-export.xlsx"',
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        });
+        return res.end(Buffer.from(data));
+      }
+      if (req.method === "GET" && action === "data/template") {
+        requireActor(actor, "admin");
+        const data = await createMasterExcelSampleBuffer();
+        res.writeHead(200, {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            'attachment; filename="MasterExcel-SAMPLE.xlsx"',
           "Cache-Control": "private, no-store",
           "X-Content-Type-Options": "nosniff",
         });
