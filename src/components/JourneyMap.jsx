@@ -198,7 +198,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                 d={curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index])}
                 className={isProgressed ? "journey-path-segment is-progressed" : "journey-path-segment"}
                 ref={(element) => { pathRefs.current[index] = element; }}
-                style={{ "--path-delay": `${index * 640}ms` }}
+                style={{ "--path-delay": `${index * 880}ms` }}
               />
             );
           })}
@@ -224,7 +224,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
               style={{
                 "--step-column": column + 1,
                 "--step-row": row + 1,
-                "--step-delay": `${index * 640}ms`,
+                "--step-delay": `${index * 880}ms`,
               }}
             >
               <Link

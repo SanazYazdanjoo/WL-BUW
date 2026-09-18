@@ -195,4 +195,4 @@ Moved summary visibility to the semantic step link's hover and keyboard-focus st
 
 ## 2026-09-18 - Animate the journey entrance
 
-Journey nodes and connectors now play as a strict sequence: a node appears, its connector draws, and then the next node appears. Nodes take 300ms and connectors 340ms, with timing derived from topic index so variable journey lengths work. The dotted or completed-line style is restored at the end. CSS animation is lightweight and automatically disabled by the existing reduced-motion rule; all journey links remain present and operable during the animation.
+Journey nodes and connectors now play as a strict sequence: a node appears, its connector draws, and then the next node appears. Nodes take 380ms and connectors 500ms, with timing derived from topic index so variable journey lengths work. The dotted or completed-line style is restored at the end. CSS animation is lightweight and automatically disabled by the existing reduced-motion rule; all journey links remain present and operable during the animation.

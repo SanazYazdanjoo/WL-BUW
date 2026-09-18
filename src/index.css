@@ -271,8 +271,8 @@ main:focus {
   stroke-width: 2;
   stroke-dasharray: 2 6;
   stroke-linecap: round;
-  animation: journey-path-draw 340ms cubic-bezier(0.35, 0, 0.25, 1) both;
-  animation-delay: calc(300ms + var(--path-delay, 0ms));
+  animation: journey-path-draw 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(380ms + var(--path-delay, 0ms));
 }
 
 .journey-path-segment.is-progressed {
@@ -361,7 +361,7 @@ main:focus {
   background: var(--color-bg);
   font-size: 0.92rem;
   font-weight: 500;
-  animation: journey-node-appear 300ms ease both;
+  animation: journey-node-appear 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: var(--step-delay, 0ms);
   transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
