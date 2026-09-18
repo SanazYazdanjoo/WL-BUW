@@ -6,6 +6,7 @@ export function staffPaths(env) {
     staff: env.STAFF_DATA_DIR || "staff-data",
     source: env.CONTENT_SOURCE_DIR || "content-source",
     backups: env.CONTENT_BACKUP_DIR || "content-backups",
+    meta: env.CONTENT_META_DIR || "content-meta",
   };
   for (const value of Object.values(dirs))
     if (
@@ -15,12 +16,10 @@ export function staffPaths(env) {
       value.startsWith(".")
     )
       throw new StaffError(503, "Staff folder configuration needs review.");
-  if (new Set(Object.values(dirs)).size !== 3)
+  if (new Set(Object.values(dirs)).size !== 4)
     throw new StaffError(503, "Staff folders must be separate.");
   const master = env.STAFF_MASTER_WORKBOOK || `${dirs.staff}/MasterExcel.xlsx`,
-    editorial =
-      env.CONTENT_SOURCE_WORKBOOK ||
-      `${dirs.source}/Welcome Lounge First Steps and some other informations.xlsx`;
+    editorial = env.CONTENT_SOURCE_WORKBOOK || `${dirs.source}/Welcome-Lounge-Content.xlsx`;
   if (
     cleanPath(master) !== master ||
     !master.startsWith(dirs.staff + "/") ||
@@ -34,10 +33,13 @@ export function staffPaths(env) {
     editorial,
     state: `${dirs.staff}/state.json`,
     release: "app-content/published.json",
+    history: `${dirs.meta}/publish-history.json`,
+    workbookStatus: `${dirs.meta}/workbook-status.json`,
     officialSources: {
       preparingStudies: "official-source-cache/preparing-studies.json",
       welcomeEvents: "official-source-cache/welcome-events.json",
     },
+    communityRss: "official-source-cache/community-rss.json",
   };
 }
 export function createPrivateStore(env, fetchImpl = fetch) {
@@ -48,10 +50,13 @@ export function createPrivateStore(env, fetchImpl = fetch) {
     path === paths.state ||
     path === paths.release ||
     Object.values(paths.officialSources).includes(path) ||
-    /^app-content\/(config|onboarding|events|after-arrival|useful-links|health-insurance|rundfunk)\.json$/.test(
-      path,
-    ) ||
-    path.startsWith(paths.backups + "/") ||
+    path === paths.communityRss ||
+      /^app-content\/(config|onboarding|events|after-arrival|useful-links|support-resources|community-resources|official-links|health-insurance|rundfunk|community)\.json$/.test(
+        path,
+      ) ||
+      path === paths.history ||
+      path === paths.workbookStatus ||
+      path.startsWith(paths.backups + "/") ||
     path.startsWith(paths.staff + "/backups/");
   const request = async (path, options = {}) => {
     if (cleanPath(path) !== path || !permitted(path))
@@ -63,7 +68,7 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       throw new StaffError(503, "The university connection is not configured.");
     try {
       return await fetchImpl(
-        davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER),
+        davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
         {
           ...options,
           headers: {
@@ -99,7 +104,11 @@ export function createPrivateStore(env, fetchImpl = fetch) {
         throw new StaffError(422, "The file exceeds the supported pilot size.");
       chunks.push(Buffer.from(chunk));
     }
-    return { value: Buffer.concat(chunks), etag: response.headers.get("etag") };
+    return {
+      value: Buffer.concat(chunks),
+      etag: response.headers.get("etag"),
+      lastModified: response.headers.get("last-modified") || "",
+    };
   }
   async function readJson(path) {
     const r = await read(path);
@@ -125,7 +134,7 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       let response;
       try {
         response = await fetchImpl(
-          davUrl(env.NEXTCLOUD_USERNAME, folder, env.NEXTCLOUD_ROOT_FOLDER),
+          davUrl(env.NEXTCLOUD_USERNAME, folder, env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
           {
             method: "MKCOL",
             headers: {
@@ -181,5 +190,26 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       throw new StaffError(502, "The university file could not be saved.");
     return response.headers.get("etag");
   }
-  return { paths, read, readJson, writeJson };
+  async function writeBytes(path, value, etag) {
+    if (!permitted(path) || cleanPath(path) !== path || !Buffer.isBuffer(value))
+      throw new StaffError(403, "Invalid write destination.");
+    if (etag === undefined)
+      throw new StaffError(409, "Reload the latest version before saving.");
+    await ensureFolders(path);
+    const response = await request(path, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        ...(etag === null ? { "If-None-Match": "*" } : { "If-Match": etag }),
+      },
+      body: value,
+    });
+    await response.body?.cancel();
+    if ([409, 412].includes(response.status))
+      throw new StaffError(409, "This file changed. Reload and try again.");
+    if (!response.ok)
+      throw new StaffError(502, "The university file could not be saved.");
+    return response.headers.get("etag");
+  }
+  return { paths, read, readJson, writeJson, writeBytes };
 }

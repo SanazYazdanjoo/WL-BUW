@@ -1,4 +1,4 @@
-﻿# Development decisions
+# Development decisions
 
 Recorded on 2026-09-17.
 
@@ -22,7 +22,7 @@ This avoids browser cross-origin access to Nextcloud and exposing credentials in
 
 ## D04: Restrict access to a fixed, read-only root
 
-The upstream origin is fixed to `https://nextcloud.uni-weimar.de` and the root to `/Welcome.Lounge_WiSe2026_27/S.Y`. Clients supply relative paths only. Dot segments, backslashes and control characters are rejected, path segments are encoded, redirects are disabled, and listings exclude entries outside the requested folder's direct children.
+Historical decision: the initial backend fixed the upstream origin and `/S.Y` root in code. This is superseded by the 2026-09-18 configuration decision below; current deployments set the host/root in server-only environment variables. Relative-path validation, encoding, redirect rejection and direct-child listing protections remain.
 
 The API accepts GET only; the upstream requests are PROPFIND for listings and GET for downloads. Uploads, deletes, renames and editing are not implemented. Changing the source folder currently requires updating backend and frontend references together.
 
@@ -60,7 +60,7 @@ The operational pilot retains React/Vite (no Next.js migration). D01's file-only
 
 ## D11: Portable root and explicit public publication area
 
-`NEXTCLOUD_ROOT_FOLDER` is the single server-side root setting, defaulting to the current S.Y location. Origin stays university-only. Four fixed JSON paths and the `documents/` subtree are public; other root files cannot be requested. All documents in that subtree are public, even without a topic link. This is intentionally simpler than maintaining per-file ACLs. Staff must review the subtree before launch. No remote files were moved/deleted/created. Validation, disabled redirects and forced download headers remain; encoded ambiguity and hidden document paths are also rejected.
+Historical decision: the first product backend used a root default and broader document-subtree rule. Later decisions superseded both: the configured root now has no code fallback, public Nextcloud calls use validated semantic content only, and a file download also requires the exact path to be referenced by an active non-demo topic. Keep the current rule when maintaining the API.
 
 ## D12: Shared API on local Node and Vercel
 
@@ -134,6 +134,19 @@ This evidence supports targeted navigation, help, and handover refinements, not 
 
 The supplied Welcome Lounge first-steps PDF is an input to the bundled demo fallback, not a replacement for the reviewed semester workbook or authoritative university sources. Preserve all existing semantic topics, reorder where useful, and add distinct topics for semester contribution, residence permit, and Deutschlandsemesterticket. Exclude Summer Semester 2026 information. Link topics to allowlisted university pages; semester-specific payment details must be checked against the current official page. Keep all additions visibly demo until International Office review and publish an approved workbook through the existing workflow. Do not alter the already published Nextcloud content implicitly.
 
+## D26: Put community discovery under Info (2026-09-18)
+
+Preliminary tutor survey feedback suggests information fragmentation is a stronger issue than lack of content, while WhatsApp remains useful for human support. Keep the public navigation unchanged and group peer-support/student-initiative links plus a limited University Message Boards feed under `/info/community`. Treat RSS listings as community notices, not official policy. Fetch one exact BUW RSS URL server-side, allow only reviewed categories and same-host item links, filter by age, sanitize and omit freeform descriptions, and retain a private last-known-good cache. Keep the Telegram invite disabled until a current link is verified. Curated support/community resources are maintained in the private content workbook; this remains separate from the automatic RSS configuration/cache.
+
 ## D24: Preserve concise student flow and make maintenance status legible (2026-09-17)
 
 Keep the public path minimal: Journey → topic → official source → optional browser-only completion, with Events, Info, and Help as separate destinations. `/info` is an editorial list into existing content rather than a new content hub; Help distinguishes common information from human support and keeps the configured WhatsApp fallback. Staff dashboard refinements surface today's check-ins, attributed updates, and handovers without introducing analytics. Coordinator semester setup reports current status and mismatched semester labels, links to existing preview/import/refresh/export operations, and never silently corrects content. MasterExcel remains import/export/backup compatibility, not a replacement target. No source-code editing is required for workbook content publication, but real workbook and institutional operating procedures still need validation.
+
+
+## 2026-09-18 — Workbook publication and current APP root
+
+The temporary current root is `/Welcome.Lounge_WiSe2026_27/APP` on the configured Nextcloud host. `NEXTCLOUD_BASE_URL` and `NEXTCLOUD_ROOT_FOLDER` are server-only configuration; the shared DAV URL builder has no embedded host or folder default. The optional `NEXTCLOUD_BROWSER_URL` is a staff-only shortcut, checked against the configured host. Its numeric browser UI file ID is never a WebDAV identifier. Moving the app later requires copying app-owned content and changing environment values, not code.
+
+The private `content-source/Welcome-Lounge-Content.xlsx` workbook is the human-editable source of truth for semester-specific public content. Authorized staff preview and explicitly publish it from Staff → Content. The server rereads and validates the source, conditionally publishes one atomic `app-content/published.json` runtime release, and saves a timestamped private workbook/publication backup plus admin-only history. JSON is generated output, never an independently edited source. Students read it from Nextcloud at runtime; publication does not require a deployment. Automatic official-source and RSS caches remain separate.
+
+The staff content screen offers a safe template download, workbook/publication status, semantic item/settings diffs, and restore of an earlier release. Semester and WhatsApp settings no longer have a separate save form. Legacy releases missing the new workbook resource kinds remain readable through safe fallback collections. No external database was added. The current private operational pilot still uses bounded `staff-data/state.json` with conditional writes and MasterExcel import/export; conflicts are rejected rather than silently lost, but this aggregate remains a concurrency limitation to revisit before wider multi-tutor use.

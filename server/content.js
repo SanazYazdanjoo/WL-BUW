@@ -1,6 +1,10 @@
 ﻿import healthInsurance from "../content/app-content/health-insurance.json" with { type: "json" };
 import usefulLinks from "../content/app-content/useful-links.json" with { type: "json" };
 import rundfunk from "../content/app-content/rundfunk.json" with { type: "json" };
+import community from "../content/app-content/community.json" with { type: "json" };
+import supportResources from "../content/app-content/support-resources.json" with { type: "json" };
+import communityResources from "../content/app-content/community-resources.json" with { type: "json" };
+import officialLinks from "../content/app-content/official-links.json" with { type: "json" };
 import { Buffer } from "node:buffer";
 import { davUrl } from "./nextcloud.js";
 import { validateContent } from "../shared/content.js";
@@ -16,7 +20,12 @@ const samples = {
   "health-insurance": healthInsurance,
   "useful-links": usefulLinks,
   rundfunk,
+  community,
+  "support-resources": supportResources,
+  "community-resources": communityResources,
+  "official-links": officialLinks,
 };
+const optionalWorkbookKinds = new Set(["support-resources", "community-resources", "official-links"]);
 export async function loadContentBundle(env, fetchImpl = fetch) {
   const data = {},
     sources = {};
@@ -38,8 +47,19 @@ export async function loadContentBundle(env, fetchImpl = fetch) {
       throw new Error("invalid release");
     if (release) {
       for (const kind of Object.keys(samples)) {
-        data[kind] = validateContent(kind, release.content[kind]);
-        sources[kind] = "nextcloud";
+        let value = release.content[kind];
+        const missingOptionalKind = value === undefined && optionalWorkbookKinds.has(kind);
+        if (missingOptionalKind) value = samples[kind];
+        if (kind === "community" && !value) {
+          try { value = await readPublicJson("app-content/community.json", env, fetchImpl); } catch { value = null; }
+        }
+        if (kind === "community" && !value) {
+          data[kind] = validateContent(kind, samples[kind]);
+          sources[kind] = "demo";
+        } else {
+          data[kind] = validateContent(kind, value);
+          sources[kind] = missingOptionalKind ? "demo" : "nextcloud";
+        }
       }
       return { sources, data };
     }
@@ -74,7 +94,7 @@ export async function loadContentBundle(env, fetchImpl = fetch) {
 }
 async function readPublicJson(path, env, fetchImpl, limit = 512000) {
   const response = await fetchImpl(
-    davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER),
+    davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
     {
       headers: {
         Authorization: `Basic ${Buffer.from(`${env.NEXTCLOUD_USERNAME}:${env.NEXTCLOUD_APP_PASSWORD}`).toString("base64")}`,
@@ -118,10 +138,14 @@ export async function loadContent(kind, env, fetchImpl = fetch) {
     if (release && (release.version !== 1 || !release.content))
       throw new Error("invalid release");
     // Legacy JSON is read only when no release exists. Invalid releases fail closed.
-    const value = release
+    let value = release
       ? release.content[kind]
       : await readPublicJson(`app-content/${kind}.json`, env, fetchImpl);
-    return { source: "nextcloud", data: validateContent(kind, value) };
+    const missingOptionalKind = Boolean(release && value === undefined && optionalWorkbookKinds.has(kind));
+    if (missingOptionalKind) value = samples[kind];
+    if (release && kind === "community" && !value)
+      value = await readPublicJson("app-content/community.json", env, fetchImpl);
+    return { source: missingOptionalKind ? "demo" : "nextcloud", data: validateContent(kind, value) };
   } catch {
     console.warn(
       `Content unavailable or invalid: ${kind}; serving labelled sample content.`,
@@ -129,7 +153,7 @@ export async function loadContent(kind, env, fetchImpl = fetch) {
     return { source: "demo", data: validateContent(kind, samples[kind]) };
   }
 }
-export function contentMiddleware(env, fetchImpl = fetch, loadOfficialSources = async () => ({})) {
+export function contentMiddleware(env, fetchImpl = fetch, loadOfficialSources = async () => ({}), loadCommunityFeed = async () => null) {
   return async (req, res, next) => {
     const url = new URL(req.url, "http://localhost");
     if (url.pathname === "/api/content") {
@@ -142,6 +166,13 @@ export function contentMiddleware(env, fetchImpl = fetch, loadOfficialSources = 
           body.officialSources = await loadOfficialSources();
         } catch {
           body.officialSources = {};
+        }
+        try {
+          const feed = await loadCommunityFeed(body.data?.community);
+          if (feed) body.data.community.notices = feed.notices;
+          body.communityFeed = feed?.status || "unavailable";
+        } catch {
+          body.communityFeed = "unavailable";
         }
       }
       res.writeHead(status, {

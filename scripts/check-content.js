@@ -29,4 +29,13 @@ try {
   failed = true;
   console.error("sources.json: invalid; see documentation/official-source-sync.md");
 }
+try {
+  const bytes = await readFile(resolve(directory, "community.json"));
+  if (bytes.length > 512000) throw new Error("oversize");
+  validateContent("community", JSON.parse(bytes.toString("utf8").replace(/^\uFEFF/, "")));
+  console.log("community.json: valid");
+} catch {
+  failed = true;
+  console.error("community.json: invalid or missing; see documentation/content-guide.md");
+}
 process.exitCode = failed ? 1 : 0;

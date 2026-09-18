@@ -32,9 +32,11 @@ Without credentials, the app serves labelled samples. Set these **server-only** 
 | --- | --- |
 | `NEXTCLOUD_USERNAME` | Nextcloud account ID |
 | `NEXTCLOUD_APP_PASSWORD` | App password with access to the application folder |
-| `NEXTCLOUD_ROOT_FOLDER` | `/Welcome.Lounge_WiSe2026_27/S.Y` currently; later `/Welcome-Lounge-App` |
+| `NEXTCLOUD_BASE_URL` | `https://nextcloud.uni-weimar.de` |
+| `NEXTCLOUD_ROOT_FOLDER` | `/Welcome.Lounge_WiSe2026_27/APP` currently; later a permanent app folder such as `/Welcome-Lounge-App` |
+| `NEXTCLOUD_BROWSER_URL` | Optional staff-only browser shortcut; never used for WebDAV operations |
 
-Restart after environment changes. Never use `VITE_` for credentials. The upstream university origin is fixed server-side. Use an institutional service account for permanent handover, replacing personal credentials.
+Restart after environment changes. Never use `VITE_` for credentials. The Nextcloud Files browser URL is separate from the configured WebDAV host/root; its numeric UI file ID is not used for storage access. Use an institutional service account for permanent handover, replacing personal credentials.
 
 ```sh
 npm test
@@ -44,6 +46,7 @@ npm run content:check
 npm run sources:check
 # Optional live parse (no cache write):
 npm run sources:dry-run
+npm run sources:discover-rss
 npm run preview
 # Or serve dist and API with the standalone Node server:
 npm start
@@ -70,11 +73,16 @@ app-content/
   health-insurance.json
   useful-links.json
   rundfunk.json
-  published.json  # created by confirmed workbook publication
+  support-resources.json # generated from the editorial workbook
+  community-resources.json # generated curated community links
+  official-links.json # generated canonical university links
+  community.json # automatic RSS settings and legacy resources
+  published.json  # atomic validated runtime release
 official-source-cache/ # generated private cache, not public documents
-content-source/  # private editorial workbook
-content-backups/ # private publication backups
-staff-data/      # private MasterExcel, state.json and backups
+content-source/  # private Welcome-Lounge-Content.xlsx source workbook
+content-backups/ # private timestamped publication backups
+content-meta/     # private workbook/publish status and history
+staff-data/       # private MasterExcel, operational state and backups
 documents/
   enrollment/
   city-registration/
@@ -82,14 +90,16 @@ documents/
   bank-account/
 ```
 
-Start with [the example files](content/app-content). See the [content guide](documentation/content-guide.md) for fields, publication, and semester rollover.
+The editable source is `content-source/Welcome-Lounge-Content.xlsx`; JSON is generated output and must not be edited by staff. Start from the safe template linked in Staff → Content. See the [workbook guide](documentation/content-workbook-guide.md) and [semester handover](documentation/semester-handover.md) for editing, preview, publish, restore, and semester rollover.
 
 Downloads must be inside `documents/` **and explicitly referenced by an active, non-demo topic** in the current validated Nextcloud onboarding or after-arrival content. Unlinked files cannot be downloaded. Keep only approved public material in this area; personal records and case notes must remain elsewhere. There is no public folder-listing API. Removing a reference revokes download access on the next request.
 
-Use `/staff/content` to change semester/contact settings and publish reviewed workbook content. Legacy `config.json` editing is supported before the first release; afterward `published.json` takes precedence. Changes are read at runtime on reload without rebuilding. Missing/invalid configuration disables WhatsApp rather than reusing a cached invitation. Changing the root later requires one environment-variable change plus placing the same content structure at the new location.
+Use `/staff/content` to preview and publish the private workbook. Semester and WhatsApp settings are changed in the workbook, not in a separate staff form. The server validates the workbook, backs up the previous publication and writes one atomic `published.json` release beneath the configured root. Students read that release at runtime; publishing does not require GitHub or Vercel access. Moving to a permanent folder requires copying the app-owned structure and changing configuration only.
 
 Source schedules and topic-to-official-section mappings are changed in `content/app-content/sources.json`. The Nextcloud cache is generated under `official-source-cache/`. To allow the optional internal refresh route in Vercel, set `OFFICIAL_SOURCE_SYNC_ENABLED=true` and a server-only random `OFFICIAL_SOURCE_SYNC_SECRET` (at least 32 characters); it is disabled by default. The existing staff source page and local sync command are described in [the source sync guide](documentation/official-source-sync.md). No Vercel Cron schedule is currently configured.
 
+Community links and the reviewed RSS category allowlist live in `app-content/community.json`; see the [community and support guide](documentation/community-and-support.md) for the University Message Boards cache, expiration, privacy limits, and how to publish a verified Sharing is Caring Telegram URL. Community notices refresh server-side and expire after 30 days. With no configured Nextcloud cache, they are omitted safely.
+
 ## Handover
 
-See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), and [decisions](documentation/decisions.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts or analytics are present. Private operational records use Nextcloud; permanent institutional authentication remains future work.
+See [documentation](documentation/README.md), [technical implementation](documentation/technical-implementation.md), [operations](documentation/operations.md), [decisions](documentation/decisions.md), and the [semester handover](documentation/semester-handover.md). Preserve topic IDs when editing text so browser progress remains meaningful. No student accounts or analytics are present. Private operational data and backups stay in Nextcloud; permanent institutional authentication remains future work.

@@ -110,6 +110,27 @@ test("staff login accepts Vercel's parsed JSON body without reading the stream",
     await new Promise((resolve) => server.close(resolve));
   }
 });
+test("content workbook template is available only to an authenticated admin", async () => {
+  const api = staffMiddleware(env, fetch, () => ({}));
+  const server = createServer((req, res) => api(req, res, () => res.writeHead(404).end()));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const url = `http://127.0.0.1:${server.address().port}/api/staff/content/template`;
+    assert.equal((await fetch(url)).status, 401);
+    const tutor = encodeSession({ id: "tutor", name: "Tutor", role: "tutor" }, env);
+    assert.equal((await fetch(url, { headers: { cookie: `wl_staff=${tutor}` } })).status, 403);
+    const admin = encodeSession({ id: "admin", name: "Admin", role: "admin" }, env);
+    const response = await fetch(url, { headers: { cookie: `wl_staff=${admin}` } });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /spreadsheetml/);
+    assert.match(response.headers.get("content-disposition"), /Welcome-Lounge-Content-Template\.xlsx/);
+    assert.deepEqual([...new Uint8Array(await response.arrayBuffer()).slice(0, 2)], [80, 75]);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 test("private storage confines paths and makes conditional writes", async () => {
   for (const STAFF_DATA_DIR of [
     "documents",
@@ -120,7 +141,12 @@ test("private storage confines paths and makes conditional writes", async () => 
     assert.throws(() => staffPaths({ STAFF_DATA_DIR }));
   const calls = [];
   const store = createPrivateStore(
-    { NEXTCLOUD_USERNAME: "synthetic", NEXTCLOUD_APP_PASSWORD: "synthetic" },
+    {
+      NEXTCLOUD_USERNAME: "synthetic",
+      NEXTCLOUD_APP_PASSWORD: "synthetic",
+      NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
+      NEXTCLOUD_ROOT_FOLDER: "/Welcome.Lounge_WiSe2026_27/APP",
+    },
     async (url, options) => {
       calls.push({ url, options });
       return new Response(null, {

@@ -2,6 +2,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { arrangeJourneyTopics, findNextJourneyTopic } from "../services/journeyLayout";
 
+const journeyBeatMs = 800;
+const journeyStepCycleMs = journeyBeatMs * 2;
+const journeyEntranceKey = "wl-buw-journey-entrance-seen";
+let journeyEntranceSeenInMemory = false;
+
+function hasSeenJourneyEntrance() {
+  try {
+    if (window.sessionStorage.getItem(journeyEntranceKey) === "true") return true;
+  } catch {
+    // Fall back to this module's memory when session storage is unavailable.
+  }
+  return journeyEntranceSeenInMemory;
+}
+
 function curveBetween(start, end, index, columns, copyBottom, mapWidth, edgeSpace) {
   if (columns === 1) {
     const turnY = Math.min(Math.max(start.y + 25, copyBottom + 9), end.y - 25);
@@ -38,12 +52,23 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
   const geometryRef = useRef("");
   const pointerRef = useRef(null);
   const pathRefs = useRef([]);
+  const pathRevealRefs = useRef([]);
+  const [animateEntrance] = useState(() => !hasSeenJourneyEntrance());
   const [columns, setColumns] = useState(3);
   const [geometry, setGeometry] = useState({ width: 0, height: 0, points: [] });
   const topicCount = topics.length;
   const completed = new Set(completedTopicIds);
   const arranged = arrangeJourneyTopics(topics, columns);
   const nextTopicId = findNextJourneyTopic(topics, completedTopicIds)?.id;
+
+  useEffect(() => {
+    journeyEntranceSeenInMemory = true;
+    try {
+      window.sessionStorage.setItem(journeyEntranceKey, "true");
+    } catch {
+      // In-memory state still prevents replay during this app session.
+    }
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -102,7 +127,9 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
         const next = points[index + 1];
         const path = pathRefs.current[index];
         if (point && next && path) {
-          path.setAttribute("d", curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index]));
+          const pathData = curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index]);
+          path.setAttribute("d", pathData);
+          pathRevealRefs.current[index]?.setAttribute("d", pathData);
         }
       });
       if (moving) frame = window.requestAnimationFrame(animate);
@@ -128,6 +155,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
       nodes.forEach((node) => { if (node) node.style.transform = ""; });
       titles.forEach((title) => { if (title) title.style.transform = ""; });
       pathRefs.current = [];
+      pathRevealRefs.current = [];
     };
   }, [columns, geometry]);
 
@@ -179,7 +207,11 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
   }, [topicCount, columns]);
 
   return (
-    <div className="journey-map" ref={mapRef}>
+    <div
+      className={`journey-map${animateEntrance ? " has-entrance-animation" : ""}`}
+      ref={mapRef}
+      style={{ "--journey-beat": `${journeyBeatMs}ms` }}
+    >
       {topics.length > 1 && geometry.width > 0 && (
         <svg
           aria-hidden="true"
@@ -188,6 +220,34 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
           viewBox={`0 0 ${geometry.width} ${geometry.height}`}
           preserveAspectRatio="none"
         >
+          <defs>
+            {geometry.points.slice(0, -1).map((point, index) => {
+              const next = geometry.points[index + 1];
+              if (!point || !next) return null;
+              const pathData = curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index]);
+              return (
+                <mask
+                  key={`journey-path-mask-${index}`}
+                  id={`journey-path-mask-${index}`}
+                  maskUnits="userSpaceOnUse"
+                  maskContentUnits="userSpaceOnUse"
+                  x="0"
+                  y="0"
+                  width={geometry.width}
+                  height={geometry.height}
+                  className="journey-path-mask"
+                >
+                  <path
+                    d={pathData}
+                    pathLength="1000"
+                    className="journey-path-reveal"
+                    ref={(element) => { pathRevealRefs.current[index] = element; }}
+                    style={{ "--path-delay": `${index * journeyStepCycleMs}ms` }}
+                  />
+                </mask>
+              );
+            })}
+          </defs>
           {geometry.points.slice(0, -1).map((point, index) => {
             const next = geometry.points[index + 1];
             if (!point || !next) return null;
@@ -198,7 +258,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                 d={curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index])}
                 className={isProgressed ? "journey-path-segment is-progressed" : "journey-path-segment"}
                 ref={(element) => { pathRefs.current[index] = element; }}
-                style={{ "--path-delay": `${index * 880}ms` }}
+                mask={`url(#journey-path-mask-${index})`}
               />
             );
           })}
@@ -224,7 +284,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
               style={{
                 "--step-column": column + 1,
                 "--step-row": row + 1,
-                "--step-delay": `${index * 880}ms`,
+                "--step-delay": `${index * journeyStepCycleMs}ms`,
               }}
             >
               <Link

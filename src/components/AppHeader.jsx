@@ -46,7 +46,6 @@ export default function AppHeader() {
         </NavLink>
         <NavLink to="/events">Events</NavLink>
         <NavLink to="/info">Info</NavLink>
-        <NavLink to="/help">Help</NavLink>
       </nav>
     </header>
   );

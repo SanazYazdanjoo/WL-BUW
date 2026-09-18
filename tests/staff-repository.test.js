@@ -26,6 +26,13 @@ function memoryStore() {
       files.set(path, { value: structuredClone(value), etag: tag });
       return tag;
     },
+    async writeBytes(path, value, etag) {
+      if ((files.get(path)?.etag || null) !== etag)
+        throw new StaffError(409, "Conflict");
+      const tag = `"${++revision}"`;
+      files.set(path, { value: Buffer.from(value), etag: tag });
+      return tag;
+    },
   };
 }
 const actor = {
@@ -68,6 +75,10 @@ test("reviewed content publication backs up previous content and writes one vali
       k.startsWith(store.paths.backups + "/"),
     ),
   );
+  const firstRevision = release.revision;
+  const firstEntry = (await repo.contentStatus()).history[0];
+  assert.equal(firstEntry.revision, firstRevision);
+  assert.ok(store.files.has(`${firstEntry.backupFolder}/Welcome-Lounge-Content.xlsx`));
   await assert.rejects(
     repo.publishContentWorkbook(actor, {
       proof: preview.proof,
@@ -76,6 +87,17 @@ test("reviewed content publication backs up previous content and writes one vali
     }),
     (e) => e.status === 409,
   );
+  const nextPreview = await repo.previewContentWorkbook(actor);
+  await repo.publishContentWorkbook(actor, {
+    proof: nextPreview.proof,
+    reviewed: true,
+    confirmSemester: true,
+    resetProgress: true,
+  });
+  await repo.rollbackContent(actor, { revision: firstRevision, confirm: true });
+  const restored = store.files.get(store.paths.release).value;
+  assert.equal(restored.restoredFrom, firstRevision);
+  assert.equal(restored.content.onboarding.topics.length, 10);
 });
 test("private import assigns opaque IDs, check-in deduplicates and stale writes conflict", async () => {
   const store = memoryStore();

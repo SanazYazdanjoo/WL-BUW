@@ -12,6 +12,7 @@ test("Vercel handler reads configured content and streams downloads through shar
     NEXTCLOUD_USERNAME: "vercel-test-account",
     NEXTCLOUD_APP_PASSWORD: "vercel-test-secret",
     NEXTCLOUD_ROOT_FOLDER: "/Institutional-App",
+    NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
   };
   const previous = Object.fromEntries(
     Object.keys(settings).map((key) => [key, process.env[key]]),
@@ -85,6 +86,7 @@ test("Vercel entry point safely serves missing-credential fallback without leaki
     "NEXTCLOUD_USERNAME",
     "NEXTCLOUD_APP_PASSWORD",
     "NEXTCLOUD_ROOT_FOLDER",
+    "NEXTCLOUD_BASE_URL",
   ];
   const previous = Object.fromEntries(
     keys.map((key) => [key, process.env[key]]),

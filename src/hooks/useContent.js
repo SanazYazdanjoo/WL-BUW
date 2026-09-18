@@ -1,6 +1,10 @@
 import healthInsurance from "../../content/app-content/health-insurance.json";
 import usefulLinks from "../../content/app-content/useful-links.json";
 import rundfunk from "../../content/app-content/rundfunk.json";
+import community from "../../content/app-content/community.json";
+import supportResources from "../../content/app-content/support-resources.json";
+import communityResources from "../../content/app-content/community-resources.json";
+import officialLinks from "../../content/app-content/official-links.json";
 import sourcesConfig from "../../content/app-content/sources.json";
 import { useEffect, useState } from "react";
 import { validateContent } from "../../shared/content";
@@ -16,6 +20,10 @@ const samples = {
   "health-insurance": healthInsurance,
   "useful-links": usefulLinks,
   rundfunk,
+  community,
+  "support-resources": supportResources,
+  "community-resources": communityResources,
+  "official-links": officialLinks,
 };
 function fallbackSources() {
   return Object.fromEntries(
@@ -71,6 +79,7 @@ export function useContent() {
             loading: false,
             ...Object.fromEntries(entries),
             officialSources: bundle.officialSources || fallbackSources(),
+            communityFeed: bundle.communityFeed || "unavailable",
           });
       })
       .catch(() => {
@@ -84,6 +93,7 @@ export function useContent() {
               ]),
             ),
             officialSources: fallbackSources(),
+            communityFeed: "unavailable",
           });
       })
       .finally(() => clearTimeout(timeout));

@@ -11,9 +11,11 @@
     "start": "node server/start.js",
     "test": "node --test",
     "content:check": "node scripts/check-content.js",
+    "content:workbook-template": "node scripts/generate-content-workbook.js",
     "sources:check": "node scripts/check-sources.js",
     "sources:sync": "node scripts/sync-sources.js",
-    "sources:dry-run": "node scripts/sync-sources.js --dry-run"
+    "sources:dry-run": "node scripts/sync-sources.js --dry-run",
+    "sources:discover-rss": "node scripts/discover-rss.js"
   },
   "dependencies": {
     "@fontsource/fira-sans": "^5.3.0",

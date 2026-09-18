@@ -14,7 +14,7 @@ import OfficialSourcesPage from "./staff/OfficialSourcesPage";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import {
-  AfterArrivalPage,
+  CommunityPage,
   EventsPage,
   FeedbackPage,
   HelpPage,
@@ -49,7 +49,7 @@ export default function App() {
           <Route path="journey/:topicId" element={<TopicPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="info" element={<InfoPage />} />
-          <Route path="after-arrival" element={<AfterArrivalPage />} />
+          <Route path="info/community" element={<CommunityPage />} />
           <Route path="after-arrival/:topicId" element={<TopicPage later />} />
           <Route
             path="health-insurance"

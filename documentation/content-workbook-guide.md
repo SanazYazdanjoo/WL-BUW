@@ -1,36 +1,44 @@
-﻿# Editorial workbook guide
+# Public content workbook
 
-The coordinator workflow is **edit workbook → upload to Nextcloud → preview → review → publish**. Normal text changes do not require a rebuild. The application never publishes automatically.
+The Welcome Lounge Content Workbook is the human-editable source of truth for semester-specific public content. Nextcloud is the persistent storage platform. The application generates a validated runtime release from the workbook; staff do not edit generated JSON. Content changes do not require a Git commit or Vercel redeployment.
 
-## Setup
+## Current storage location
 
-Place `Welcome Lounge First Steps and some other informations.xlsx` in `content-source/`, relative to `NEXTCLOUD_ROOT_FOLDER`. Keep this folder private. Configure server-only staff access as described in [Staff operations](staff-operations-guide.md). Open **Semester setup** (`/staff/content`) with the coordinator code. Review current semester, publication time, WhatsApp readiness, MasterExcel import, shift data and official-source status. Configure the semester/contact fields before publication.
+The current temporary Nextcloud host is `https://nextcloud.uni-weimar.de`; the current application root is `/Welcome.Lounge_WiSe2026_27/APP`. The human-facing browser link may be configured separately with `NEXTCLOUD_BROWSER_URL`. Its `/apps/files/...` route and numeric UI file ID are only for staff navigating in a browser. WebDAV uses `NEXTCLOUD_BASE_URL`, `NEXTCLOUD_ROOT_FOLDER`, the server-only account credentials, and paths relative to the root. No backend operation uses the browser URL or its file ID.
 
-Required sheet names (case-insensitive): `first steps`, `Krankenversicherungen`, `student portal Links`, `Rundfunkbeitrag`.
+This location may later move to an International Office-owned folder such as `/Welcome-Lounge-App`. Copy the application-owned folder structure through the approved Nextcloud process, then change `NEXTCLOUD_ROOT_FOLDER` (and optionally `NEXTCLOUD_BROWSER_URL`) in the Vercel environment. Changing only the root setting requires no application code change. Do not move or modify files outside the configured `APP` folder automatically. Use an institutional service account for permanent operation; no personal username or password belongs in the repository.
 
-**Real workbook validation remains pending:** no actual source workbook was available locally during implementation. The parser is tested with synthetic workbooks. Always inspect the preview against every source sheet before first use; an unrecognized layout must be adapted and tested before publishing. No administrative policy has been invented or independently corrected.
+## Normal semester workflow
 
-## Supported layout
+1. Download the safe workbook template from the admin-only **Staff → Content** page if the source workbook has not yet been set up.
+2. Upload it to the private `content-source/` folder under the application root, named `Welcome-Lounge-Content.xlsx`. Do not overwrite an existing workbook without first making a copy in Nextcloud.
+3. Edit and save the workbook in Nextcloud. Keep existing IDs stable. Do not put student personal information or private tutor notes in this workbook.
+4. In **Staff → Content**, choose **Preview update**. Review the workbook timestamp, active item counts, warnings, semester, WhatsApp state, and item-by-item changes.
+5. Confirm the review and publish. The server rereads the workbook, checks that it still matches the preview, validates again, stores a private backup, then conditionally updates the published release. Students receive the new content from the Nextcloud-backed runtime API on their next load; no deployment is needed.
 
-- First steps: an English semester label, numbered rows (number in column A or B), instruction text and a REQUIRED DOCUMENTS column (D when no heading is detected). Optional Title/Instruction headings are recognized. Original instruction paragraphs are preserved; an absent title uses a short display label derived from the text. Stable IDs use `first-step-01`, etc. The number of steps is data-driven. Blank rows are ignored. Duplicate numbers and empty instructions are rejected; number gaps are flagged. Keep numbers stable within a semester. The bundled eleven-step demo fallback orders Health insurance, Accommodation, Semester contribution, Enrollment & student ID, City registration, Bank account, Deutschlandsemesterticket, Meetup with Program Tutors, Welcome events, Language courses, then Residence permit. Some topic details originated in the supplied Welcome Lounge PDF; Summer Semester 2026 references are excluded. PDF-derived content is labelled demo and must be reviewed against current official sources. A reviewed workbook publication becomes authoritative and replaces the fallback order; preview and publish the updated workbook to change the live public journey.
-- Insurance: Provider/Name, Address and weekday heading columns, or constrained provider/address/hour blocks. Incomplete hours generate review warnings. No provider is recommended by the application.
-- Portals: labels and actual Excel hyperlinks or http/https URL cells. Unsafe links are rejected. Descriptions are retained.
-- Rundfunkbeitrag: numbered or bold headings followed by paragraphs. Original text is retained; formulas are not evaluated.
+Only an authenticated admin can preview or publish. A changed workbook or published release invalidates the signed, short-lived preview proof. A semester mismatch requires explicit confirmation; changing the semester while reusing numbered `first-step-*` IDs also requires a progress revision reset so old browser progress is not attached to a different step.
 
-Limits: 10 MB compressed workbook, 60 MB expanded ZIP, 500 archive entries, 20 sheets, 10,000 rows per sheet and 60 columns. Individual text fields are bounded. Encrypted and ZIP64 workbooks are rejected. Formula cells use only saved results; export recalculates shift totals independently.
+## Workbook sheets
 
-## Review and publication
+The generated template contains the seven required sheets: **Instructions**, **Semester Settings**, **First Steps**, **Useful Information**, **Student Support**, **Community**, and **Official Links**. Data sheets have fixed headers, filters, frozen heading rows, basic dropdowns and clearly inactive `SAMPLE` rows. Replace or remove examples before publishing.
 
-Choose **Preview content update** to see the source and current semester, counts, warnings and expandable before/after changes. Review the full source text, required items, links and all warnings. Any mismatch among configured, public and operational semester labels is a review signal; nothing is auto-corrected. A workbook semester mismatch requires explicit confirmation. Reordered/reused numbers need a new progress revision; new-semester numbered steps require it. Cancel changes nothing.
+- **Semester Settings** controls semester label/code, Welcome Lounge enablement, current WhatsApp invitation and enabled state, content review date, and default language. `content_reviewed_by` is private workbook metadata and is not published.
+- **First Steps** controls stable IDs, order, titles, concise student text, official source URL or registry ID, active state, semester, review date, and private internal notes. The count is data-driven. `notes_internal` is discarded.
+- **Useful Information** controls searchable secondary links shown in Info and existing portal views.
+- **Student Support** contains explicitly public student initiatives, representation, peer-support, or official-support resource details.
+- **Community** contains curated public community links. Community-run material is labelled as such; the app does not read Telegram messages or call a Telegram API.
+- **Official Links** is a small canonical registry for BUW links that First Steps may reference by stable ID.
 
-Confirming re-reads the workbook and published content and checks a signed, expiring preview proof. Changed sources or content require a new preview. A private backup is saved first, then a single conditional PUT writes `app-content/published.json`. That release contains all validated public collections, so one publication cannot leave partially written sheets. No existing workbook is moved or deleted. A failed publication can leave an extra harmless backup.
+Use HTTPS for public links. Official links must use a `uni-weimar.de` hostname. Telegram and WhatsApp destinations are restricted to their expected invitation hosts. Private IPs, localhost, credentials in URLs, unsupported schemes, invalid IDs/orders/dates, duplicate IDs, malformed headers, excessive text, and empty active first-step sets block publication. The parser ignores blank and inactive rows, does not rewrite policy text, and never publishes `notes_internal` or editor identity.
 
-Public JSON collections: config, onboarding, events, after-arrival, health-insurance, useful-links, rundfunk. Before the first release, the existing separate JSON files are supported. After a release exists it takes precedence; editing a legacy JSON file no longer changes the public site. Events and after-arrival are retained during workbook publication; their dedicated editing UI remains future work.
+## What is published and what stays automatic
 
-Required items (passport/photo/etc.) are text, not downloadable file paths. The importer grants no document access. Existing approved download references continue through the restricted document API; do not infer filenames from workbook text. Imported steps currently have no automatic document mapping.
+The public runtime release contains validated semester config, journey topics, useful links, support resources, community links, and other retained approved content. The release manifest is generated output, not another editable source. The server validates it before returning semantic content; the public API never exposes the workbook, backups, content metadata, staff files, source caches, or arbitrary Nextcloud paths. Exact document references in active, non-demo topics remain required for downloads.
 
-## Printing and recovery
+Official university source checks and University Message Board RSS remain automatic, separate systems. Their last-known-good data stays under the current private `official-source-cache/` directory below `NEXTCLOUD_ROOT_FOLDER`; normal editorial staff do not edit this cache. No external database is required for public content, and Excel is parsed only during staff preview/publish, never per student request.
 
-`/staff/print` renders first steps, insurer directory, portals, Rundfunkbeitrag or a full packet from the same published normalized data used by the public pages. Use browser Print / Save as PDF, A4. Screen controls and navigation are hidden in print. Check the preview before distributing.
+## Backups and recovery
 
-Backups live in private `content-backups/`. A university maintainer can restore a previous release from a backup with Nextcloud/version history; recovery is currently manual, not a staff restore button. Retention/cleanup is a coordinator decision; nothing is automatically deleted.
+Before publication, the server stores the source workbook, prior published release, previous validated content collections and publication metadata under a timestamped private `content-backups/` folder. A private `content-meta/publish-history.json` index records who published, when, semester, content hash, changed sections, validation warnings and the associated backup folder. Admins can restore a listed earlier publication in Staff → Content; restore itself creates a new release and another backup. Backups and history are not public and are not automatically deleted. Export/retain backups according to university policy.
+
+If a content service fails, the student application uses its bundled, clearly labelled fallback content. It never parses the workbook during student requests. The old legacy workbook parser is retained for transition; new maintenance should use the generated `Welcome-Lounge-Content.xlsx` template and its headers.

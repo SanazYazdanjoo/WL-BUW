@@ -195,4 +195,35 @@ Moved summary visibility to the semantic step link's hover and keyboard-focus st
 
 ## 2026-09-18 - Animate the journey entrance
 
-Journey nodes and connectors now play as a strict sequence: a node appears, its connector draws, and then the next node appears. Nodes take 380ms and connectors 500ms, with timing derived from topic index so variable journey lengths work. The dotted or completed-line style is restored at the end. CSS animation is lightweight and automatically disabled by the existing reduced-motion rule; all journey links remain present and operable during the animation.
+Journey nodes and connectors now alternate at the same pace: each node appears over 800ms, its dotted connector grows from that node over the next 800ms, then the following node appears. Timing is derived from topic index so variable journey lengths work. The dots stay dotted throughout the reveal, including completed segments. CSS animation is lightweight and automatically disabled by the existing reduced-motion rule; all journey links remain present and operable during the animation.
+
+The entrance animation now runs only the first time the Journey opens in a browser tab. Returning from a topic or another student page displays the complete map immediately; the session flag falls back to in-memory state if browser storage is unavailable.
+
+## 2026-09-18 - Add university portals to the journey
+
+Added a University portals step after enrollment and before city registration. Its topic detail links to the existing Useful information portal list rather than duplicating portal content. The optional in-app related-page route is validated to reject external URLs and path traversal.
+
+## 2026-09-18 - Add community and peer-support information under Info
+
+Added a searchable Info entry and `/info/community` page with verified BUW links for Bauhaus Internationals, StuKo, DiversityGuides, and StudyGuides. Added a server-only RSS reader for the university message boards, restricted to housing, offering/seeking, and Piazza categories, same-host notice links, 30-day expiry, bounded XML fetches and a private Nextcloud last-good cache. Feed descriptions are sanitized but omitted from public output to avoid publishing personal details. “Sharing is Caring” remains disabled until a verified Telegram link is supplied. Added RSS discovery and validation commands, focused security/parser/cache tests, and handover documentation. The four-response tutor survey is documented as preliminary and directional only.
+
+**Verification:** 58 tests pass; lint, build, content validation, and official-source configuration validation pass. The live RSS discovery script confirmed the configured feed currently returns 198 total items, contains the three allowlisted categories, and normalizes one item within the 30-day window. Browser inspection of Info and `/info/community` at 375 px and 1440 px showed no horizontal overflow, no error overlay, and no browser console errors. The local environment had no Nextcloud cache, so live notices were intentionally omitted; persistent Vercel/Nextcloud operation was not verified.
+# 2026-09-18 — Move semester ticket and language courses out of the journey
+
+Deactivated the bundled `Deutschlandsemesterticket` and `Language courses` onboarding entries without deleting their source records. Added `Deutschlandsemesterticket` to the searchable Info list, linking to the existing after-arrival topic. The active journey and anonymous progress total now exclude both items. A published Nextcloud workbook remains authoritative in production and must reflect the same change when its content is next reviewed and published.
+# 2026-09-18 — List later-stage topics directly in Info
+
+Info now lists every active After-arrival topic as a separate searchable entry, each linking to its existing detail route. Removed the separate `/after-arrival` index page and route; the topic content and `/after-arrival/:topicId` detail routes remain available.
+
+
+## 2026-09-18 — Workbook-driven content maintenance and APP-root configuration
+
+Made the editorial workbook the only staff-maintained source for public semester settings, journey text, official links, useful-information links, student-support links and curated community links. The admin Content page now downloads a safe workbook template, reports source modification/publication status, shows semantic changes, and provides restore actions. Removed the separate semester/WhatsApp configuration save form. Publication retains the existing HMAC preview proof and single conditional runtime release, while saving the source workbook, prior content and release metadata in private timestamped Nextcloud backups/history. Public runtime reads remain generated/validated and require no Vercel redeploy. Automatic official-source/RSS synchronization remains separate.
+
+Configured the current Nextcloud host/root as `NEXTCLOUD_BASE_URL` and `NEXTCLOUD_ROOT_FOLDER=/Welcome.Lounge_WiSe2026_27/APP` through environment only; no backend default embeds the browser UI ID, host or folder. The optional staff browser URL is separately configurable. Extended the student Info/community routes to consume workbook-published links/support resources, and preserved compatibility with older releases missing the new optional resource kinds. Added tests for safe template parsing, private-note exclusion, unsafe URLs, backup/restore, and configured WebDAV host/root.
+
+Operational state remains private structured Nextcloud storage with ETag conflict protection; MasterExcel remains import/export/backup. A shared aggregate state file remains a known concurrency limit before wider multi-tutor use.
+
+## 2026-09-18 - Staff workspace presentation pass
+
+Refined the private staff shell, sign-in presentation, responsive navigation, coordinator content review, and Today dashboard hierarchy. Kept authentication, Nextcloud storage, content publishing, student records, and permission behavior unchanged. Verified staff screens locally with synthetic test-only session/data at mobile and desktop widths.

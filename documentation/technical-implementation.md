@@ -1,4 +1,4 @@
-﻿# Technical implementation
+# Technical implementation
 
 ## Architecture
 
@@ -6,7 +6,7 @@ Deployment uses the existing GitHub-connected Vercel project: commit/push trigge
 
 React + Vite + React Router remains the frontend. Browser navigation and information architecture do not mirror Nextcloud folders. Plain structured content is fetched from the same-origin API; progress uses a separate browser-only store. No database or student identity is used.
 
-`server/api.js` composes the content and document middleware. Vite development/preview, `server/start.js`, and the Vercel catch-all `api/[...path].js` invoke this same implementation. Credentials and the configured root never enter the frontend dependency graph. The university Nextcloud origin remains fixed to avoid introducing a configurable proxy/SSRF surface.
+`server/api.js` composes the content and document middleware. Vite development/preview, `server/start.js`, and the Vercel catch-all `api/[...path].js` invoke this same implementation. Credentials and the configured host/root never enter the frontend dependency graph. WebDAV accepts only a configured HTTPS origin and root; redirects remain disabled and paths are validated/encoded before use.
 
 ## Source map
 
@@ -67,7 +67,7 @@ New server modules: `server/excel/` (bounded ExcelJS parsers/export), `server/st
 
 Public content adds health-insurance, useful-links and rundfunk collections and routes. Required workbook items are shown separately from downloads. `loadContent` first checks the atomic release, falls back to legacy JSON only when absent, and serves labelled samples on invalid/unavailable content. The document allowlist uses that same validated content. ExcelJS is absent from the frontend bundle.
 
-The student client requests `/api/content` once for all seven collections to reduce mobile round trips. The server validates a complete atomic release in one Nextcloud read. Before the first release, it fetches legacy collections concurrently and marks missing/invalid ones as samples. Individual content routes remain for compatibility and download authorization.
+The student client requests `/api/content` once for all validated public collections to reduce mobile round trips. The server validates a complete atomic release in one Nextcloud read. Before the first release, it fetches legacy collections concurrently and marks missing/invalid ones as samples. Automatic community RSS configuration remains separate from workbook-curated support/community resources, so publication does not overwrite the feed configuration. Individual content routes remain for compatibility and download authorization.
 
 The existing root API catch-all is preserved for local compatibility. Vercel's deployed route check showed that it did not receive multi-segment URLs in this project. `vercel.json` rewrites nested content, Nextcloud and staff endpoints to the existing single-segment API function and passes a bounded route marker. `server/vercel-handler.js` restores the original path before forwarding into the shared `server/api.js` middleware. This keeps path validation and authorization in one implementation.
 
@@ -82,6 +82,17 @@ See the workbook, MasterExcel and staff-operation guides for schemas, limits, wo
 Public content responses expose only normalized source records. `src/hooks/useContent.js` provides canonical source-link fallback when an API record is absent. `OfficialSourceLink` renders official links and quiet freshness copy. The topic mapping chooses a discovered official subpage when available and otherwise uses the canonical Preparing your studies URL. The Events page shows validated upcoming events, omits unverified dates, and always links the official programme. Local sample events are omitted from the student event list.
 
 The cache service persists fixed server-owned JSON locations through the private staff WebDAV store. These paths are exactly allowlisted for that store but are not in the public document subtree or file-list API. ETag conditional writes protect concurrent updates. Normalized stable hashes distinguish unchanged checks from content changes. Count anomalies are held in `pendingReview`; individual contradictions carry warnings and uncertain date/time values remain empty. Source raw HTML is never stored or returned. See `official-source-sync.md` for operation and status semantics.
+
+`server/community/` handles the University Message Boards RSS feed separately from authoritative official information. It accepts one exact allowlisted university feed URL, validates XML, filters configured categories and recent items, sanitizes but does not publish RSS description text, and writes last-known-good normalized items to a private Nextcloud cache. The validated `/api/content` bundle adds these items to the community content for `/info/community`. Cache and feed failures degrade to an empty list without exposing upstream error details.
 ## Student journey map
 
 The new JourneyMap component renders topic links in semantic source order, while the journey layout utility assigns responsive serpentine grid positions for any number of active topics. A ResizeObserver measures each marker and the list height; a small aria-hidden SVG connects the measured marker centers. On narrow screens it uses a one-column zigzag and routes the connector around the text block. Completed topic IDs remain in the existing browser progress hook and update the node and path styles. The topic-detail route is unchanged and remains a linear task page.
+
+
+## Workbook publication and storage boundary
+
+`NEXTCLOUD_BASE_URL` and `NEXTCLOUD_ROOT_FOLDER` are server-only environment settings. The shared WebDAV URL builder requires both and has no embedded host or semester-folder default. Configured store paths (`content-source/`, `app-content/`, `content-backups/`, `content-meta/`, `staff-data/`, and `official-source-cache/`) are relative to this root. Public file endpoints do not list files and allow document downloads only when the exact path is referenced by an active, non-demo topic. The optional browser URL appears only in authenticated admin status and is never used for WebDAV.
+
+`scripts/generate-content-workbook.js` creates the safe seven-sheet template using the existing ExcelJS dependency. `server/excel/editorialContentWorkbook.js` parses it only for staff preview/publish; it checks stable IDs, ordering, dates, booleans, semester/WhatsApp settings, public URLs, sheet headers and size limits, and drops `notes_internal` and editor identity from public content. The older workbook parser remains for transition.
+
+`server/staff/repository.js` binds a short-lived HMAC preview proof to workbook bytes, current release, semester and admin session. Publish rereads/reparses the source, stores a timestamped private folder with the workbook, prior release/content and metadata, then conditionally writes the single atomic `app-content/published.json` runtime release. Private status/history are stored under `content-meta/`; admin restore creates a new release. Students read validated Nextcloud content at runtime, so publishing does not require a Vercel redeployment. Existing structured operational state remains in private Nextcloud with ETag conflict protection; MasterExcel remains separate import/export/backup compatibility.

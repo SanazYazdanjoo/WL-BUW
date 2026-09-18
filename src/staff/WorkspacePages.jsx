@@ -102,41 +102,73 @@ function TodayCheckins({ checkins, students }) {
   ) : <p>No visitors checked in yet.</p>;
 }
 
+function AttentionList({ students }) {
+  return students.length ? (
+    <ul className="staff-attention-list">
+      {students.map((student) => {
+        const issues = [];
+        if (student.enrolled !== true) issues.push("Enrollment not confirmed");
+        if (student.receivedBackpack !== true) issues.push("Backpack not confirmed");
+        return (
+          <li key={student.id}>
+            <Link to={`/staff/students/${student.id}`}>
+              {student.name || "Name not supplied"}
+            </Link>
+            <small>{issues.join(" · ")}</small>
+          </li>
+        );
+      })}
+    </ul>
+  ) : <p>No student records need follow-up.</p>;
+}
+
 export function Dashboard() {
   const { workspace, error } = useWorkspace();
   if (!workspace) return <State error={error} />;
   const { data, today } = workspace;
   const shifts = data.shifts.filter((s) => s.date === today);
+  const checkinsToday = data.checkins.filter((checkin) => checkin.date === today);
+  const attentionStudents = data.students
+    .filter((student) => student.enrolled !== true || student.receivedBackpack !== true)
+    .slice(0, 20);
+  const dayLabel = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "full",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(`${today}T12:00:00Z`));
   return (
-    <>
-      <h1>Today at the Welcome Lounge</h1>
-      <p>
-        {today} · {data.semesterLabel || "Semester not configured"}
-      </p>
-      <p>
-        {data.checkins.filter((c) => c.date === today).length} students checked in today
+    <div className="staff-page staff-dashboard">
+      <header className="staff-page-heading staff-dashboard-heading">
+        <p className="staff-eyebrow">TODAY · {data.semesterLabel || "SEMESTER NOT SET"}</p>
+        <h1>Welcome Lounge</h1>
+        <p className="staff-page-lead">{dayLabel}</p>
+      </header>
+      <p className="staff-checkin-count">
+        <strong>{checkinsToday.length}</strong> students checked in today
       </p>
       <nav className="staff-quick-actions" aria-label="Today’s actions">
-        <Link to="/staff/students">Find a student</Link>
-        <Link to="/staff/students">Check in a visitor</Link>
-        <Link to="/staff/handover">Add handover</Link>
+        <Link to="/staff/students">Find a student <span aria-hidden="true">→</span></Link>
+        <Link to="/staff/students">Check in a visitor <span aria-hidden="true">→</span></Link>
+        <Link to="/staff/handover">Add handover <span aria-hidden="true">→</span></Link>
       </nav>
-      <h2>Today’s shifts</h2>
-      <Shifts shifts={shifts} />
-      <h2>Checked in today</h2>
-      <TodayCheckins
-        checkins={data.checkins.filter((checkin) => checkin.date === today)}
-        students={data.students}
-      />
-      <h2>Needs attention</h2>
-      <StudentTable
-        students={data.students
-          .filter((s) => s.enrolled !== true || s.receivedBackpack !== true)
-          .slice(0, 20)}
-      />
-      <h2>Latest handover</h2>
-      <HandoverEntries entries={data.handover} today={today} limit={5} />
-    </>
+      <div className="staff-dashboard-grid">
+        <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
+          <h2 id="today-shifts-heading">Today’s shifts</h2>
+          <Shifts shifts={shifts} />
+        </section>
+        <section className="staff-dashboard-section" aria-labelledby="today-checkins-heading">
+          <h2 id="today-checkins-heading">Checked in today</h2>
+          <TodayCheckins checkins={checkinsToday} students={data.students} />
+        </section>
+        <section className="staff-dashboard-section staff-dashboard-attention" aria-labelledby="attention-heading">
+          <h2 id="attention-heading">Needs attention</h2>
+          <AttentionList students={attentionStudents} />
+        </section>
+        <section className="staff-dashboard-section" aria-labelledby="handover-heading">
+          <h2 id="handover-heading">Latest handover</h2>
+          <HandoverEntries entries={data.handover} today={today} limit={5} />
+        </section>
+      </div>
+    </div>
   );
 }
 export function Students() {

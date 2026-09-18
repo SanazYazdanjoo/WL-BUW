@@ -3,7 +3,7 @@
 ## First setup
 
 1. In the configured Nextcloud root, create `app-content` and `documents` if they do not exist. Do not move unrelated files.
-2. Upload the four JSON examples from `content/app-content`. These contain samples, not university instructions.
+2. Upload the JSON examples from `content/app-content`, including `community.json`. These contain samples/configuration, not a substitute for university instructions.
 3. Replace topic text using the approved International Office source. Do not ask the application to interpret PDFs or Word files automatically.
 4. Add only approved public documents to `documents/<topic>/`, then reference each file in its topic's `documents` array. Downloads require an exact reference in an active, non-demo topic from valid Nextcloud content. Unlinked, inactive and demo-only documents are denied. Missing/invalid content does not grant access.
 5. Review the student page on a phone. Set `isDemo` to `false` only after approval; leave `isActive` false for unpublished topics/events.

@@ -3,11 +3,13 @@ import { contentMiddleware, loadContent } from "./content.js";
 import { nextcloudMiddleware } from "./nextcloud.js";
 import { createOfficialSourcesService } from "./officialSources/sourceCache.js";
 import { officialSourcesMiddleware } from "./officialSources/api.js";
+import { createCommunityFeedService } from "./community/service.js";
 export function applicationApi(env, fetchImpl = fetch) {
   const officialService = createOfficialSourcesService({ env, fetchImpl });
+  const communityService = createCommunityFeedService({ env, fetchImpl });
   const official = officialSourcesMiddleware(env, fetchImpl, officialService);
   const staff = staffMiddleware(env, fetchImpl);
-  const content = contentMiddleware(env, fetchImpl, () => officialService.getPublicSources()),
+  const content = contentMiddleware(env, fetchImpl, () => officialService.getPublicSources(), (community) => communityService.getPublic(community)),
     documents = nextcloudMiddleware(env, fetchImpl, async (path) => {
       const collections = await Promise.all(
         ["onboarding", "after-arrival"].map((kind) =>

@@ -9,6 +9,7 @@ import {
 } from "./auth.js";
 import { createPrivateStore } from "./store.js";
 import { createStaffRepository } from "./repository.js";
+import { createContentWorkbookBuffer } from "../../scripts/generate-content-workbook.js";
 
 async function readBody(req) {
   if (!(req.headers["content-type"] || "").startsWith("application/json"))
@@ -88,7 +89,7 @@ export function staffMiddleware(
         "data/import": ["admin", "commitMasterExcelImport"],
         "content/preview": ["admin", "previewContentWorkbook"],
         "content/publish": ["admin", "publishContentWorkbook"],
-        config: ["admin", "updateConfig"],
+        "content/rollback": ["admin", "rollbackContent"],
       };
       if (req.method === "POST") {
         checkMutation(req, actor);
@@ -118,6 +119,17 @@ export function staffMiddleware(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "Content-Disposition":
             'attachment; filename="MasterExcel-export.xlsx"',
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        });
+        return res.end(Buffer.from(data));
+      }
+      if (req.method === "GET" && action === "content/template") {
+        requireActor(actor, "admin");
+        const data = await createContentWorkbookBuffer();
+        res.writeHead(200, {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": 'attachment; filename="Welcome-Lounge-Content-Template.xlsx"',
           "Cache-Control": "private, no-store",
           "X-Content-Type-Options": "nosniff",
         });

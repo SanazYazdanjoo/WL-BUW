@@ -23,7 +23,12 @@ test("only exact references in active non-demo topics authorize downloads, with 
     return new Response("approved file bytes");
   };
   const api = applicationApi(
-    { NEXTCLOUD_USERNAME: "test", NEXTCLOUD_APP_PASSWORD: "fake" },
+    {
+      NEXTCLOUD_USERNAME: "test",
+      NEXTCLOUD_APP_PASSWORD: "fake",
+      NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
+      NEXTCLOUD_ROOT_FOLDER: "/Welcome.Lounge_WiSe2026_27/APP",
+    },
     upstream,
   );
   const server = createServer((req, res) =>

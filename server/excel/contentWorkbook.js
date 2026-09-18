@@ -7,8 +7,9 @@
   WorkbookError,
   sourceAt,
 } from "./excelUtils.js";
-export const CONTENT_WORKBOOK =
-  "Welcome Lounge First Steps and some other informations.xlsx";
+import { parseEditorialContentWorkbook } from "./editorialContentWorkbook.js";
+export const CONTENT_WORKBOOK = "Welcome-Lounge-Content.xlsx";
+export const LEGACY_CONTENT_WORKBOOK = "Welcome Lounge First Steps and some other informations.xlsx";
 const SHEETS = [
   "first steps",
   "Krankenversicherungen",
@@ -61,6 +62,11 @@ const urlValue = (value) => {
 };
 export async function parseContentWorkbook(bytes, currentSemester = "") {
   const workbook = await readWorkbook(bytes);
+  if (workbook.getWorksheet("Semester Settings"))
+    return parseEditorialContentWorkbook(workbook, currentSemester);
+  return parseLegacyContentWorkbook(workbook, currentSemester);
+}
+async function parseLegacyContentWorkbook(workbook, currentSemester = "") {
   const [first, insurance, portals, rundfunk] = requireSheets(workbook, SHEETS);
   const warnings = [],
     source = (sheet, row) => sourceAt(CONTENT_WORKBOOK, sheet.name, row);

@@ -53,6 +53,7 @@ function ProgressOutlet({ content }) {
         content,
         progress,
         officialSources: content.officialSources || {},
+        communityFeed: content.communityFeed || "unavailable",
       }}
     />
   );

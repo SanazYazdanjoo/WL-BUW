@@ -26,9 +26,11 @@ import afterArrival from "../content/app-content/after-arrival.json" with { type
 import healthInsurance from "../content/app-content/health-insurance.json" with { type: "json" };
 import usefulLinks from "../content/app-content/useful-links.json" with { type: "json" };
 import rundfunk from "../content/app-content/rundfunk.json" with { type: "json" };
+import community from "../content/app-content/community.json" with { type: "json" };
 const env = {
   NEXTCLOUD_USERNAME: "test",
   NEXTCLOUD_APP_PASSWORD: "secret",
+  NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
   NEXTCLOUD_ROOT_FOLDER: "/Welcome-Lounge-App",
 };
 test("public subtree rejects private, ambiguous and malicious paths", () => {
@@ -51,10 +53,10 @@ test("public subtree rejects private, ambiguous and malicious paths", () => {
   assert.equal(isPublicDocument("documents/enrollment/a b.pdf"), true);
   assert.throws(() => cleanPath("\u007f"));
   assert.match(
-    davUrl("test", "documents/a.pdf", env.NEXTCLOUD_ROOT_FOLDER),
+    davUrl("test", "documents/a.pdf", env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
     /\/Welcome-Lounge-App\/documents\/a.pdf$/,
   );
-  assert.throws(() => davUrl("test", "documents/a.pdf", "/x/../private"));
+  assert.throws(() => davUrl("test", "documents/a.pdf", "/x/../private", env.NEXTCLOUD_BASE_URL));
 });
 test("XML rejects malformed and entity-bearing responses", () => {
   for (const xml of [
@@ -62,12 +64,12 @@ test("XML rejects malformed and entity-bearing responses", () => {
     '<!DOCTYPE x [<!ENTITY x SYSTEM "file:///secret">]><multistatus>&x;</multistatus>',
     "<html/>",
   ])
-    assert.throws(() => parseListing(xml, davUrl("test"), ""));
+    assert.throws(() => parseListing(xml, davUrl("test", "", env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL), ""));
 });
 test("content schema enforces IDs, safe document paths, booleans and unique topics", () => {
   assert.equal(
     validateContent("onboarding", onboarding).topics.length,
-    onboarding.topics.length,
+    onboarding.topics.filter((topic) => topic.isActive).length,
   );
   for (const change of [
     (v) => v.topics.push(v.topics[0]),
@@ -85,11 +87,18 @@ test("content schema enforces IDs, safe document paths, booleans and unique topi
   v.topics[0].isActive = false;
   assert.equal(
     validateContent("onboarding", v).topics.length,
-    onboarding.topics.length - 1,
+    onboarding.topics.filter((topic) => topic.isActive).length - 1,
   );
   assert.throws(() =>
     validateContent("onboarding", { version: 2, topics: [] }),
   );
+});
+test("bundled university portals include the requested Stud.IP login", () => {
+  const links = validateContent("useful-links", usefulLinks).links;
+  assert.ok(links.some((link) =>
+    link.title === "Stud.IP" &&
+    link.url === "https://studip.uni-weimar.de/dispatch.php/login?again=yes",
+  ));
 });
 test("WhatsApp requires enabled current configuration and exact secure invite host", () => {
   assert.equal(whatsappLink(config), "");
@@ -302,6 +311,7 @@ test("student content bundle reads the published release once for mobile loads",
     "health-insurance": healthInsurance,
     "useful-links": usefulLinks,
     rundfunk,
+    community,
   };
   let calls = 0;
   const bundle = await loadContentBundle(env, async (url) => {
@@ -310,8 +320,12 @@ test("student content bundle reads the published release once for mobile loads",
     return new Response(JSON.stringify({ version: 1, content }));
   });
   assert.equal(calls, 1);
-  assert.equal(Object.keys(bundle.data).length, 7);
+  assert.equal(Object.keys(bundle.data).length, 11);
   assert.ok(
-    Object.values(bundle.sources).every((source) => source === "nextcloud"),
+    Object.entries(bundle.sources).every(([kind, source]) =>
+      ["support-resources", "community-resources", "official-links"].includes(kind)
+        ? source === "demo"
+        : source === "nextcloud",
+    ),
   );
 });

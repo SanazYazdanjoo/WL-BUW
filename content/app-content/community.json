@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "semesterLabel": "",
+  "publishedAt": "",
+  "feeds": [
+    {
+      "id": "university-notice-board",
+      "label": "University message boards",
+      "url": "https://www.uni-weimar.de/en/university/aktuell/pinnwaende/rss/",
+      "categories": ["Housing / Accomodation", "Offering / Seeking", "Piazza"],
+      "maxAgeDays": 30,
+      "refreshMinutes": 30,
+      "isActive": true
+    }
+  ],
+  "resources": [
+    {
+      "id": "bauhaus-internationals",
+      "title": "Bauhaus Internationals",
+      "description": "Information about the international student initiative.",
+      "url": "https://www.uni-weimar.de/en/university/international/to-weimar/fulltime-students/preparing-your-studies/",
+      "category": "Student initiatives",
+      "isActive": true
+    },
+    {
+      "id": "stuko",
+      "title": "StuKo · Student Government",
+      "description": "The university-wide student representative body.",
+      "url": "https://www.uni-weimar.de/en/university/services/a-guide-for-students/anlauf-und-beratungsstellen/student-government-stuko/",
+      "category": "Student representation",
+      "isActive": true
+    },
+    {
+      "id": "diversity-guides",
+      "title": "DiversityGuides",
+      "description": "Peer support and a first point of contact for discrimination concerns.",
+      "url": "https://www.uni-weimar.de/en/university/structure/central-university-facilities/diversity-department/diversity-guides/",
+      "category": "Peer support",
+      "isActive": true
+    },
+    {
+      "id": "study-guides",
+      "title": "StudyGuides",
+      "description": "Student-to-student discussions and support with study and everyday questions.",
+      "url": "https://www.uni-weimar.de/en/university/services/a-guide-for-students/support-services/",
+      "category": "Peer support",
+      "isActive": true
+    }
+  ],
+  "sharingIsCaring": { "enabled": false, "url": "", "label": "Sharing is Caring" }
+}

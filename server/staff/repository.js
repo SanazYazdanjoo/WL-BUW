@@ -13,6 +13,16 @@ import {
 import { validateContent } from "../../shared/content.js";
 import { CONTENT_KINDS } from "../../shared/contentKinds.js";
 import { StaffError } from "./auth.js";
+import sampleConfig from "../../content/app-content/config.json" with { type: "json" };
+import sampleOnboarding from "../../content/app-content/onboarding.json" with { type: "json" };
+import sampleEvents from "../../content/app-content/events.json" with { type: "json" };
+import sampleAfterArrival from "../../content/app-content/after-arrival.json" with { type: "json" };
+import sampleHealth from "../../content/app-content/health-insurance.json" with { type: "json" };
+import sampleUsefulLinks from "../../content/app-content/useful-links.json" with { type: "json" };
+import sampleRundfunk from "../../content/app-content/rundfunk.json" with { type: "json" };
+import sampleSupport from "../../content/app-content/support-resources.json" with { type: "json" };
+import sampleCommunity from "../../content/app-content/community-resources.json" with { type: "json" };
+import sampleOfficialLinks from "../../content/app-content/official-links.json" with { type: "json" };
 const now = () => new Date().toISOString();
 export const localDate = (value = new Date()) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(value);
@@ -242,26 +252,72 @@ function verifyProof(proof, expected, env) {
       "The source or current data changed. Preview again before confirming.",
     );
 }
+function nextcloudBrowserUrl(env) {
+  if (!env.NEXTCLOUD_BROWSER_URL || !env.NEXTCLOUD_BASE_URL) return "";
+  try {
+    const link = new URL(env.NEXTCLOUD_BROWSER_URL);
+    const base = new URL(env.NEXTCLOUD_BASE_URL);
+    return link.protocol === "https:" && link.origin === base.origin &&
+      link.pathname.startsWith("/apps/files/") && !link.username && !link.password
+      ? link.href : "";
+  } catch {
+    return "";
+  }
+}
+const emptyPublishedKind = (kind) => ({
+  "support-resources": { version: 1, resources: [] },
+  "community-resources": { version: 1, resources: [] },
+  "official-links": { version: 1, links: [] },
+}[kind] || null);
+const safeDefaults = {
+  config: sampleConfig,
+  onboarding: sampleOnboarding,
+  events: sampleEvents,
+  "after-arrival": sampleAfterArrival,
+  "health-insurance": sampleHealth,
+  "useful-links": sampleUsefulLinks,
+  "support-resources": sampleSupport,
+  "community-resources": sampleCommunity,
+  "official-links": sampleOfficialLinks,
+  rundfunk: sampleRundfunk,
+};
+const collectionFor = (kind) => ({
+  onboarding: ["topics", "Step"],
+  "health-insurance": ["providers", "Insurance provider"],
+  "useful-links": ["links", "Information link"],
+  "support-resources": ["resources", "Student support resource"],
+  "community-resources": ["resources", "Community resource"],
+  "official-links": ["links", "Official link"],
+  "after-arrival": ["topics", "Later-stage topic"],
+  events: ["events", "Event"],
+  community: ["resources", "Community support resource"],
+  rundfunk: ["sections", "Rundfunk section"],
+}[kind]);
+function publicationRiskWarnings(previous, next) {
+  const warnings = [];
+  for (const [kind, value] of Object.entries(next)) {
+    const [field, label] = collectionFor(kind) || [];
+    if (!field) continue;
+    const before = previous?.[kind]?.[field]?.length || 0;
+    const after = value?.[field]?.length || 0;
+    if (before >= 5 && after < before * 0.5)
+      warnings.push(`${label}: active items fall from ${before} to ${after}. Review this large change carefully.`);
+  }
+  return warnings;
+}
 export function contentChanges(previous, next) {
   const changes = [];
   for (const [kind, value] of Object.entries(next)) {
     const old = previous?.[kind];
-    const field =
-      kind === "onboarding"
-        ? "topics"
-        : kind === "health-insurance"
-          ? "providers"
-          : kind === "useful-links"
-            ? "links"
-            : "sections";
-    const label =
-      kind === "onboarding"
-        ? "Step"
-        : kind === "health-insurance"
-          ? "Insurance provider"
-          : kind === "useful-links"
-            ? "Portal"
-            : "Rundfunk section";
+    if (kind === "config") {
+      for (const key of new Set([...Object.keys(old || {}), ...Object.keys(value)])) {
+        if (JSON.stringify(old?.[key]) !== JSON.stringify(value[key]))
+          changes.push({ kind, label: `Semester settings: ${key.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`)}`, status: old?.[key] === undefined ? "added" : "changed", before: old?.[key] ?? null, after: value[key] });
+      }
+      continue;
+    }
+    const [field, label] = collectionFor(kind) || [null, kind];
+    if (!field) continue;
     const before = old?.[field] || [],
       after = value[field] || [];
     for (const [i, item] of after.entries()) {
@@ -297,20 +353,24 @@ export function createStaffRepository(store, env) {
     if (release.value) {
       if (release.value.version !== 1)
         throw new StaffError(422, "Published content needs review.");
-      return {
-        ...release,
-        content: Object.fromEntries(
-          CONTENT_KINDS.map((k) => [
-            k,
-            validateContent(k, release.value.content[k]),
-          ]),
-        ),
-      };
+      const entries = await Promise.all(CONTENT_KINDS.map(async (kind) => {
+        let value = release.value.content?.[kind];
+        if (value === undefined) {
+          const legacy = await store.readJson(`app-content/${kind}.json`);
+          value = legacy.value || emptyPublishedKind(kind) || safeDefaults[kind];
+        }
+        try {
+          return [kind, validateContent(kind, value)];
+        } catch {
+          throw new StaffError(422, `Published ${kind} content needs coordinator review.`);
+        }
+      }));
+      return { ...release, content: Object.fromEntries(entries) };
     }
     const entries = await Promise.all(
       CONTENT_KINDS.map(async (k) => {
         const r = await store.readJson(`app-content/${k}.json`);
-        return [k, r.value ? validateContent(k, r.value) : null];
+        return [k, validateContent(k, r.value || emptyPublishedKind(k) || safeDefaults[k])];
       }),
     );
     return { ...release, content: Object.fromEntries(entries) };
@@ -348,6 +408,38 @@ export function createStaffRepository(store, env) {
   }
   async function backup(path, value) {
     await store.writeJson(path, value, null);
+  }
+  async function snapshotPublication({ file, published, content, candidate, revision, at, actor }) {
+    const folderName = `${at.replace(/[:.]/g, "-")}-${revision.slice(0, 8)}`;
+    const folder = `${store.paths.backups}/${folderName}`;
+    if (file?.value && store.writeBytes)
+      await store.writeBytes(`${folder}/Welcome-Lounge-Content.xlsx`, file.value, null);
+    await store.writeJson(`${folder}/published.json`, candidate || published.value || { version: 1, content }, null);
+    await store.writeJson(`${folder}/previous-release.json`, published.value || { version: 1, content }, null);
+    for (const [kind, value] of Object.entries(content))
+      await store.writeJson(`${folder}/previous/${kind}.json`, value, null);
+    await store.writeJson(`${folder}/publish-meta.json`, {
+      revision,
+      createdAt: at,
+      semester: content.config?.semesterLabel || "",
+      workbookETag: file?.etag || "",
+      workbookLastModified: file?.lastModified || "",
+      contentHash: hash(content),
+      savedBy: actor?.name || "",
+    }, null);
+    return folder;
+  }
+  async function recordHistory(entry) {
+    const previous = await store.readJson(store.paths.history);
+    const items = Array.isArray(previous.value?.items) ? previous.value.items : [];
+    await store.writeJson(store.paths.history, {
+      version: 1,
+      items: [entry, ...items].slice(0, 50),
+    }, previous.etag);
+  }
+  async function writeWorkbookStatus(value) {
+    const previous = await store.readJson(store.paths.workbookStatus);
+    await store.writeJson(store.paths.workbookStatus, value, previous.etag);
   }
   const api = {
     async workspace() {
@@ -550,7 +642,10 @@ export function createStaffRepository(store, env) {
         currentSemester: semester,
         lastPublished: published.value?.publishedAt || "",
         sourceFilename: store.paths.editorial.split("/").at(-1),
+        nextcloudBrowserUrl: nextcloudBrowserUrl(env),
+        sourceLastModified: file.lastModified || "",
         changes: contentChanges(published.content, parsed.content),
+        warnings: [...(parsed.warnings || []), ...publicationRiskWarnings(published.content, { ...published.content, ...parsed.content })],
         proof: previewProof(
           "content",
           file.hash,
@@ -601,13 +696,7 @@ export function createStaffRepository(store, env) {
       const stamp = now(),
         revision = randomUUID();
       const content = { ...published.content, ...parsed.content };
-      content.config = {
-        ...published.content.config,
-        semesterLabel: parsed.semesterLabel,
-        ...(parsed.semesterLabel !== semester
-          ? { whatsappEnabled: false, whatsappGroupUrl: "" }
-          : {}),
-      };
+      content.config = parsed.content.config || published.content.config;
       const previousRevision = published.content.onboarding?.progressRevision;
       const progressRevision =
         input.resetProgress === true ? revision : previousRevision || "legacy";
@@ -644,6 +733,7 @@ export function createStaffRepository(store, env) {
         version: 1,
         revision,
         publishedAt: stamp,
+        publishedBy: actor.name,
         sourceHash: file.hash,
         content,
       };
@@ -652,64 +742,118 @@ export function createStaffRepository(store, env) {
           422,
           "Published content exceeds the supported size. Shorten unusually long source text before previewing again.",
         );
-      await backup(`${store.paths.backups}/${revision}.json`, {
-        createdAt: stamp,
-        source: "Before content publication",
-        previous: published.value,
-        legacy: published.content,
-        reviewer: actor.name,
+      const backupFolder = await snapshotPublication({
+        file,
+        published,
+        content: published.content,
+        candidate: release,
+        revision,
+        at: stamp,
+        actor,
       });
       await store.writeJson(store.paths.release, release, published.etag);
-      return { ok: true, publishedAt: stamp };
+      const changedSections = [...new Set(contentChanges(published.content, content).map((change) => change.kind))];
+      const entry = {
+        revision,
+        publishedAt: stamp,
+        publishedBy: actor.name,
+        semester: content.config.semesterLabel,
+        workbookETag: file.etag || "",
+        workbookLastModified: file.lastModified || "",
+        contentHash: hash(content),
+        changedSections,
+        validationWarnings: parsed.warnings,
+        backupFolder,
+      };
+      try {
+        await recordHistory(entry);
+        await writeWorkbookStatus({
+          version: 1,
+          lastSeenAt: stamp,
+          lastModified: file.lastModified || "",
+          etag: file.etag || "",
+          sourceHash: file.hash,
+          publishedRevision: revision,
+          publishedAt: stamp,
+        });
+      } catch {
+        console.warn("Content was published but private status history could not be updated.");
+      }
+      return { ok: true, publishedAt: stamp, revision };
     },
     async contentStatus() {
       const r = await currentContent();
+      const [source, status, history] = await Promise.all([
+        store.read(store.paths.editorial, 10 * 1024 * 1024),
+        store.readJson(store.paths.workbookStatus),
+        store.readJson(store.paths.history),
+      ]);
       return {
         content: r.content,
         etag: r.etag,
         publishedAt: r.value?.publishedAt || "",
+        publishedBy: r.value?.publishedBy || "",
         sourceFilename: store.paths.editorial.split("/").at(-1),
+        nextcloudBrowserUrl: nextcloudBrowserUrl(env),
+        workbook: {
+          available: Boolean(source.value),
+          lastModified: source.lastModified || status.value?.lastModified || "",
+          matchesPublished: Boolean(source.value && r.value?.sourceHash === hash(source.value)),
+        },
+        history: (history.value?.items || []).slice(0, 20),
       };
     },
-    async updateConfig(actor, input) {
-      const r = await currentContent();
-      if (r.etag !== input.etag)
-        throw new StaffError(
-          409,
-          "Configuration changed. Reload before saving.",
-        );
-      const config = validateContent("config", input.config);
-      if (
-        r.content.config &&
-        config.semesterLabel !== r.content.config.semesterLabel &&
-        config.whatsappGroupUrl === r.content.config.whatsappGroupUrl
-      ) {
-        config.whatsappEnabled = false;
-        config.whatsappGroupUrl = "";
-      }
-      const revision = randomUUID();
-      await backup(`${store.paths.backups}/${revision}.json`, {
-        createdAt: now(),
-        reviewer: actor.name,
-        previous: r.value,
-        legacy: r.content,
+    async rollbackContent(actor, input) {
+      const revision = safeText(input.revision, 100);
+      if (!/^[0-9a-f-]{36}$/i.test(revision) || input.confirm !== true)
+        throw new StaffError(400, "Select a previous publication and confirm the restore.");
+      const history = await store.readJson(store.paths.history);
+      const selected = history.value?.items?.find((item) => item.revision === revision);
+      if (!selected?.backupFolder || !selected.backupFolder.startsWith(`${store.paths.backups}/`) || selected.backupFolder.includes(".."))
+        throw new StaffError(404, "That publication backup is not available.");
+      const [current, prior] = await Promise.all([
+        currentContent(),
+        store.readJson(`${selected.backupFolder}/published.json`),
+      ]);
+      if (!prior.value?.content || prior.value.version !== 1)
+        throw new StaffError(404, "That publication backup is not available.");
+      const stamp = now();
+      const nextRevision = randomUUID();
+      const restoredContent = Object.fromEntries(CONTENT_KINDS.map((kind) => [
+        kind,
+        validateContent(kind, prior.value.content[kind] || safeDefaults[kind]),
+      ]));
+      const release = {
+        version: 1,
+        revision: nextRevision,
+        publishedAt: stamp,
+        publishedBy: actor.name,
+        sourceHash: prior.value.sourceHash || "",
+        restoredFrom: revision,
+        content: restoredContent,
+      };
+      const backupFolder = await snapshotPublication({
+        file: await store.read(store.paths.editorial, 10 * 1024 * 1024),
+        published: current,
+        content: current.content,
+        candidate: release,
+        revision: nextRevision,
+        at: stamp,
+        actor,
       });
-      if (r.value) {
-        await store.writeJson(
-          store.paths.release,
-          { ...r.value, revision, content: { ...r.content, config } },
-          r.etag,
-        );
-      } else {
-        const old = await store.readJson("app-content/config.json");
-        if (input.configEtag !== old.etag)
-          throw new StaffError(
-            409,
-            "Configuration changed. Reload before saving.",
-          );
-        await store.writeJson("app-content/config.json", config, old.etag);
-      }
-      return { ok: true };
+      await store.writeJson(store.paths.release, release, current.etag);
+      await recordHistory({
+        revision: nextRevision,
+        publishedAt: stamp,
+        publishedBy: actor.name,
+        semester: restoredContent.config.semesterLabel,
+        contentHash: hash(restoredContent),
+        changedSections: CONTENT_KINDS,
+        validationWarnings: [],
+        restoredFrom: revision,
+        backupFolder,
+      });
+      return { ok: true, publishedAt: stamp };
     },
     async getConfig() {
       const r = await currentContent();

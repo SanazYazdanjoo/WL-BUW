@@ -5,8 +5,16 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 
-const origin = "https://nextcloud.uni-weimar.de";
-export const folder = "/Welcome.Lounge_WiSe2026_27/S.Y";
+function configuredOrigin(baseUrl) {
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash)
+      throw new Error();
+    return url.origin;
+  } catch {
+    throw new Error("Invalid Nextcloud base URL.");
+  }
+}
 const parser = new XMLParser({
   removeNSPrefix: true,
   parseTagValue: false,
@@ -15,8 +23,9 @@ const parser = new XMLParser({
 const asArray = (value) =>
   value == null ? [] : Array.isArray(value) ? value : [value];
 
-export function davUrl(username, path = "", root = folder) {
-  if (!cleanPath(root)) throw new Error("Invalid root.");
+export function davUrl(username, path = "", root, baseUrl) {
+  if (!username || !cleanPath(root)) throw new Error("Invalid root.");
+  const origin = configuredOrigin(baseUrl);
   const parts = [
     "remote.php",
     "dav",
@@ -33,6 +42,7 @@ export function parseListing(xml, requestUrl, path) {
     throw new Error("Invalid Nextcloud response.");
   const parsed = parser.parse(xml);
   if (!parsed.multistatus) throw new Error("Invalid Nextcloud response.");
+  const origin = new URL(requestUrl).origin;
   const parent =
     decodeURIComponent(new URL(requestUrl).pathname).replace(/\/$/, "") + "/";
   return asArray(parsed.multistatus.response)
@@ -104,6 +114,8 @@ export function nextcloudMiddleware(
     if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) {
       return json(503, { error: "Documents are temporarily unavailable." });
     }
+    if (!env.NEXTCLOUD_BASE_URL || !env.NEXTCLOUD_ROOT_FOLDER)
+      return json(503, { error: "Documents are temporarily unavailable." });
     try {
       // A safe subtree is necessary but insufficient: current published content
       // must explicitly reference this exact file. Fail closed if content is missing.
@@ -112,7 +124,8 @@ export function nextcloudMiddleware(
       const target = davUrl(
         env.NEXTCLOUD_USERNAME,
         path,
-        env.NEXTCLOUD_ROOT_FOLDER || folder,
+        env.NEXTCLOUD_ROOT_FOLDER,
+        env.NEXTCLOUD_BASE_URL,
       );
       const response = await fetchImpl(target, {
         method: "GET",

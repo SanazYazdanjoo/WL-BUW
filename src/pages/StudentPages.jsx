@@ -2,8 +2,8 @@ import OfficialSourceLink from "../components/OfficialSourceLink";
 import JourneyMap from "../components/JourneyMap";
 import { findTopic } from "../services/topics";
 import { Link, useOutletContext, useParams } from "react-router-dom";
+import { useState } from "react";
 import {
-  DemoNotice,
   EscalationCard,
   FeedbackPrompt,
 } from "../components/Journey";
@@ -82,20 +82,40 @@ export function TopicPage({ later = false }) {
           ))}
         </div>
       )}
+      {topic.relatedPage && (
+        <p className="topic-related-page">
+          <Link to={topic.relatedPage}>Open portal links <span aria-hidden="true">→</span></Link>
+        </p>
+      )}
       {!later && (
-        <OfficialSourceLink sources={officialSources} topicId={topic.id} compact />
+        <OfficialSourceLink
+          sources={officialSources}
+          topicId={topic.id}
+          officialUrl={topic.officialSource}
+          officialLabel={topic.officialSourceLabel}
+          compact
+        />
       )}
     </article>
   );
 }
 
 export function InfoPage() {
-  const { content, officialSources } = useOutletContext();
+  const { content } = useOutletContext();
+  const [query, setQuery] = useState("");
   const portalTitles = content["useful-links"].data.links
     .map((link) => link.title)
     .filter(Boolean)
     .slice(0, 3);
   const laterTopics = content["after-arrival"].data.topics.filter((topic) => topic.isActive);
+  const editorialLinks = content["useful-links"].data.links
+    .filter((item) => !/university\s+portals/i.test(item.category))
+    .map((item) => ({
+      label: item.title,
+      detail: item.description,
+      searchText: item.category,
+      href: item.url,
+    }));
   const links = [
     {
       label: "University portals",
@@ -103,71 +123,183 @@ export function InfoPage() {
       to: "/useful-links",
     },
     {
-      label: "Health insurance contacts",
-      detail: "Provider contacts and information",
-      to: "/health-insurance",
+      label: "Studo",
+      detail: "App for your studies and campus life",
+      href: "https://studo.com/en",
+    },
+    ...editorialLinks,
+      ...laterTopics.map((topic) => ({
+        label: topic.title,
+        detail: topic.summary,
+        searchText: topic.shortTitle,
+        to: `/after-arrival/${topic.id}`,
+      })),
+      {
+        label: "Community & support",
+        detail: "Student initiatives, peer support and housing notices",
+        to: "/info/community",
+      },
+    {
+      label: "University Sport Centre",
+      href: "https://www.uni-weimar.de/en/university/structure/central-university-facilities/university-sports-centre/",
+    },
+    {
+      label: "University Language Centre",
+      href: "https://www.uni-weimar.de/en/university/structure/central-university-facilities/language-centre/",
+    },
+    {
+      label: "Career Service",
+      href: "https://www.uni-weimar.de/en/university/studies/career-services/",
     },
     {
       label: "Rundfunkbeitrag",
       detail: "Living in Germany",
       to: "/rundfunk",
     },
-    {
-      label: "After-arrival information",
-      detail: laterTopics.length
-        ? laterTopics.slice(0, 3).map((topic) => topic.title).join(" · ")
-        : "Later-stage topics",
-      to: "/after-arrival",
-    },
   ];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleLinks = links.filter((item) =>
+    `${item.label} ${item.detail} ${item.searchText || ""}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery),
+  );
   return (
     <section className="info-page">
-      <h1>Useful information</h1>
+      <h1 className="sr-only">Useful information</h1>
+      <label className="info-search">
+        <span className="sr-only">Search useful information</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="What information are you looking for?"
+        />
+      </label>
       <nav aria-label="Useful information">
-        {links.map((item) => (
-          <Link className="info-link" key={item.to} to={item.to}>
-            <span className="info-link-copy">
-              <span>{item.label}</span>
-              <small>{item.detail}</small>
-            </span>
-            <span aria-hidden="true">→</span>
-          </Link>
-        ))}
+        {visibleLinks.map((item) => <InfoLink item={item} key={item.to || item.href} />)}
       </nav>
-      <OfficialSourceLink
-        sources={officialSources}
-        sourceId="preparingStudies"
-        label="Preparing your studies"
-      />
+      {!visibleLinks.length && <p className="info-no-results">No matching information.</p>}
     </section>
   );
 }
 
-export function AfterArrivalPage() {
-  const { content } = useOutletContext();
-  const topics = content["after-arrival"].data.topics;
+function InfoLink({ item }) {
+  const content = (
+    <>
+      <span className="info-link-copy">
+        <span>{item.label}</span>
+        {item.detail && <small>{item.detail}</small>}
+      </span>
+      <span aria-hidden="true">{item.href ? "↗" : "→"}</span>
+    </>
+  );
+  return item.href ? (
+    <a className="info-link" href={item.href} target="_blank" rel="noopener noreferrer">
+      {content}
+    </a>
+  ) : (
+    <Link className="info-link" to={item.to}>{content}</Link>
+  );
+}
+
+export function CommunityPage() {
+  const { content, communityFeed } = useOutletContext();
+  const community = content.community.data;
+  const supportResources = content["support-resources"].data.resources;
+  const communityResources = content["community-resources"].data.resources;
+  const workbookResourcesPublished = content["support-resources"].source === "nextcloud" ||
+    content["community-resources"].source === "nextcloud";
+  const legacyResources = workbookResourcesPublished ? [] : community.resources;
+  const legacySharing = !workbookResourcesPublished
+    ? community.sharingIsCaring
+    : null;
+  const noticeDate = (value) => new Intl.DateTimeFormat("en-GB", {
+    day: "numeric", month: "short", timeZone: "Europe/Berlin",
+  }).format(new Date(value));
   return (
-    <section className="info-page">
-      <Link className="back-link" to="/info">
-        ← Useful information
-      </Link>
-      <h1>After arrival</h1>
-      {topics.some((topic) => topic.isDemo) && <DemoNotice />}
-      <nav aria-label="After-arrival topics">
-        {topics.map((topic) => (
-          <Link
-            className="info-link"
-            key={topic.id}
-            to={`/after-arrival/${topic.id}`}
-          >
-            <span>{topic.title}</span>
-            <small>{topic.summary}</small>
-            <span aria-hidden="true">→</span>
-          </Link>
+    <section className="community-page info-page">
+      <Link className="back-link" to="/info">← Info</Link>
+      <h1>Community &amp; support</h1>
+      <section className="community-section" aria-labelledby="community-notices-title">
+        <h2 id="community-notices-title">Housing &amp; community notices</h2>
+        {communityFeed === "stale" && <p className="community-feed-note">This list could not be refreshed. Check the university message boards for current notices.</p>}
+        {community.notices?.length ? community.notices.map((notice) => (
+          <a className="community-notice" key={notice.id} href={notice.url} target="_blank" rel="noopener noreferrer">
+            <span className="community-notice-meta">{notice.category} · {noticeDate(notice.date)}</span>
+            <span className="community-notice-title">{notice.title}</span>
+            {notice.excerpt && <span className="community-notice-excerpt">{notice.excerpt}</span>}
+            <span className="community-notice-link">Open notice ↗</span>
+          </a>
+        )) : communityFeed === "unavailable" ? null : <p>No recent notices are available.</p>}
+        <a className="community-board-link" href="https://www.uni-weimar.de/en/university/news/message-boards/" target="_blank" rel="noopener noreferrer">View all University Message Boards ↗</a>
+      </section>
+      <section className="community-section" aria-labelledby="community-student-title">
+        <h2 id="community-student-title">Student initiatives</h2>
+        {legacyResources.filter((resource) => resource.category === "Student initiatives" || resource.category === "Student representation").map((resource) => (
+          <CommunityResource key={resource.id} resource={resource} />
         ))}
-      </nav>
-      {!topics.length && <p>No after-arrival information is available yet.</p>}
+      </section>
+      <section className="community-section" aria-labelledby="community-support-title">
+        <h2 id="community-support-title">Peer support</h2>
+        {supportResources.map((resource) => (
+          <SupportResource key={resource.id} resource={resource} />
+        ))}
+        {legacyResources.filter((resource) => resource.category === "Peer support").map((resource) => (
+          <CommunityResource key={resource.id} resource={resource} />
+        ))}
+      </section>
+      {communityResources.length > 0 && (
+        <section className="community-section" aria-labelledby="community-links-title">
+          <h2 id="community-links-title">Community-run links</h2>
+          {communityResources.map((resource) => (
+            <a className="community-resource" href={resource.url} target="_blank" rel="noopener noreferrer" key={resource.id}>
+              <span><strong>{resource.title}</strong><small>{resource.shortText} · Community-run</small></span>
+              <span aria-hidden="true">↗</span>
+            </a>
+          ))}
+        </section>
+      )}
+      {legacySharing && (
+        <section className="community-section sharing-section" aria-labelledby="sharing-title">
+          <h2 id="sharing-title">{legacySharing.label}</h2>
+          {legacySharing.enabled ? (
+            <a className="community-resource" href={legacySharing.url} target="_blank" rel="noopener noreferrer">Open Telegram community ↗</a>
+          ) : <p>The current Telegram invite has not been published.</p>}
+        </section>
+      )}
+      <p className="community-help">Need individual support? <Link to="/help">Contact the Welcome Lounge tutors →</Link></p>
     </section>
+  );
+}
+
+function CommunityResource({ resource }) {
+  return (
+    <a className="community-resource" href={resource.url} target="_blank" rel="noopener noreferrer">
+      <span><strong>{resource.title}</strong><small>{resource.description}</small></span>
+      <span aria-hidden="true">↗</span>
+    </a>
+  );
+}
+
+function SupportResource({ resource }) {
+  const links = [
+    ["University information", resource.officialUrl],
+    ["Website", resource.websiteUrl],
+    ["Telegram", resource.telegramUrl],
+    ["Instagram", resource.instagramUrl],
+    ["Email", resource.email ? `mailto:${resource.email}` : ""],
+  ].filter(([, href]) => href);
+  return (
+    <div className="community-resource">
+      <span><strong>{resource.title}</strong><small>{resource.shortText}</small></span>
+      <span className="community-resource-links">
+        {links.map(([label, href]) => (
+          <a key={label} href={href} target={href.startsWith("mailto:") ? undefined : "_blank"} rel={href.startsWith("mailto:") ? undefined : "noopener noreferrer"}>
+            {label}{href.startsWith("mailto:") ? "" : " ↗"}
+          </a>
+        ))}
+      </span>
+    </div>
   );
 }
 
@@ -276,14 +408,12 @@ export function EventsPage() {
           ))}
         </section>
       )}
-      {!published.length && !ambiguous.length && (
-        <p className="events-empty">No upcoming events published yet.</p>
-      )}
       <OfficialSourceLink
         sources={officialSources}
         sourceId="welcomeEvents"
         label="Official Welcome Events programme"
         compact
+        showStatusNote={false}
       />
     </section>
   );

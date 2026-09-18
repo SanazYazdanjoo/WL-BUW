@@ -15,7 +15,7 @@ function statusDate(value) {
       }).format(date);
 }
 
-function SemesterStatus() {
+function SemesterStatus({ onRestore }) {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -48,7 +48,10 @@ function SemesterStatus() {
   const sources = status.sources || [];
   return (
     <section className="semester-status" aria-labelledby="semester-status-heading">
-      <h2 id="semester-status-heading">Current status</h2>
+      <div className="staff-section-heading">
+        <p className="staff-eyebrow">SEMESTER SETUP</p>
+        <h2 id="semester-status-heading">Current status</h2>
+      </div>
       {semesterMismatch && (
         <p className="semester-review-note">
           Semester labels do not match. Review the workbook and operational data before publishing.
@@ -62,8 +65,16 @@ function SemesterStatus() {
         <div>
           <dt>Public information</dt>
           <dd>{status.content.publishedAt
-            ? `Last published ${statusDate(status.content.publishedAt)}`
+            ? `Last published ${statusDate(status.content.publishedAt)}${status.content.publishedBy ? ` by ${status.content.publishedBy}` : ""}`
             : "No workbook publication is recorded"}</dd>
+        </div>
+        <div>
+          <dt>Content workbook</dt>
+          <dd>{!status.content.workbook.available
+            ? "Not found in the shared folder"
+            : status.content.workbook.matchesPublished
+              ? `No unpublished changes · updated ${statusDate(status.content.workbook.lastModified)}`
+              : `Changes are ready to preview · updated ${statusDate(status.content.workbook.lastModified)}`}</dd>
         </div>
         <div>
           <dt>WhatsApp support</dt>
@@ -99,7 +110,22 @@ function SemesterStatus() {
         <Link to="/staff/data">Import operational data</Link>
         <Link to="/staff/sources">Refresh official information</Link>
         <a href="/api/staff/data/export">Export MasterExcel</a>
+        {status.content.nextcloudBrowserUrl && <a href={status.content.nextcloudBrowserUrl} target="_blank" rel="noopener noreferrer">Open app folder in Nextcloud ↗</a>}
       </nav>
+      {status.content.history?.length > 0 && (
+        <section className="content-history" aria-labelledby="content-history-heading">
+          <h3 id="content-history-heading">Previous publications</h3>
+          <ul>
+            {status.content.history.map((item) => (
+              <li key={item.revision}>
+                <span>{statusDate(item.publishedAt)} · {item.semester || "Semester not recorded"}{item.publishedBy ? ` · ${item.publishedBy}` : ""}</span>
+                {item.restoredFrom ? <small>Restored from an earlier publication</small> : null}
+                <button type="button" onClick={() => onRestore(item.revision)}>Restore</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
   );
 }
@@ -189,33 +215,72 @@ export function ImportPage({ editorial = false }) {
       setBusy(false);
     }
   }
+  async function restore(revision) {
+    if (!window.confirm("Restore this previous student content publication?")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await staffRequest("content/rollback", { csrf: session.csrf, body: { revision, confirm: true } });
+      setMessage("Previous content restored. Students will receive it without a deployment.");
+      window.location.reload();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <>
-      <h1>
-        {editorial ? "Semester setup" : "Import & export staff data"}
-      </h1>
-      <p>
-        {editorial
-          ? "Update public information from the shared workbook. Preview every change before publishing."
-          : "Upload MasterExcel.xlsx to the private staff-data folder. Importing is explicit; the workbook is never used as the live database."}
-      </p>
-      {editorial && <SemesterStatus />}
+    <div className={`staff-page${editorial ? " staff-content-page" : ""}`}>
+      <header className="staff-page-heading">
+        <p className="staff-eyebrow">{editorial ? "COORDINATOR · CONTENT" : "COORDINATOR · DATA"}</p>
+        <h1>
+          {editorial ? "Content" : "Import & export staff data"}
+        </h1>
+        <p className="staff-page-lead">
+          {editorial
+            ? "Update student information from the shared workbook. Review every change before it goes live."
+            : "Import or export the staff workbook. It remains a backup and transfer format, not the live database."}
+        </p>
+      </header>
+      {editorial && (
+        <>
+          <ol className="content-workflow" aria-label="Content publishing steps">
+            <li><span>01</span><strong>Edit workbook</strong></li>
+            <li><span>02</span><strong>Preview changes</strong></li>
+            <li><span>03</span><strong>Publish</strong></li>
+          </ol>
+          <SemesterStatus onRestore={restore} />
+          <div className="content-workbook-help">
+            <p><strong>Source workbook</strong></p>
+            <p><code>content-source/Welcome-Lounge-Content.xlsx</code> in the private app folder.</p>
+            <a href="/api/staff/content/template">Download clean workbook template</a>
+          </div>
+        </>
+      )}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      <button disabled={busy} onClick={() => request(false)}>
-        {editorial ? "Preview content update" : "Preview current workbook"}
-      </button>
+      <div className="staff-primary-action">
+        <button className="primary" disabled={busy} onClick={() => request(false)}>
+          {editorial ? "Preview content update" : "Preview current workbook"}
+        </button>
+        {editorial && <span>Nothing is published until you review and confirm it.</span>}
+      </div>
       {!editorial && (
         <p>
           <a href="/api/staff/data/export">Export current MasterExcel</a>
         </p>
       )}
       {preview && (
-        <section>
-          <h2>Review before confirming</h2>
+        <section className="staff-review" aria-labelledby="review-heading">
+          <div className="staff-section-heading">
+            <p className="staff-eyebrow">REVIEW</p>
+            <h2 id="review-heading">Review before confirming</h2>
+          </div>
           {editorial ? (
             <>
               <p>Source: {preview.sourceFilename}</p>
+              {preview.sourceLastModified && <p>Workbook updated {statusDate(preview.sourceLastModified)}</p>}
               <p>
                 Workbook semester: <strong>{preview.semesterLabel}</strong>
               </p>
@@ -227,7 +292,8 @@ export function ImportPage({ editorial = false }) {
                 {preview.content.onboarding.topics.length} steps ·{" "}
                 {preview.content["health-insurance"].providers.length} providers
                 · {preview.content["useful-links"].links.length} links ·{" "}
-                {preview.content.rundfunk.sections.length} information sections
+                {preview.content["support-resources"].resources.length} support resources ·{" "}
+                {preview.content["community-resources"].resources.length} community links
               </p>
             </>
           ) : (
@@ -348,85 +414,7 @@ export function ImportPage({ editorial = false }) {
           </div>
         </section>
       )}
-      {editorial && <ConfigForm session={session} key={message} />}
-    </>
-  );
-}
-function ConfigForm({ session }) {
-  const [value, setValue] = useState(null),
-    [error, setError] = useState(""),
-    [saved, setSaved] = useState(false);
-  useEffect(() => {
-    let active = true;
-    staffRequest("config")
-      .then((r) => {
-        if (active) setValue(r);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  async function save(e) {
-    e.preventDefault();
-    setError("");
-    setSaved(false);
-    try {
-      await staffRequest("config", { csrf: session.csrf, body: value });
-      setValue(await staffRequest("config"));
-      setSaved(true);
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-  return (
-    <section>
-      <h2>Semester & contact settings</h2>
-      {error && <p role="alert">{error}</p>}
-      {saved && <p role="status">Configuration saved.</p>}
-      {value && (
-        <form className="staff-form" onSubmit={save}>
-          {[
-            ["semesterLabel", "Semester label"],
-            ["contactLabel", "Contact label"],
-            ["helpText", "Help text"],
-            ["whatsappGroupUrl", "Current WhatsApp group URL"],
-          ].map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                value={value.config[key]}
-                onChange={(e) =>
-                  setValue({
-                    ...value,
-                    config: { ...value.config, [key]: e.target.value },
-                  })
-                }
-              />
-            </label>
-          ))}
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={value.config.whatsappEnabled}
-              onChange={(e) =>
-                setValue({
-                  ...value,
-                  config: {
-                    ...value.config,
-                    whatsappEnabled: e.target.checked,
-                  },
-                })
-              }
-            />
-            Enable the current WhatsApp group
-          </label>
-          <button>Save configuration</button>
-        </form>
-      )}
-    </section>
+    </div>
   );
 }
 export function PrintCenter() {

@@ -20,22 +20,25 @@ function checkedLabel(value) {
 export default function OfficialSourceLink({
   sources = {},
   topicId,
+  officialUrl = "",
+  officialLabel = "",
   sourceId: requestedSourceId,
   label,
   compact = false,
+  showStatusNote = true,
 }) {
   const mapping = topicId ? sourcesConfig.topicMappings[topicId] : null;
   const sourceId = requestedSourceId || mapping?.sourceId;
-  if (!sourceId) return null;
-  const configured = sourcesConfig.sources[sourceId];
+  if (!sourceId && !officialUrl) return null;
+  const configured = sourceId ? sourcesConfig.sources[sourceId] : null;
   if (!configured) return null;
-  const source = sources[sourceId] || {
+  const source = sourceId ? sources[sourceId] || {
     sourceId,
     label: configured.label,
     url: configured.url,
     status: "unavailable",
-  };
-  const directUrl = mapping?.url;
+  } : null;
+  const directUrl = officialUrl || mapping?.url;
   const section = mapping?.sectionId
     ? source.data?.sections?.find((item) => item.id === mapping.sectionId)
     : null;
@@ -63,18 +66,18 @@ export default function OfficialSourceLink({
         {compact ? (
           <>
             <span>
-              {label || "Official information"} · Bauhaus-Universität Weimar
+              {officialLabel || label || "Official information"} · Bauhaus-Universität Weimar
               <span aria-hidden="true"> ↗</span>
             </span>
           </>
         ) : (
           <>
-            {label || "Official information"} <span aria-hidden="true">↗</span>
+            {officialLabel || label || "Official information"} <span aria-hidden="true">↗</span>
             <span className="official-source-name">Bauhaus-Universität Weimar</span>
           </>
         )}
       </a>
-      {note && <small>{note}</small>}
+      {showStatusNote && note && <small>{note}</small>}
     </aside>
   );
 }

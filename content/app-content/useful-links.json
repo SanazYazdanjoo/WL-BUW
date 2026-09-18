@@ -2,5 +2,38 @@
   "version": 1,
   "semesterLabel": "",
   "publishedAt": "",
-  "links": []
+  "links": [
+    {
+      "id": "studip",
+      "title": "Stud.IP",
+      "url": "https://studip.uni-weimar.de/dispatch.php/login?again=yes",
+      "description": "University learning platform",
+      "category": "University portals",
+      "isActive": true
+    },
+    {
+      "id": "webmail",
+      "title": "Webmail",
+      "url": "https://webmail.uni-weimar.de/",
+      "description": "University email",
+      "category": "University portals",
+      "isActive": true
+    },
+    {
+      "id": "moodle",
+      "title": "Moodle",
+      "url": "https://moodle.uni-weimar.de/login/index.php",
+      "description": "Online learning platform",
+      "category": "University portals",
+      "isActive": true
+    },
+    {
+      "id": "bison",
+      "title": "BISON",
+      "url": "https://www.uni-weimar.de/qisserver/rds?state=user&type=0&noDBAction=y&init=y",
+      "description": "Study and examination portal",
+      "category": "University portals",
+      "isActive": true
+    }
+  ]
 }

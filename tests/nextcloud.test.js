@@ -8,6 +8,17 @@ import {
   parseListing,
   nextcloudMiddleware,
 } from "../server/nextcloud.js";
+const root = "/Welcome.Lounge_WiSe2026_27/APP";
+const baseUrl = "https://nextcloud.uni-weimar.de";
+const dav = (user, path = "") => davUrl(user, path, root, baseUrl);
+
+test("WebDAV host and root are required configuration and browser file IDs are not used", () => {
+  assert.throws(() => davUrl("test", "file.pdf", root), /base URL/);
+  assert.throws(() => davUrl("test", "file.pdf", root, "http://nextcloud.example"));
+  assert.throws(() => davUrl("test", "file.pdf", "/../private", baseUrl));
+  assert.ok(dav("test", "folder/file.pdf").includes("/Welcome.Lounge_WiSe2026_27/APP/folder/file.pdf"));
+  assert.ok(!dav("test").includes("48020879"));
+});
 
 test("paths remain inside the configured folder and encode filenames", () => {
   for (const path of [
@@ -19,23 +30,23 @@ test("paths remain inside the configured folder and encode filenames", () => {
   ])
     assert.throws(() => cleanPath(path));
   assert.ok(
-    davUrl("test", "A #/über.pdf").endsWith(
-      "/Welcome.Lounge_WiSe2026_27/S.Y/A%20%23/%C3%BCber.pdf",
+    dav("test", "A #/über.pdf").endsWith(
+      "/Welcome.Lounge_WiSe2026_27/APP/A%20%23/%C3%BCber.pdf",
     ),
   );
 });
 
 test("WebDAV listing handles folders, arbitrary file types, failed properties and self entries", () => {
-  const base = new URL(davUrl("test")).pathname;
+  const base = new URL(dav("test")).pathname;
   const entry = (href, props, status = "200 OK") =>
     `<d:response><d:href>${href}</d:href><d:propstat><d:prop>${props}</d:prop><d:status>HTTP/1.1 ${status}</d:status></d:propstat></d:response>`;
   const xml = `<d:multistatus xmlns:d="DAV:">${entry(base, "<d:resourcetype><d:collection/></d:resourcetype>")}${entry(`${base}/Report%20%26%20notes.xyz`, "<d:resourcetype/><d:getcontentlength>42</d:getcontentlength>")}${entry(`${base}/Docs/`, "<d:resourcetype><d:collection/></d:resourcetype>")}${entry(`${base}/hidden`, "", "403 Forbidden")}${entry("/elsewhere/private", "")}</d:multistatus>`;
-  const entries = parseListing(xml, davUrl("test"), "");
+  const entries = parseListing(xml, dav("test"), "");
   assert.equal(entries.length, 2);
   assert.equal(entries[0].isFolder, true);
   assert.equal(entries[1].name, "Report & notes.xyz");
   assert.equal(entries[1].size, 42);
-  assert.throws(() => parseListing("<html>Login</html>", davUrl("test"), ""));
+  assert.throws(() => parseListing("<html>Login</html>", dav("test"), ""));
 });
 
 async function withApi(env, fetchImpl, run) {
@@ -82,9 +93,9 @@ test("missing credentials, traversal and writes never contact Nextcloud", async 
 test("binary files stream unchanged as attachments and credentials stay server-side", async () => {
   const binary = new Uint8Array([0, 255, 12, 65]);
   await withApi(
-    { NEXTCLOUD_USERNAME: "test", NEXTCLOUD_APP_PASSWORD: "test-secret" },
+    { NEXTCLOUD_USERNAME: "test", NEXTCLOUD_APP_PASSWORD: "test-secret", NEXTCLOUD_BASE_URL: baseUrl, NEXTCLOUD_ROOT_FOLDER: root },
     async (url, options) => {
-      assert.equal(url, davUrl("test", "documents/file.bin"));
+      assert.equal(url, dav("test", "documents/file.bin"));
       assert.equal(options.method, "GET");
       assert.equal(options.redirect, "error");
       assert.ok(options.headers.Authorization.startsWith("Basic "));
@@ -105,7 +116,7 @@ test("binary files stream unchanged as attachments and credentials stay server-s
 
 test("authentication errors are useful without exposing upstream responses", async () => {
   await withApi(
-    { NEXTCLOUD_USERNAME: "test", NEXTCLOUD_APP_PASSWORD: "test-secret" },
+    { NEXTCLOUD_USERNAME: "test", NEXTCLOUD_APP_PASSWORD: "test-secret", NEXTCLOUD_BASE_URL: baseUrl, NEXTCLOUD_ROOT_FOLDER: root },
     async () => new Response("private details", { status: 401 }),
     async (base) => {
       const response = await fetch(

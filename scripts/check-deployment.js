@@ -46,7 +46,7 @@ try {
     "/",
     "/journey/enrollment",
     "/events",
-    "/after-arrival",
+    "/info",
   ]) {
     const response = await request(path);
     const html = await response.text();

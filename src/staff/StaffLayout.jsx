@@ -51,20 +51,26 @@ export default function StaffLayout() {
         Skip to staff content
       </a>
       <header className="staff-header">
-        <Link to="/">Welcome Lounge</Link>
-        <span>Private staff workspace</span>
-        {session && <button onClick={logout}>Sign out</button>}
+        <Link className="staff-brand" to="/">
+          <span className="staff-brand-mark" aria-hidden="true" />
+          <span>
+            <strong>Welcome Lounge</strong>
+            <small>Private staff workspace</small>
+          </span>
+        </Link>
+        {session && <button className="staff-signout" onClick={logout}>Sign out</button>}
       </header>
       {error && <p role="alert">{error}</p>}
       {loading ? (
         <p role="status">Checking staff access…</p>
       ) : !session ? (
-        <main id="staff-main">
-          <h1>Staff sign-in</h1>
-          <p>
-            Use your name and the pilot access code provided by the coordinator.
-            Students do not need an account.
-          </p>
+        <main id="staff-main" className="staff-main staff-login-main">
+          <section className="staff-login-panel" aria-labelledby="staff-login-title">
+            <p className="staff-eyebrow">WELCOME LOUNGE · STAFF</p>
+            <h1 id="staff-login-title">Staff sign-in</h1>
+            <p>
+              Use your name and the pilot access code provided by the coordinator.
+            </p>
           <form onSubmit={login} className="staff-form">
             <label>
               Your name
@@ -81,12 +87,12 @@ export default function StaffLayout() {
             </label>
             <button className="primary">Sign in</button>
           </form>
+          </section>
         </main>
       ) : (
         <>
-          <p className="staff-identity">
-            Signed in as {session.name} · {session.role}. Pilot attribution uses
-            the name you entered.
+          <p className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
+            Signed in as {session.name} · {session.role === "admin" ? "coordinator" : "tutor"}. Your name is used for pilot activity notes.
           </p>
           <nav className="staff-nav" aria-label="Staff navigation">
             {[
@@ -99,7 +105,7 @@ export default function StaffLayout() {
               ...(session.role === "admin"
                 ? [
                     ["data", "Import & export"],
-                    ["content", "Semester setup"],
+                    ["content", "Content"],
                     ["sources", "Official information"],
                     ["print", "Print center"],
                   ]
@@ -110,7 +116,7 @@ export default function StaffLayout() {
               </NavLink>
             ))}
           </nav>
-          <main id="staff-main">
+          <main id="staff-main" className="staff-main">
             <Outlet context={{ session }} />
           </main>
         </>
