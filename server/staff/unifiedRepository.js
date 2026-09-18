@@ -6,6 +6,7 @@ import { validateContent } from "../../shared/content.js";
 import { CONTENT_KINDS } from "../../shared/contentKinds.js";
 import { StaffError } from "./auth.js";
 import { shiftSummary } from "../excel/masterExcel.js";
+import { safeLink } from "../../shared/content.js";
 import onboardingSample from "../../content/app-content/onboarding.json" with { type: "json" };
 import eventsSample from "../../content/app-content/events.json" with { type: "json" };
 import afterArrivalSample from "../../content/app-content/after-arrival.json" with { type: "json" };
@@ -72,17 +73,79 @@ export function createUnifiedRepository(store) {
   };
   async function mutate(actor, input, reason, callback, options = {}) {
     if (!actor.staffId && !options.allowUnassigned) throw new StaffError(403, "Choose your name from the active staff list before saving.");
-    const file = await current();
-    if (!input.etag || input.etag !== file.etag) throw new StaffError(409, "The workbook changed while you were saving. Reload the latest version and review your change again.");
-    if (actor.staffId) {
-      const selectedStaff = file.parsed.data.staff.find((person) => person.id === actor.staffId && person.isActive);
-      if (!selectedStaff && !options.allowUnassigned) throw new StaffError(403, "Your selected staff identity is no longer active. Choose an active name before saving.");
-      if (selectedStaff) actor.name = selectedStaff.name;
+    const attempts = options.safeRetry ? 3 : 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const file = await current();
+      if (!options.safeRetry && (!input.etag || input.etag !== file.etag)) throw new StaffError(409, "The workbook changed while you were saving. Reload the latest version and review your change again.");
+      if (actor.staffId) {
+        const selectedStaff = file.parsed.data.staff.find((person) => person.id === actor.staffId && person.isActive);
+        if (!selectedStaff && !options.allowUnassigned) throw new StaffError(403, "Your selected staff identity is no longer active. Choose an active name before saving.");
+        if (selectedStaff) actor.name = selectedStaff.name;
+      }
+      const data = structuredClone(file.parsed.data);
+      const changed = await callback(data, file.parsed);
+      if (changed === false) return { ok: true, etag: file.etag, unchanged: true };
+      try {
+        const result = await commit(file, data, actor, reason, options);
+        return result;
+      } catch (error) {
+        if (error.status !== 409 || attempt + 1 === attempts) throw error;
+      }
     }
-    const data = structuredClone(file.parsed.data);
-    await callback(data, file.parsed);
-    await commit(file, data, actor, reason, options);
-    return { ok: true };
+    throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
+  }
+  async function mutateFields(actor, input, { id, collection, allowed, reason, activityType, fieldMap = (field, value) => [field, value], validate }) {
+    const patch = input.patch;
+    if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length || Object.keys(patch).some((field) => !allowed.includes(field))) throw new StaffError(400, "The requested fields cannot be updated.");
+    if (!input.base || typeof input.base !== "object" || Object.keys(patch).some((field) => !Object.hasOwn(input.base, field))) throw new StaffError(400, "Reload this record before saving your changes.");
+    if (!actor.staffId) throw new StaffError(403, "Choose your name from the active staff list before saving.");
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const file = await current();
+      const selectedStaff = file.parsed.data.staff.find((person) => person.id === actor.staffId && person.isActive);
+      if (!selectedStaff) throw new StaffError(403, "Your selected staff identity is no longer active. Choose an active name before saving.");
+      actor.name = selectedStaff.name;
+      const data = structuredClone(file.parsed.data);
+      const record = data[collection].find((item) => item.id === id);
+      if (!record) throw new StaffError(404, "The record could not be found. Reload and try again.");
+      const latest = {}, conflicts = [];
+      for (const field of Object.keys(patch)) {
+        const [targetField] = fieldMap(field, patch[field]);
+        latest[field] = structuredClone(record[targetField]);
+        const baseValue = input.base[field];
+        const latestValue = record[targetField];
+        const requestedValue = fieldMap(field, patch[field])[1];
+        if (JSON.stringify(latestValue) !== JSON.stringify(baseValue) && JSON.stringify(latestValue) !== JSON.stringify(requestedValue)) conflicts.push(field);
+      }
+      if (conflicts.length) {
+        const error = new StaffError(409, "Some fields were changed elsewhere. Review both versions before continuing.");
+        error.code = "EDIT_CONFLICT"; error.fields = conflicts; error.latest = Object.fromEntries(conflicts.map((field) => [field, latest[field]]));
+        throw error;
+      }
+      const changed = [];
+      for (const [field, value] of Object.entries(patch)) {
+        const [targetField, mappedValue] = fieldMap(field, value);
+        if (JSON.stringify(record[targetField]) !== JSON.stringify(mappedValue)) changed.push(field);
+        record[targetField] = mappedValue;
+      }
+      if (!changed.length) return { ok: true, etag: file.etag, unchanged: true };
+      validate?.(record, patch);
+      appendActivity(data, actor, activityType, { studentId: collection === "students" ? record.id : "", note: collection === "students" ? changed.join(",") : `${record.title || record.date || "Record"} · ${changed.join(",")}` });
+      const priorVersion = file.etag;
+      try {
+        const result = await commit(file, data, actor, reason);
+        return { ...result, record: structuredClone(record), changed };
+      } catch (error) {
+        if (error.status !== 409) throw error;
+        if (attempt === 2) {
+          const busy = new StaffError(409, "The workbook is busy with another update. Your draft is still available; retry in a moment.");
+          busy.code = "WORKBOOK_BUSY";
+          throw busy;
+        }
+        const refreshed = await current();
+        if (refreshed.etag === priorVersion) throw error;
+      }
+    }
+    throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
   }
   async function migrateData(actor, input = {}) {
     const target = await store.read(store.paths.unified, 10 * 1024 * 1024);
@@ -170,6 +233,16 @@ export function createUnifiedRepository(store) {
       return parsed.data.checkins.filter((entry) => entry.date === dateToday());
     },
     async updateStudent(actor, input) {
+      if (input.patch && input.base) return mutateFields(actor, input, {
+        id: input.id, collection: "students", allowed: ["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes"],
+        reason: "student update", activityType: "Student Update",
+        validate(record, patch) {
+          for (const [field, value] of Object.entries(patch)) {
+            if (["enrolled", "receivedBackpack"].includes(field) && ![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
+            if (typeof value === "string" && value.length > (field === "notes" ? 4000 : 12000)) throw new StaffError(400, "A student field is too long.");
+          }
+        },
+      });
       const allowed = new Set(["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes"]);
       if (!input.patch || Object.keys(input.patch).length === 0 || Object.keys(input.patch).some((field) => !allowed.has(field))) throw new StaffError(400, "Only the listed student support details can be changed.");
       return mutate(actor, input, "student update", (data) => {
@@ -195,8 +268,9 @@ export function createUnifiedRepository(store) {
     async checkIn(actor, input) {
       return mutate(actor, input, "daily operations", (data) => {
         if (!data.students.some((student) => student.id === input.id)) throw new StaffError(404, "Student not found.");
-        if (!data.activity.some((item) => item.type === "Check-in" && item.studentId === input.id && item.timestamp.slice(0, 10) === dateToday())) appendActivity(data, actor, "Check-in", { studentId: input.id, note: "Checked in" });
-      });
+        if (data.activity.some((item) => item.type === "Check-in" && item.studentId === input.id && item.timestamp.slice(0, 10) === dateToday())) return false;
+        appendActivity(data, actor, "Check-in", { studentId: input.id, note: "Checked in" });
+      }, { safeRetry: true });
     },
     async addHandover(actor, input) {
       const note = text(input.note || "", 4000).trim();
@@ -237,6 +311,19 @@ export function createUnifiedRepository(store) {
         if (existing) Object.assign(existing, next); else data.content.push(next);
         appendActivity(data, actor, "Content Update", { note: `${existing ? "Updated" : "Added"} ${next.section}: ${next.title}` });
       }, { major: true });
+    },
+    async autosaveContent(actor, input) {
+      return mutateFields(actor, input, {
+        id: input.id, collection: "content", allowed: ["title", "text", "link", "active", "order"], reason: "content update", activityType: "Content Update",
+        validate(record) {
+          if (!record.title?.trim() || record.title.length > 200 || !record.text?.trim() || record.text.length > 12000) throw new StaffError(400, "Enter a title and short text before saving.");
+          if (!Number.isInteger(record.order) || record.order < 1 || record.order > 10000) throw new StaffError(400, "Order must be a positive whole number.");
+          if (typeof record.active !== "boolean") throw new StaffError(400, "Choose whether this item is active.");
+          if (record.link && !safeLink(record.link)) throw new StaffError(400, "Use a valid public HTTPS link.");
+          if (record.active && record.section === "First Step" && !record.text.trim()) throw new StaffError(400, "An active First Step needs a short text description.");
+          if (record.active && record.section === "Community" && !record.link) throw new StaffError(400, "An active Community item needs a link.");
+        },
+      });
     },
     async deactivateContent(actor, input) {
       return mutate(actor, input, "content deactivated", (data) => {
@@ -290,6 +377,18 @@ export function createUnifiedRepository(store) {
         if (existing) Object.assign(existing, next); else data.shifts.push(next);
         appendActivity(data, actor, "Other", { note: `${existing ? "Updated" : "Added"} shift schedule` });
       }, { major: true });
+    },
+    async autosaveShift(actor, input) {
+      return mutateFields(actor, input, {
+        id: input.id, collection: "shifts", allowed: ["date", "start", "end", "tutors", "event", "notes"], reason: "shift update", activityType: "Other",
+        validate(record) {
+          const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(record.date || "") ? new Date(`${record.date}T00:00:00Z`) : null;
+          if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== record.date) throw new StaffError(400, "Enter a valid shift date.");
+          if ((record.start && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.start)) || (record.end && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.end))) throw new StaffError(400, "Enter shift times in 24-hour format.");
+          if (!Array.isArray(record.tutors) || record.tutors.length > 3 || record.tutors.some((value) => typeof value !== "string" || value.length > 200)) throw new StaffError(400, "Enter up to three tutor names.");
+          record.first = record.tutors.filter(Boolean);
+        },
+      });
     },
     async previewMasterExcelImport() {
       const [file, currentFile] = await Promise.all([store.read(store.paths.master, 10 * 1024 * 1024), current()]);

@@ -6,6 +6,12 @@ When the unified workbook is enabled, `Welcome-Lounge.xlsx` in the configured Ne
 
 The web app reads and writes the workbook server-side. Staff use the staff pages for normal work; Excel remains a portable backup, handover and emergency fallback. No database service, generated JSON content store, or client-side Excel handling is part of this model. Existing `Welcome-Lounge-Content.xlsx`, `MasterExcel.xlsx`, JSON releases and `staff-data/state.json` are retained as migration inputs/fallbacks and are never deleted automatically.
 
+## Autosave
+
+Existing student record fields, existing student-facing content items, and fields on an existing shift save automatically. Text fields wait two seconds after the last edit; status/select fields wait about 300 ms. The page shows a small Saving/Saved/error status, and private drafts stay in page memory only. Close or navigate away only after Saved when possible; the editor attempts an immediate final write on unmount, and full page navigation warns while a draft is pending. Offline drafts are not put in browser storage and can be lost if the page is closed.
+
+Adding a student, adding a content item, adding a shift, checking someone in, adding a handover, staff roster changes, semester changes, WhatsApp URL changes, import, backup, restore and workbook initialization remain explicit actions. A different field changed by another tutor is merged against the current workbook. If the same field changed, both values remain visible in a conflict prompt; choose Use mine or Use latest. Failed saves keep the current form draft available for Retry. Autosaves add one attributed activity row per successful field batch, not per keystroke, and reuse the daily backup rather than making a workbook copy for each save. Public workbook content is refreshed through ETag revalidation after changes; no redeployment or Publish action is needed.
+
 The server-side filename defaults to `Welcome-Lounge.xlsx`; `NEXTCLOUD_WORKBOOK_FILE` is only needed to choose another safe basename. Once that file exists, the app detects it and uses it on the next request. While it is missing, the existing release and operational stores remain active so an admin can migrate safely. Setting the option to an empty string explicitly disables workbook detection for an emergency rollback. `.env.example` contains no credentials.
 
 ## The six tabs

@@ -1,9 +1,37 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
+import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
+import { SaveStatus } from "./SaveStatus";
 
 const sections = ["First Step", "Useful Info", "Student Support", "Community", "Help"];
 const emptyItem = () => ({ section: "First Step", order: 1, title: "", text: "", link: "", active: true });
+
+function ContentItemEditor({ item, save, onDone }) {
+  const autosave = useAutosave({ title: item.title, text: item.text, link: item.link || "", order: item.order, active: item.active }, save, {
+    validate(draft) {
+      if (!draft.title.trim()) return "Enter a title before saving.";
+      if (!draft.text.trim()) return "Enter a short text before saving.";
+      if (!Number.isInteger(Number(draft.order)) || Number(draft.order) < 1 || Number(draft.order) > 10000) return "Order must be a positive whole number.";
+      if (draft.link && !/^https:\/\/[^\s]+$/i.test(draft.link)) return "Enter a complete HTTPS link.";
+      return "";
+    },
+  });
+  const set = (field, value, delay) => autosave.setField(field, value, delay);
+  return <section className="staff-dashboard-section" aria-labelledby="content-edit-heading">
+    <h2 id="content-edit-heading">Edit item</h2>
+    <div className="staff-form">
+      <div className="staff-autosave-position"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
+      <label>Section<select value={item.section} disabled>{sections.map((section) => <option key={section}>{section}</option>)}</select></label>
+      <label>Order<input type="number" min="1" max="10000" required value={autosave.draft.order} onChange={(e) => set("order", Number(e.target.value))} /></label>
+      <label>Title<input required maxLength={200} value={autosave.draft.title} onChange={(e) => set("title", e.target.value)} /></label>
+      <label>Short text<textarea required maxLength={12000} value={autosave.draft.text} onChange={(e) => set("text", e.target.value)} /></label>
+      <label>Primary link<input type="url" placeholder="https://" value={autosave.draft.link} onChange={(e) => set("link", e.target.value)} /></label>
+      <label className="checkbox-label"><input type="checkbox" checked={autosave.draft.active} onChange={(e) => set("active", e.target.checked, AUTOSAVE_TOGGLE_DELAY)} />Active</label>
+      <button type="button" disabled={autosave.hasUnsavedChanges || autosave.status === "saving" || autosave.status === "error" || autosave.status === "conflict"} onClick={onDone}>Close editor</button>
+    </div>
+  </section>;
+}
 
 export function ContentManagementPage() {
   const { session, refreshRoster } = useOutletContext();
@@ -38,6 +66,11 @@ export function ContentManagementPage() {
     } catch (e) { setError(e.message); return null; }
     finally { setBusy(false); }
   }
+  async function autosaveContent(id, patch, base) {
+    const result = await staffRequest("content/autosave", { csrf: session.csrf, body: { id, patch, base, etag: data?.etag } });
+    await reload();
+    return result;
+  }
   async function initialize() {
     if (!window.confirm("Create Welcome-Lounge.xlsx from the existing private content and staff data? Existing files will be kept unchanged.")) return;
     setBusy(true); setError("");
@@ -57,7 +90,7 @@ export function ContentManagementPage() {
   if (!data) return <div className="staff-page"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : `Welcome-Lounge.xlsx is ${status.workbook === "missing" ? "not initialized" : status.workbook === "invalid" ? "not readable" : "not available"}.`}</p><p>Existing workbooks and published content have not been changed.</p>{status.workbook === "missing" && <><form className="staff-form" onSubmit={(event) => { event.preventDefault(); initialize(); }}><label>Current semester<input required maxLength={100} value={semesterLabel} onChange={(event) => setSemesterLabel(event.target.value)} placeholder="e.g. Winter Semester 2026/27" /></label><div className="button-row"><button className="primary" disabled={busy}>Import existing data</button><button type="button" disabled={busy || !semesterLabel.trim()} onClick={createTemplate}>Create from safe template</button><a href="/api/staff/workbook/template">Download template</a></div></form><p>The template has inactive examples only. Choose Import to migrate existing public and staff data; existing files remain unchanged.</p></>}{error && <p role="alert">{error}</p>}</div>;
   const items = data.items;
   return <div className="staff-page staff-content-page">
-    <header className="staff-page-heading"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p className="staff-page-lead">Make a change and save. It appears on the student site after the next request.</p></header>
+    <header className="staff-page-heading"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p className="staff-page-lead">Changes save automatically. They appear on the student site after the next request.</p></header>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
     {data.warnings?.length > 0 && <aside className="content-history" aria-label="Review required">{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</aside>}
     {data.idAssignments?.length > 0 && <p className="staff-muted">{data.idAssignments.length} new content ID{data.idAssignments.length === 1 ? "" : "s"} will be saved automatically with the next workbook update.</p>}
@@ -72,7 +105,8 @@ export function ContentManagementPage() {
     <section className="staff-dashboard-section"><h2>Student-facing items</h2><p>One item per row. IDs stay behind the scenes and are created automatically.</p><button type="button" onClick={() => setForm({ ...emptyItem(), order: Math.max(0, ...items.filter((item) => item.section === "First Step").map((item) => item.order)) + 1 })}>Add content item</button>
       {sections.map((section) => <section className="content-history" key={section}><h3>{section}</h3>{items.filter((item) => item.section === section).sort((a, b) => a.order - b.order).map((item) => <article className="staff-record-history" key={item.id}><strong>{item.order}. {item.title}</strong><p>{item.text}</p><small>{item.active ? "Active" : "Inactive"}{item.link ? ` · ${item.link}` : ""}</small><div className="button-row"><button type="button" onClick={() => setForm({ ...item })}>Edit</button><button type="button" disabled={busy} onClick={() => save("content/save", { item: { ...item, active: !item.active } }, item.active ? "Item deactivated." : "Item activated.")}>{item.active ? "Deactivate" : "Activate"}</button></div></article>)}</section>)}
     </section>
-    {form && <section className="staff-dashboard-section" aria-labelledby="content-edit-heading"><h2 id="content-edit-heading">{form.id ? "Edit item" : "Add item"}</h2><form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("content/save", { item: form }, "Content saved."); }}>
+    {form?.id && <ContentItemEditor key={form.id} item={form} save={(patch, base) => autosaveContent(form.id, patch, base)} onDone={() => setForm(null)} />}
+    {form && !form.id && <section className="staff-dashboard-section" aria-labelledby="content-edit-heading"><h2 id="content-edit-heading">Add item</h2><form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("content/save", { item: form }, "Content saved."); }}>
       <label>Section<select value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })}>{sections.map((section) => <option key={section}>{section}</option>)}</select></label>
       <label>Order<input type="number" min="1" max="10000" required value={form.order} onChange={(e) => setForm({ ...form, order: Number(e.target.value) })} /></label>
       <label>Title<input required maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>

@@ -41,3 +41,5 @@ The pilot's staff authentication is shared-code based and must not be mistaken f
 ## Current unified workbook handover
 
 The current target source of truth is `Welcome-Lounge.xlsx` in the configured APP root. Normal staff work happens in the web UI. The app uses the default filename when it exists; the old content workbook, MasterExcel, JSON release and `staff-data/state.json` remain untouched as migration inputs and fallback while it is missing. See [unified workbook and recovery](excel-database.md) for migration, privacy, backups and the live Nextcloud conditional-write acceptance check.
+
+Routine edits in the staff workspace save automatically. Wait for 'Saved' before leaving the record or page. Check-in and handover remain explicit actions. Coordinators should keep semester and WhatsApp group URL changes deliberate and review them before saving. Direct Excel editing in Nextcloud remains an emergency option; preserve IDs and workbook headings.

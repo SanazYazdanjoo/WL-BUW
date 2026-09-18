@@ -1,6 +1,8 @@
 ﻿import { useState } from "react";
 import { Link, useParams, useOutletContext } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
+import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
+import { SaveStatus } from "./SaveStatus";
 const status = (value) =>
   value === true ? "Yes" : value === false ? "No" : "Unknown";
 function State({ error }) {
@@ -221,8 +223,8 @@ export function Students() {
     </>
   );
 }
-function StudentEditor({ student, busy, save }) {
-  const [patch, setPatch] = useState({
+function StudentEditor({ student, save }) {
+  const autosave = useAutosave({
     enrolled: student.enrolled,
     receivedBackpack: student.receivedBackpack,
     accommodation: student.accommodation,
@@ -231,27 +233,17 @@ function StudentEditor({ student, busy, save }) {
     country: student.country,
     studyProgram: student.studyProgram,
     notes: student.notes,
-  });
+  }, save);
+  const { draft, setField } = autosave;
   return (
-    <form
-      className="staff-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save(patch);
-      }}
-    >
+    <div className="staff-form">
+      <div className="staff-autosave-position"><SaveStatus {...autosave} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
       {["enrolled", "receivedBackpack"].map((field) => (
         <label key={field}>
           {field === "enrolled" ? "Enrolled" : "Received backpack"}
           <select
-            value={String(patch[field])}
-            onChange={(e) =>
-              setPatch({
-                ...patch,
-                [field]:
-                  e.target.value === "null" ? null : e.target.value === "true",
-              })
-            }
+            value={String(draft[field])}
+            onChange={(e) => setField(field, e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}
           >
             <option value="null">Unknown</option>
             <option value="true">Yes</option>
@@ -270,22 +262,19 @@ function StudentEditor({ student, busy, save }) {
         <label key={field}>
           {label}
           <textarea
-            maxLength={12000}
-            value={patch[field]}
-            onChange={(e) => setPatch({ ...patch, [field]: e.target.value })}
+            maxLength={field === "notes" ? 4000 : 12000}
+            value={draft[field]}
+            onChange={(e) => setField(field, e.target.value)}
           />
         </label>
       ))}
       <p>Record only information needed for Welcome Lounge support.</p>
-      <button className="primary" disabled={busy}>
-        Save changes
-      </button>
-    </form>
+    </div>
   );
 }
 export function StudentDetail() {
   const { studentId } = useParams();
-  const { workspace, error, busy, act } = useWorkspace();
+  const { workspace, error, busy, act, autosave } = useWorkspace();
   if (!workspace) return <State error={error} />;
   const s = workspace.data.students.find((s) => s.id === studentId);
   if (!s)
@@ -342,10 +331,9 @@ export function StudentDetail() {
         Check in today
       </button>
       <StudentEditor
-        key={`${s.id}-${workspace.etag}`}
+        key={s.id}
         student={s}
-        busy={busy}
-        save={(patch) => act("students/update", { id: s.id, patch })}
+        save={(patch, base) => autosave("students/update", s.id, patch, base)}
       />
       {recentUpdates.length > 0 && (
         <section className="staff-record-history" aria-labelledby="student-updates-heading">
@@ -387,25 +375,44 @@ function Shifts({ shifts, onEdit }) {
     <p>No shifts listed.</p>
   );
 }
+const emptyShift = () => ({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" });
+function ExistingShiftEditor({ shift, save, onDone }) {
+  const autosave = useAutosave({ date: shift.date, start: shift.start, end: shift.end, tutors: [shift.tutor1 || "", shift.tutor2 || "", shift.tutor3 || ""], event: shift.event, notes: shift.notes }, save);
+  const setTutor = (index, value) => {
+    const tutors = [...autosave.draft.tutors];
+    tutors[index] = value;
+    autosave.setField("tutors", tutors);
+  };
+  return <div className="staff-form">
+    <div className="staff-autosave-position"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
+    <label>Date<input required type="date" value={autosave.draft.date} onChange={(e) => autosave.setField("date", e.target.value)} /></label>
+    <label>Start<input type="time" value={autosave.draft.start} onChange={(e) => autosave.setField("start", e.target.value, AUTOSAVE_TOGGLE_DELAY)} /></label>
+    <label>End<input type="time" value={autosave.draft.end} onChange={(e) => autosave.setField("end", e.target.value, AUTOSAVE_TOGGLE_DELAY)} /></label>
+    {[0, 1, 2].map((index) => <label key={index}>Tutor {index + 1}<input value={autosave.draft.tutors[index] || ""} onChange={(e) => setTutor(index, e.target.value)} /></label>)}
+    <label>Important event<input value={autosave.draft.event} onChange={(e) => autosave.setField("event", e.target.value)} /></label>
+    <label>Notes<textarea value={autosave.draft.notes} onChange={(e) => autosave.setField("notes", e.target.value)} /></label>
+    <button type="button" disabled={autosave.hasUnsavedChanges || autosave.status === "saving" || autosave.status === "error" || autosave.status === "conflict"} onClick={onDone}>Close editor</button>
+  </div>;
+}
 export function ShiftPage() {
   const { session } = useOutletContext();
-  const { workspace, error, busy, act } = useWorkspace();
-  const [shift, setShift] = useState({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" });
+  const { workspace, error, busy, act, autosave } = useWorkspace();
+  const [shift, setShift] = useState(emptyShift);
   return !workspace ? (
     <State error={error} />
   ) : (
     <>
       <h1>Welcome Lounge shifts</h1>
       <Shifts shifts={workspace.data.shifts} onEdit={workspace.unified && session.role === "admin" ? setShift : null} />
-      {workspace.unified && session.role === "admin" && <details className="staff-dashboard-section" open><summary>{shift.id ? "Edit shift" : "Add shift"}</summary><form className="staff-form" onSubmit={async (event) => { event.preventDefault(); if (await act("shifts/save", { shift })) setShift({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" }); }}>
+      {workspace.unified && session.role === "admin" && (shift.id ? <details className="staff-dashboard-section" open><summary>Edit shift</summary><ExistingShiftEditor key={shift.id} shift={shift} save={(patch, base) => autosave("shifts/autosave", shift.id, patch, base)} onDone={() => setShift(emptyShift())} /></details> : <details className="staff-dashboard-section" open><summary>Add shift</summary><form className="staff-form" onSubmit={async (event) => { event.preventDefault(); if (await act("shifts/save", { shift })) setShift(emptyShift()); }}>
         <label>Date<input required type="date" value={shift.date} onChange={(e) => setShift({ ...shift, date: e.target.value })} /></label>
         <label>Start<input type="time" value={shift.start} onChange={(e) => setShift({ ...shift, start: e.target.value })} /></label>
         <label>End<input type="time" value={shift.end} onChange={(e) => setShift({ ...shift, end: e.target.value })} /></label>
         {[1, 2, 3].map((n) => <label key={n}>Tutor {n}<input value={shift[`tutor${n}`]} onChange={(e) => setShift({ ...shift, [`tutor${n}`]: e.target.value })} /></label>)}
         <label>Important event<input value={shift.event} onChange={(e) => setShift({ ...shift, event: e.target.value })} /></label>
         <label>Notes<textarea value={shift.notes} onChange={(e) => setShift({ ...shift, notes: e.target.value })} /></label>
-        <div className="button-row"><button className="primary" disabled={busy}>{shift.id ? "Save shift" : "Add shift"}</button>{shift.id && <button type="button" onClick={() => setShift({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" })}>Cancel</button>}</div>
-      </form></details>}
+        <button className="primary" disabled={busy}>Add shift</button>
+      </form></details>)}
     </>
   );
 }

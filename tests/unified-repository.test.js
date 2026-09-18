@@ -51,6 +51,61 @@ test("parallel staff edits using one workbook ETag cannot silently overwrite one
   assert.ok([...store.files.keys()].some((path) => path.startsWith("backups/manual/")));
 });
 
+test("autosaves merge independent student fields and report same-field conflicts", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Example Student", accommodation: "", notes: "" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  const initial = await repo.workspace();
+  const results = await Promise.all([
+    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: "Student housing" }, base: { accommodation: "" } }),
+    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { notes: "Needs follow-up" }, base: { notes: "" } }),
+  ]);
+  assert.equal(results.length, 2);
+  let parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.equal(parsed.data.students[0].accommodation, "Student housing");
+  assert.equal(parsed.data.students[0].notes, "Needs follow-up");
+  const etag = (await repo.workspace()).etag;
+  const concurrent = await Promise.allSettled([
+    repo.updateStudent(actor, { id: studentId, etag, patch: { notes: "Called landlord" }, base: { notes: "Needs follow-up" } }),
+    repo.updateStudent(actor, { id: studentId, etag, patch: { notes: "Waiting for response" }, base: { notes: "Needs follow-up" } }),
+  ]);
+  assert.equal(concurrent.filter((item) => item.status === "fulfilled").length, 1);
+  const conflict = concurrent.find((item) => item.status === "rejected");
+  assert.equal(conflict.reason.status, 409);
+  assert.equal(conflict.reason.code, "EDIT_CONFLICT");
+  assert.deepEqual(conflict.reason.fields, ["notes"]);
+  assert.ok(["Called landlord", "Waiting for response"].includes(conflict.reason.latest.notes));
+  parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.ok(["Called landlord", "Waiting for response"].includes(parsed.data.students[0].notes));
+  assert.equal(parsed.data.activity.filter((item) => item.type === "Student Update").length, 3);
+  assert.equal([...store.files.keys()].filter((path) => path.startsWith("backups/daily/")).length, 1);
+});
+
+test("a student autosave and check-in racing against one workbook both persist", async () => {
+  const studentId = "stu_22345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_22345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Example Student", accommodation: "" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store), actor = { name: "Tutor Example", role: "tutor", staffId };
+  const initial = await repo.workspace();
+  await Promise.all([
+    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: "Student housing" }, base: { accommodation: "" } }),
+    repo.checkIn(actor, { id: studentId, etag: initial.etag }),
+  ]);
+  const parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.equal(parsed.data.students[0].accommodation, "Student housing");
+  assert.equal(parsed.data.activity.filter((item) => item.type === "Check-in" && item.studentId === studentId).length, 1);
+});
+
 test("template initialization is explicit, inactive and never overwrites an existing workbook", async () => {
   const store = memoryStore(null);
   const repo = createUnifiedRepository(store);

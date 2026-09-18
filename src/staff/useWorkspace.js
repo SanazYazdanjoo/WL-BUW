@@ -36,5 +36,14 @@ export function useWorkspace() {
       setBusy(false);
     }
   }
-  return { workspace, error, busy, act };
+  async function autosave(action, id, patch, base) {
+    await staffRequest(action, {
+      csrf: session.csrf,
+      body: { id, patch, base, etag: workspace?.etag },
+    });
+    const latest = await staffRequest("workspace");
+    setWorkspace(latest);
+    return latest;
+  }
+  return { workspace, error, busy, act, autosave };
 }

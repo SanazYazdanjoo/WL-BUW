@@ -21,6 +21,9 @@
       value.error || "The staff action could not be completed.",
     );
     error.status = response.status;
+    error.code = value.code;
+    error.fields = value.fields;
+    error.latest = value.latest;
     throw error;
   }
   return value;

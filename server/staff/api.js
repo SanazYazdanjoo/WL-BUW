@@ -98,9 +98,11 @@ export function staffMiddleware(
         "students/create": ["read", "addStudent", true],
         "staff/save": ["admin", "saveStaff", true],
         "content/save": ["admin", "saveContent", true],
+        "content/autosave": ["admin", "autosaveContent", true],
         "content/deactivate": ["admin", "deactivateContent", true],
         "settings/save": ["admin", "saveSettings", true],
         "shifts/save": ["admin", "addShift", true],
+        "shifts/autosave": ["admin", "autosaveShift", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
         "workbook/backup": ["admin", "createBackup", true],
@@ -218,6 +220,9 @@ export function staffMiddleware(
             error instanceof StaffError || error.status === 422
               ? error.message
               : "The staff action could not be completed. Please retry.",
+          ...(error.code ? { code: error.code } : {}),
+          ...(error.fields ? { fields: error.fields } : {}),
+          ...(error.latest ? { latest: error.latest } : {}),
         },
       );
     }
