@@ -18,13 +18,13 @@ function ContentItemEditor({ item, save, onDone }) {
     },
   });
   const set = (field, value, delay) => autosave.setField(field, value, delay);
-  return <section className="staff-dashboard-section" aria-labelledby="content-edit-heading">
+  return <section className="staff-panel staff-content-editor" aria-labelledby="content-edit-heading">
     <h2 id="content-edit-heading">Edit item</h2>
     <div className="staff-form">
       <div className="staff-autosave-position"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
       <label>Section<select value={item.section} disabled>{sections.map((section) => <option key={section}>{section}</option>)}</select></label>
       <label>Order<input type="number" min="1" max="10000" required value={autosave.draft.order} onChange={(e) => set("order", Number(e.target.value))} /></label>
-      <label>Title<input required maxLength={200} value={autosave.draft.title} onChange={(e) => set("title", e.target.value)} /></label>
+      <label>Title<input autoFocus required maxLength={200} value={autosave.draft.title} onChange={(e) => set("title", e.target.value)} /></label>
       <label>Short text<textarea required maxLength={12000} value={autosave.draft.text} onChange={(e) => set("text", e.target.value)} /></label>
       <label>Primary link<input type="url" placeholder="https://" value={autosave.draft.link} onChange={(e) => set("link", e.target.value)} /></label>
       <label className="checkbox-label"><input type="checkbox" checked={autosave.draft.active} onChange={(e) => set("active", e.target.checked, AUTOSAVE_TOGGLE_DELAY)} />Active</label>
@@ -36,6 +36,7 @@ function ContentItemEditor({ item, save, onDone }) {
 export function ContentManagementPage() {
   const { session, refreshRoster } = useOutletContext();
   const [data, setData] = useState(null), [status, setStatus] = useState(null), [form, setForm] = useState(null), [staffForm, setStaffForm] = useState(null), [settingsForm, setSettingsForm] = useState(null), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("First Step");
   const reload = useCallback(async () => {
     try {
       const [content, workbookStatus] = await Promise.all([staffRequest("content"), staffRequest("workbook/status")]);
@@ -81,37 +82,86 @@ export function ContentManagementPage() {
     await save("content/delete", { id: item.id }, `Removed ${item.title}.`);
   }
   if (error && !status) return <div className="staff-page"><h1>Content</h1><p role="alert">{error}</p><button onClick={reload}>Retry</button></div>;
-  if (!status) return <p role="status">Loading workbook status…</p>;
-  if (!data) return <div className="staff-page"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1>{status.workbook === "missing" ? <section className="staff-dashboard-section"><h2>Upload the operational workbook</h2><p>Upload <strong>Welcome-Lounge.xlsx</strong> to the root of the configured Nextcloud app folder. Then refresh this page; the app will read it automatically.</p><p>This is separate from <strong>content-source/Welcome-Lounge-Content.xlsx</strong>, which contains public student information.</p></section> : <p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : status.workbook === "invalid" ? "Welcome-Lounge.xlsx was found but could not be read. Check that it is the operational workbook and that the configured Nextcloud account can access it." : "Welcome-Lounge.xlsx is not available. Check that it is uploaded to the configured Nextcloud app folder and that the app has access."}</p>}{error && <p role="alert">{error}</p>}<button type="button" onClick={reload}>Refresh workbook status</button></div>;
+  if (!status) return <p role="status">Loading content…</p>;
+  if (!data) return <div className="staff-page">
+    <header className="staff-page-heading"><h1>Content</h1></header>
+    {status.workbook === "missing" ? <section className="staff-panel">
+      <h2>Connect your workbook</h2>
+      <p>Upload <strong>Welcome-Lounge.xlsx</strong> to the configured Nextcloud app folder, then refresh.</p>
+      <details className="staff-disclosure"><summary>Workbook requirements</summary><p>Use the operational workbook at the root of the app folder. The public content workbook, <strong>content-source/Welcome-Lounge-Content.xlsx</strong>, is a separate file.</p></details>
+    </section> : <p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : status.workbook === "invalid" ? "Welcome-Lounge.xlsx could not be read. Check the workbook and Nextcloud access." : "Welcome-Lounge.xlsx is unavailable. Check the configured Nextcloud app folder and access."}</p>}
+    {error && <p role="alert">{error}</p>}<button type="button" onClick={reload}>Refresh</button>
+  </div>;
   const items = data.items;
+  const sectionItems = items.filter((item) => item.section === selectedSection).sort((a, b) => a.order - b.order);
   return <div className="staff-page staff-content-page">
-    <header className="staff-page-heading"><p className="staff-eyebrow">COORDINATOR · CONTENT</p><h1>Content</h1><p className="staff-page-lead">Changes save automatically. They appear on the student site after the next request.</p></header>
+    <header className="staff-page-heading"><h1>Content</h1></header>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
     {data.warnings?.length > 0 && <aside className="content-history" aria-label="Review required">{data.warnings.map((warning) => <p key={warning}>{warning}</p>)}</aside>}
-    {data.idAssignments?.length > 0 && <p className="staff-muted">{data.idAssignments.length} new content ID{data.idAssignments.length === 1 ? "" : "s"} will be saved automatically with the next workbook update.</p>}
-    <section className="semester-status" aria-labelledby="unified-file-heading"><h2 id="unified-file-heading">Welcome Lounge workbook</h2><p>{data.sourceFilename} · {statusDate(status.lastModified)}</p><p>Nextcloud: {status.connected ? "Connected" : "Connection problem"} · Workbook: {status.workbook}</p><p>Last backup: {statusDate(data.lastBackup)}</p><div className="semester-actions"><a href="/api/staff/workbook/download">Download workbook</a><a href="/api/staff/workbook/backup" onClick={async (event) => { event.preventDefault(); await save("workbook/backup", {}, "Backup created."); }}>Create backup</a></div></section>
-    <section className="staff-dashboard-section"><h2>Semester and support</h2>{settingsForm && <form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("settings/save", settingsForm, "Settings saved."); }}>
-      <label>Semester<input required maxLength={100} value={settingsForm.semesterLabel || ""} onChange={(e) => setSettingsForm({ ...settingsForm, semesterLabel: e.target.value })} /></label>
-      <label>WhatsApp group URL<input type="url" placeholder="https://chat.whatsapp.com/..." value={settingsForm.whatsappGroupUrl || ""} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappGroupUrl: e.target.value })} /></label>
-      <label className="checkbox-label"><input type="checkbox" checked={settingsForm.whatsappEnabled === true} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappEnabled: e.target.checked })} />WhatsApp enabled</label>
-      <label>Last reviewed<input type="date" value={settingsForm.contentReviewedDate || ""} onChange={(e) => setSettingsForm({ ...settingsForm, contentReviewedDate: e.target.value })} /></label>
-      <button className="primary" disabled={busy}>Save settings</button>
-    </form>}</section>
-    <section className="staff-dashboard-section"><h2>Student-facing items</h2><p>Active First Step items become Journey nodes. The map connects and orders them automatically from the workbook.</p>
-      {sections.map((section) => <section className="content-history" key={section}><div className="content-section-heading"><h3>{section === "First Step" ? "Journey steps" : section}</h3><button type="button" onClick={() => addItem(section)}>{section === "First Step" ? "Add journey step" : "Add item"}</button></div>{section === "First Step" && <p className="staff-muted">Add or edit steps here. Set the order and Active state; the student map updates from these rows.</p>}{items.filter((item) => item.section === section).sort((a, b) => a.order - b.order).map((item) => <article className="staff-record-history" key={item.id}><strong>{item.order}. {item.title}</strong><p>{item.text}</p><small>{item.active ? "Active" : "Inactive"}{item.link ? ` · ${item.link}` : ""}</small><div className="button-row"><button type="button" onClick={() => setForm({ ...item })}>Edit</button><button type="button" disabled={busy} onClick={() => save("content/save", { item: { ...item, active: !item.active } }, item.active ? "Item deactivated." : "Item activated.")}>{item.active ? "Deactivate" : "Activate"}</button><button type="button" className="content-delete-button" disabled={busy} onClick={() => removeItem(item)}>Remove</button></div></article>)}</section>)}
-    </section>
+    {!status.connected && <p role="alert">Nextcloud connection problem. Check your workbook connection before editing.</p>}
+    <section className="staff-panel" aria-labelledby="student-content-heading">
+      <div className="staff-toolbar"><h2 id="student-content-heading">Student content</h2><button type="button" className="primary" disabled={Boolean(form)} onClick={() => addItem(selectedSection)}>Add item</button></div>
+      <div className="staff-section-switcher" role="group" aria-label="Content sections">
+        {sections.map((section) => <button key={section} type="button" aria-pressed={selectedSection === section} disabled={Boolean(form) && selectedSection !== section} onClick={() => setSelectedSection(section)}>{section === "First Step" ? "Journey" : section}<span className="staff-count">{items.filter((item) => item.section === section).length}</span></button>)}
+      </div>
     {form?.id && <ContentItemEditor key={form.id} item={form} save={(patch, base) => autosaveContent(form.id, patch, base)} onDone={() => setForm(null)} />}
-    {form && !form.id && <section className="staff-dashboard-section" aria-labelledby="content-edit-heading"><h2 id="content-edit-heading">Add item</h2><form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("content/save", { item: form }, "Content saved."); }}>
+    {form && !form.id && <section className="staff-panel staff-content-editor" aria-labelledby="content-edit-heading"><h2 id="content-edit-heading">Add item</h2><form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("content/save", { item: form }, "Content saved."); }}>
       <label>Section<select value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })}>{sections.map((section) => <option key={section}>{section}</option>)}</select></label>
       <label>Order<input type="number" min="1" max="10000" required value={form.order} onChange={(e) => setForm({ ...form, order: Number(e.target.value) })} /></label>
-      <label>Title<input required maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+      <label>Title<input autoFocus required maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
       <label>Short text<textarea required maxLength={12000} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} /></label>
       <label>Primary link<input type="url" placeholder="https://" value={form.link || ""} onChange={(e) => setForm({ ...form, link: e.target.value })} /></label>
       <label className="checkbox-label"><input type="checkbox" checked={form.active === true} onChange={(e) => setForm({ ...form, active: e.target.checked })} />Active</label>
       <div className="button-row"><button className="primary" disabled={busy}>Save</button><button type="button" onClick={() => setForm(null)}>Cancel</button></div>
     </form></section>}
-    <section className="staff-dashboard-section"><h2>Staff list</h2><p>Active names are used to attribute staff updates and handovers.</p><button type="button" onClick={() => setStaffForm({ name: "", role: "tutor", program: "", email: "", phone: "", telegram: "", active: true })}>Add staff member</button>{data.staff.map((person) => <p key={person.id}>{person.name} · {person.role}{person.program ? ` · ${person.program}` : ""} <button type="button" onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button></p>)}</section>
-    {staffForm && <form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("staff/save", { staff: staffForm }, "Staff list saved."); }}><label>Name<input required value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} /></label><label>Role<select value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}><option value="tutor">Tutor</option><option value="admin">Admin</option></select></label><label>Program<input value={staffForm.program} onChange={(e) => setStaffForm({ ...staffForm, program: e.target.value })} /></label><label>Email<input type="email" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} /></label><label>Phone<input value={staffForm.phone} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} /></label><label>Telegram<input value={staffForm.telegram} onChange={(e) => setStaffForm({ ...staffForm, telegram: e.target.value })} /></label><label className="checkbox-label"><input type="checkbox" checked={staffForm.active} onChange={(e) => setStaffForm({ ...staffForm, active: e.target.checked })} />Active</label><button className="primary" disabled={busy}>Save staff member</button></form>}
+      {sectionItems.length === 0 && <p className="staff-muted">No items yet.</p>}
+      {sectionItems.map((item) => <details className="staff-content-item" key={item.id}>
+        <summary><span className="staff-content-item-heading"><strong>{item.order}. {item.title}</strong><span className={`staff-content-state${item.active ? "" : " is-inactive"}`}>{item.active ? "Active" : "Inactive"}</span></span></summary>
+        <div className="staff-content-item-body">
+          <p>{item.text}</p>{item.link && <a href={item.link} target="_blank" rel="noreferrer">Open link</a>}
+          <div className="button-row">
+            <button type="button" disabled={Boolean(form) || busy} onClick={() => setForm({ ...item })}>Edit</button>
+            <button type="button" disabled={busy || Boolean(form)} onClick={() => save("content/save", { item: { ...item, active: !item.active } }, item.active ? "Item deactivated." : "Item activated.")}>{item.active ? "Deactivate" : "Activate"}</button>
+            <button type="button" className="content-delete-button" disabled={busy || Boolean(form)} onClick={() => removeItem(item)}>Remove</button>
+          </div>
+        </div>
+      </details>)}
+      {selectedSection === "First Step" && <details className="staff-disclosure"><summary>How Journey works</summary><p>Active steps appear on the student map in workbook order. Changes to existing items save automatically and appear on the next student site request.</p></details>}
+    </section>
+    <div className="staff-settings-grid">
+      <details className="staff-panel staff-disclosure">
+        <summary>Semester and support</summary>
+        {settingsForm && <form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("settings/save", settingsForm, "Settings saved."); }}>
+          <label>Semester<input required maxLength={100} value={settingsForm.semesterLabel || ""} onChange={(e) => setSettingsForm({ ...settingsForm, semesterLabel: e.target.value })} /></label>
+          <label>WhatsApp group<input type="url" placeholder="https://chat.whatsapp.com/..." value={settingsForm.whatsappGroupUrl || ""} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappGroupUrl: e.target.value })} /></label>
+          <label className="checkbox-label"><input type="checkbox" checked={settingsForm.whatsappEnabled === true} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappEnabled: e.target.checked })} />Enable WhatsApp</label>
+          <label>Last reviewed<input type="date" value={settingsForm.contentReviewedDate || ""} onChange={(e) => setSettingsForm({ ...settingsForm, contentReviewedDate: e.target.value })} /></label>
+          <button className="primary" disabled={busy || Boolean(form)}>Save settings</button>
+        </form>}
+      </details>
+      <details className="staff-panel staff-disclosure">
+        <summary>Staff <span className="staff-count">{data.staff.length}</span></summary>
+        <div className="staff-toolbar"><button type="button" disabled={Boolean(staffForm)} onClick={() => setStaffForm({ name: "", role: "tutor", program: "", email: "", phone: "", telegram: "", active: true })}>Add staff member</button></div>
+        {staffForm && <form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("staff/save", { staff: staffForm }, "Staff list saved."); }}>
+          <label>Name<input autoFocus required value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} /></label>
+          <label>Role<select value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}><option value="tutor">Tutor</option><option value="admin">Admin</option></select></label>
+          <label>Program<input value={staffForm.program || ""} onChange={(e) => setStaffForm({ ...staffForm, program: e.target.value })} /></label>
+          <label>Email<input type="email" value={staffForm.email || ""} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} /></label>
+          <label>Phone<input value={staffForm.phone || ""} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} /></label>
+          <label>Telegram<input value={staffForm.telegram || ""} onChange={(e) => setStaffForm({ ...staffForm, telegram: e.target.value })} /></label>
+          <label className="checkbox-label"><input type="checkbox" checked={staffForm.active} onChange={(e) => setStaffForm({ ...staffForm, active: e.target.checked })} />Active</label>
+          <div className="button-row"><button className="primary" disabled={busy || Boolean(form)}>Save staff member</button><button type="button" onClick={() => setStaffForm(null)}>Cancel</button></div>
+        </form>}
+        <ul className="staff-staff-list">{data.staff.map((person) => <li className="staff-staff-row" key={person.id}><div><strong>{person.name}</strong><p className="staff-muted">{person.role}{person.program ? ` · ${person.program}` : ""}{!person.isActive ? " · Inactive" : ""}</p></div><button type="button" disabled={Boolean(staffForm)} aria-label={`Edit ${person.name}`} onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button></li>)}</ul>
+      </details>
+      <details className="staff-panel staff-disclosure">
+        <summary>Workbook</summary>
+        <p>{data.sourceFilename}</p>
+        <dl className="staff-workbook-details"><div><dt>Updated</dt><dd>{statusDate(status.lastModified)}</dd></div><div><dt>Nextcloud</dt><dd>{status.connected ? "Connected" : "Connection problem"}</dd></div><div><dt>Workbook</dt><dd>{status.workbook}</dd></div><div><dt>Last backup</dt><dd>{statusDate(data.lastBackup)}</dd></div></dl>
+        {data.idAssignments?.length > 0 && <p className="staff-muted">{data.idAssignments.length} new content ID{data.idAssignments.length === 1 ? "" : "s"} will be saved with the next workbook update.</p>}
+        <div className="button-row"><a href="/api/staff/workbook/download">Download workbook</a><button type="button" disabled={busy || Boolean(form)} onClick={() => save("workbook/backup", {}, "Backup created.")}>Create backup</button></div>
+      </details>
+    </div>
   </div>;
 }
 

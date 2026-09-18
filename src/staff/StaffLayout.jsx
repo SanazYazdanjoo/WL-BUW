@@ -7,6 +7,7 @@ export default function StaffLayout() {
     [roster, setRoster] = useState(null),
     [semesterLabel, setSemesterLabel] = useState(""),
     [actorBusy, setActorBusy] = useState(false),
+    [loginBusy, setLoginBusy] = useState(false),
     [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,6 +47,7 @@ export default function StaffLayout() {
   async function login(event) {
     event.preventDefault();
     setError("");
+    setLoginBusy(true);
     const form = new FormData(event.currentTarget);
     try {
       await staffRequest("login", {
@@ -56,6 +58,8 @@ export default function StaffLayout() {
       navigate("/staff/dashboard");
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoginBusy(false);
     }
   }
   async function chooseStaff(event) {
@@ -78,12 +82,6 @@ export default function StaffLayout() {
       setError(e.message);
     }
   }
-  function goBack() {
-    const path = location.pathname;
-    if (/^\/staff\/students\/[^/]+$/.test(path)) return navigate("/staff/students");
-    if (path !== "/staff/dashboard") return navigate("/staff/dashboard");
-    navigate("/");
-  }
   return (
     <div className="app-container staff">
       <a className="skip-link" href="#staff-main">
@@ -94,27 +92,26 @@ export default function StaffLayout() {
           <span className="staff-brand-mark" aria-hidden="true" />
           <span>
             <strong>Welcome Lounge</strong>
-            {semesterLabel && <small>{semesterLabel}</small>}
+            <small>Staff workspace{semesterLabel && <span> · {semesterLabel}</span>}</small>
           </span>
         </Link>
-        <span className="staff-header-title">Private staff workspace</span>
         {session && <div className="staff-header-account">
           <span className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
-            Signed in as {session.name} · {session.role === "admin" ? "Coordinator" : "Tutor"}
+            <strong>{session.name}</strong>
+            <small>{session.role === "admin" ? "Coordinator" : "Tutor"}</small>
           </span>
           <button className="staff-signout" onClick={logout}>Sign out</button>
         </div>}
       </header>
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="staff-shell-message" role="alert">{error}</p>}
       {loading ? (
-        <p role="status">Checking staff access…</p>
+        <main id="staff-main" className="staff-main"><p role="status">Checking access…</p></main>
       ) : !session ? (
         <main id="staff-main" className="staff-main staff-login-main">
           <section className="staff-login-panel" aria-labelledby="staff-login-title">
-            <p className="staff-eyebrow">WELCOME LOUNGE · STAFF</p>
             <h1 id="staff-login-title">Staff sign-in</h1>
             <p>
-              Use your name and the pilot access code provided by the coordinator.
+              Use the access code from your coordinator.
             </p>
           <form onSubmit={login} className="staff-form">
             <label>
@@ -130,7 +127,7 @@ export default function StaffLayout() {
                 required
               />
             </label>
-            <button className="primary">Sign in</button>
+            <button className="primary" disabled={loginBusy}>{loginBusy ? "Signing in…" : "Sign in"}</button>
           </form>
           </section>
         </main>
@@ -139,9 +136,8 @@ export default function StaffLayout() {
           {roster?.etag && roster.staff.length > 0 && !roster.staff.some((person) => person.id === session.staffId) ? (
             <main id="staff-main" className="staff-main staff-login-main">
               <section className="staff-login-panel" aria-labelledby="staff-actor-title">
-                <p className="staff-eyebrow">STAFF IDENTITY</p>
                 <h1 id="staff-actor-title">Who is working?</h1>
-                <p>Choose your name so updates and handovers are attributed to the right person.</p>
+                <p>Your name will appear on updates and handovers.</p>
                 <label>Your name<select value="" disabled={actorBusy} onChange={chooseStaff}>
                   <option value="">Choose a staff member</option>
                   {roster.staff.map((person) => <option value={person.id} key={person.id}>{person.name}{person.program ? ` · ${person.program}` : ""}</option>)}
@@ -153,17 +149,15 @@ export default function StaffLayout() {
               {location.pathname === "/staff/content" ? (
                 <>
                   <section className="staff-setup-panel" aria-labelledby="staff-setup-title">
-                    <p className="staff-eyebrow">STAFF SETUP</p>
                     <h2 id="staff-setup-title">Add the staff list</h2>
-                    <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
+                    <p>Add your team below to start recording staff updates.</p>
                   </section>
                   <Outlet context={{ session, refreshRoster: loadRoster }} />
                 </>
               ) : (
                 <section className="staff-login-panel" aria-labelledby="staff-setup-title">
-                  <p className="staff-eyebrow">STAFF SETUP</p>
                   <h1 id="staff-setup-title">Add the staff list</h1>
-                  <p>A coordinator needs to add active staff names in Content before staff updates can be attributed.</p>
+                  <p>Add your team in Content to start recording staff updates.</p>
                   {session.role === "admin" ? <Link to="/staff/content">Open Content setup</Link> : <p>Ask a coordinator to add the team.</p>}
                 </section>
               )}
@@ -183,15 +177,11 @@ export default function StaffLayout() {
                   ]
                 : []),
             ].map(([path, title]) => (
-              <NavLink key={path} to={`/staff/${path}`}>
+              <NavLink key={path} to={`/staff/${path}`} className={path === "content" ? "staff-nav-admin" : undefined}>
                 {title}
               </NavLink>
             ))}
           </nav>
-          <div className="staff-page-actions">
-            <button type="button" className="staff-back-button" onClick={goBack} aria-label="Go back">← Back</button>
-            <button type="button" className="staff-cancel-button" onClick={() => navigate("/staff/dashboard")}>Cancel</button>
-          </div>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>
