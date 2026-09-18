@@ -192,3 +192,7 @@ Reduced the node-to-title gap consistently across breakpoints while keeping labe
 ## 2026-09-17 - Stabilize journey summary reveal
 
 Moved summary visibility to the semantic step link's hover and keyboard-focus states, removing pointer-enter state that fired only at the list item's outer boundary. Raised the active step above adjacent map rows, positioned its summary bubble above the title, and gave the hovered node the highest local stacking level. Reduced topic title size slightly.
+
+## 2026-09-18 - Animate the journey entrance
+
+Journey nodes now reveal in semantic order with a short stagger, followed by a slowly drawn connector that settles into the established dotted or completed-line style. CSS animation is lightweight and automatically disabled by the existing reduced-motion rule; all journey links remain present and operable during the animation.

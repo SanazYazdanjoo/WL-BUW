@@ -198,6 +198,7 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
                 d={curveBetween(point, next, index, columns, geometry.copyBottoms[index], geometry.width, geometry.edgeSpaces[index])}
                 className={isProgressed ? "journey-path-segment is-progressed" : "journey-path-segment"}
                 ref={(element) => { pathRefs.current[index] = element; }}
+                style={{ "--path-delay": `${index * 90}ms` }}
               />
             );
           })}
@@ -220,7 +221,11 @@ export default function JourneyMap({ topics, completedTopicIds = [] }) {
               data-side={index % 2 === 0 ? "left" : "right"}
               key={topic.id}
               ref={(element) => { itemRefs.current[index] = element; }}
-              style={{ "--step-column": column + 1, "--step-row": row + 1 }}
+              style={{
+                "--step-column": column + 1,
+                "--step-row": row + 1,
+                "--step-delay": `${index * 90}ms`,
+              }}
             >
               <Link
                 aria-label={`Open step ${index + 1}: ${topic.title}${isComplete ? ", completed" : ""}${isNext ? ", next incomplete step" : ""}`}
