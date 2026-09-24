@@ -299,7 +299,7 @@ function EventDate({ event }) {
   );
 }
 
-function EventEntry({ event, needsReview = false }) {
+function EventEntry({ event }) {
   const times = event.startTime
     ? event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime
     : "";
@@ -310,11 +310,7 @@ function EventEntry({ event, needsReview = false }) {
       {event.date && <EventDate event={event} />}
       <div className="event-content">
         <h2>{event.title}</h2>
-        {needsReview ? (
-          <p className="event-review-note">Details are being checked. See the official programme.</p>
-        ) : (
-          metadata && <p className="event-meta">{metadata}</p>
-        )}
+        {metadata && <p className="event-meta">{metadata}</p>}
         {(event.descriptionSnippet || event.description) && <p className="event-description">{event.descriptionSnippet || event.description}</p>}
         <div className="event-links">
           {event.registrationUrl && (
@@ -344,20 +340,15 @@ export function EventsPage() {
   const verified = publishedOfficial.filter(
     (event) => event.date && event.sourceStatus === "current" && (event.endDate || event.date) >= today,
   ).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
-  const ambiguous = publishedOfficial.filter(
-    (event) => (!event.date || event.sourceStatus === "needs-review") &&
-      (!event.date || (event.endDate || event.date) >= today),
-  );
   const upcoming = events.filter(
     (event) => !event.isDemo && event.isActive !== false && event.date >= today,
   );
   const officialIds = new Set(verified.map((event) => `${event.title.toLowerCase()}|${event.date}`));
   const published = [
-    ...verified.map((event) => ({ event, needsReview: false })),
+    ...verified,
     ...upcoming
-      .filter((event) => !officialIds.has(`${event.title.toLowerCase()}|${event.date}`))
-      .map((event) => ({ event, needsReview: false })),
-  ].sort((a, b) => a.event.date.localeCompare(b.event.date) || (a.event.startTime || "").localeCompare(b.event.startTime || ""));
+      .filter((event) => !officialIds.has(`${event.title.toLowerCase()}|${event.date}`)),
+  ].sort((a, b) => a.date.localeCompare(b.date) || (a.startTime || "").localeCompare(b.startTime || ""));
   return (
     <section className="events-page">
       <h1>Events</h1>
@@ -366,21 +357,9 @@ export function EventsPage() {
           We could not verify the latest event information recently. Check the official programme.
         </p>
       )}
-      {official?.status === "needs-review" && (
-        <p className="source-freshness-note">
-          Some event details need checking. Please confirm them in the official programme.
-        </p>
-      )}
-      {published.map(({ event, needsReview }) => (
-        <EventEntry key={event.id} event={event} needsReview={needsReview} />
+      {published.map((event) => (
+        <EventEntry key={event.id} event={event} />
       ))}
-      {ambiguous.length > 0 && (
-        <section className="ambiguous-events" aria-label="Events to confirm">
-          {ambiguous.map((event) => (
-            <EventEntry key={event.id} event={event} needsReview />
-          ))}
-        </section>
-      )}
       <OfficialSourceLink
         sources={officialSources}
         sourceId="welcomeEvents"

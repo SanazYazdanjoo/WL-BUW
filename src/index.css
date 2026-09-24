@@ -1074,12 +1074,6 @@ main:focus {
 }
 
 .event-meta,
-.event-review-note {
-  margin: 0.22rem 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.88rem;
-}
-
 .event-description {
   display: -webkit-box;
   max-width: 65ch;
@@ -1113,19 +1107,10 @@ main:focus {
   text-decoration: underline;
 }
 
-.ambiguous-events {
-  margin-top: 1rem;
-}
-
 .event-meta,
-.event-review-note,
 .source-freshness-note {
   color: var(--color-text-muted);
   font-size: 0.88rem;
-}
-
-.event-review-note {
-  max-width: 55ch;
 }
 
 .staff-source {
@@ -2836,4 +2821,102 @@ main:focus {
     color: black;
     text-decoration: none;
   }
+}
+
+.staff-student-table th {
+  white-space: normal;
+  min-width: 6rem;
+}
+
+.staff-student-table .staff-cell-check {
+  text-align: center;
+}
+
+.staff-student-table .staff-cell-check input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.staff-cell-input {
+  width: 100%;
+  min-width: 12rem;
+  font: inherit;
+}
+
+.staff-student-table .staff-cell-status {
+  min-width: 7rem;
+  font-size: 0.8rem;
+}
+
+.staff-shift-table th,
+.staff-shift-table td {
+  padding: 0.25rem 0.35rem;
+}
+
+.staff-shift-table thead th.staff-shift-s1 {
+  background: #2f5d62;
+  color: white;
+}
+
+.staff-shift-table thead th.staff-shift-s2 {
+  background: #e8b923;
+  color: #222;
+}
+
+.staff-shift-table td.staff-shift-s1 {
+  background: #dce8ea;
+}
+
+.staff-shift-table td.staff-shift-s2 {
+  background: #fbeab0;
+}
+
+.staff-shift-table .staff-shift-date {
+  background: #111;
+  color: white;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 500;
+}
+
+.staff-shift-table .staff-cell-input {
+  min-width: 7rem;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.staff-shift-table tr.is-weekend .staff-shift-date,
+.staff-shift-table tr.is-weekend td {
+  background: #d9d9d9;
+  color: #666;
+}
+
+.staff-shift-table tr.is-closed .staff-shift-date {
+  background: #f2c9cf;
+  color: #7a4a52;
+}
+
+.staff-shift-table td.staff-shift-closed {
+  background: #f2c9cf;
+}
+
+.staff-shift-note {
+  margin: 0 0 0.5rem;
+  color: #7a4a52;
+}
+
+.staff-shift-log {
+  margin-top: 1rem;
+}
+
+
+.staff-export-link {
+  justify-self: start;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: var(--color-text);
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
 }

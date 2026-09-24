@@ -78,19 +78,19 @@ test("autosaves merge independent student fields and report same-field conflicts
   const staffId = "staff_12345678-1234-4234-8234-123456789abc";
   const store = memoryStore(await serializeUnifiedWorkbook({
     settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
-    students: [{ id: studentId, name: "Example Student", accommodation: "", notes: "" }],
+    students: [{ id: studentId, name: "Example Student", accommodation: null, notes: "" }],
     staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
   }));
   const repo = createUnifiedRepository(store);
   const actor = { name: "Tutor Example", role: "tutor", staffId };
   const initial = await repo.workspace();
   const results = await Promise.all([
-    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: "Student housing" }, base: { accommodation: "" } }),
+    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: true }, base: { accommodation: null } }),
     repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { notes: "Needs follow-up" }, base: { notes: "" } }),
   ]);
   assert.equal(results.length, 2);
   let parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
-  assert.equal(parsed.data.students[0].accommodation, "Student housing");
+  assert.equal(parsed.data.students[0].accommodation, true);
   assert.equal(parsed.data.students[0].notes, "Needs follow-up");
   const etag = (await repo.workspace()).etag;
   const concurrent = await Promise.allSettled([
@@ -114,17 +114,17 @@ test("a student autosave and check-in racing against one workbook both persist",
   const staffId = "staff_22345678-1234-4234-8234-123456789abc";
   const store = memoryStore(await serializeUnifiedWorkbook({
     settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
-    students: [{ id: studentId, name: "Example Student", accommodation: "" }],
+    students: [{ id: studentId, name: "Example Student", accommodation: null }],
     staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
   }));
   const repo = createUnifiedRepository(store), actor = { name: "Tutor Example", role: "tutor", staffId };
   const initial = await repo.workspace();
   await Promise.all([
-    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: "Student housing" }, base: { accommodation: "" } }),
+    repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: true }, base: { accommodation: null } }),
     repo.checkIn(actor, { id: studentId, etag: initial.etag }),
   ]);
   const parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
-  assert.equal(parsed.data.students[0].accommodation, "Student housing");
+  assert.equal(parsed.data.students[0].accommodation, true);
   assert.equal(parsed.data.activity.filter((item) => item.type === "Check-in" && item.studentId === studentId).length, 1);
 });
 
@@ -183,4 +183,90 @@ test("staff can add, autosave and remove events stored in the Events tab", async
   const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
   assert.deepEqual(stored.data.events, []);
   assert.deepEqual(publicContentFromWorkbook(stored, {}).events.events, []);
+});
+
+test("staff can correct a student's name, matriculation number and welcome materials", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const otherId = "stu_22345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [
+      { id: studentId, name: "Exmaple Student", matriculationNumber: "12345", receivedBackpack: null },
+      { id: otherId, name: "Other Student", matriculationNumber: "99999" },
+    ],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  await repo.updateStudent(actor, { id: studentId, patch: { name: "Example Student", matriculationNumber: "012346", receivedBackpack: true }, base: { name: "Exmaple Student", matriculationNumber: "12345", receivedBackpack: null } });
+  const [student] = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
+  assert.deepEqual([student.name, student.matriculationNumber, student.receivedBackpack], ["Example Student", "012346", true]);
+  await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { matriculationNumber: "99999" }, base: { matriculationNumber: "012346" } }), /already has this matriculation number/);
+  await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { name: "  " }, base: { name: "Example Student" } }), /full name/);
+});
+
+test("student list checkboxes and accommodation contact round-trip, and old text values count as ticked", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Example Student", accommodation: "Student housing, room 12", cityRegistration: "" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  const [before] = (await repo.workspace()).data.students;
+  assert.deepEqual([before.accommodation, before.cityRegistration, before.accommodationContact], [true, null, ""]);
+  await repo.updateStudent(actor, { id: studentId, patch: { accommodation: false, accommodationContact: "+49 123 456", cityRegistration: true }, base: { accommodation: true, accommodationContact: "", cityRegistration: null } });
+  const [after] = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
+  assert.deepEqual([after.accommodation, after.cityRegistration, after.accommodationContact], [false, true, "+49 123 456"]);
+  await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { cityRegistration: "maybe" }, base: { cityRegistration: true } }), /Yes, No or Unknown/);
+});
+
+test("any staff member can edit the shift grid and every change is logged", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    shifts: [{ date: "2026-10-01", first: ["Sanaz", "Ali"], second: ["Daniel"], event: "" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  await repo.updateShiftDay(actor, { id: "2026-10-01", patch: { s1p3: "Zarina", s2p1: "Nayeem" }, base: { s1p3: "", s2p1: "Daniel" } });
+  await repo.updateShiftDay(actor, { id: "2026-10-03", patch: { note: "Bank Holiday" }, base: { note: "" } });
+  const workspace = await repo.workspace();
+  const day = workspace.data.shifts.find((entry) => entry.date === "2026-10-01");
+  assert.deepEqual([day.first, day.second], [["Sanaz", "Ali", "Zarina", ""], ["Nayeem", "", "", ""]]);
+  assert.equal(workspace.data.shifts.find((entry) => entry.date === "2026-10-03").event, "Bank Holiday");
+  assert.deepEqual(workspace.shiftLog.map((entry) => [entry.actor, entry.note]), [
+    ["Tutor Example", "2026-10-03 · Note: “—” → “Bank Holiday”"],
+    ["Tutor Example", "2026-10-01 · S1 Person 3: “—” → “Zarina” · S2 Person 1: “Daniel” → “Nayeem”"],
+  ]);
+  await assert.rejects(repo.updateShiftDay(actor, { id: "2026-10-01", patch: { s1p1: "Ehsan" }, base: { s1p1: "Someone else" } }), (error) => error.code === "EDIT_CONFLICT" && error.latest.s1p1 === "Sanaz");
+  await repo.updateShiftDay(actor, { id: "2026-10-03", patch: { note: "" }, base: { note: "Bank Holiday" } });
+  assert.equal((await repo.workspace()).data.shifts.some((entry) => entry.date === "2026-10-03"), false);
+});
+
+test("students can be exported for a day by check-in or by date added", async () => {
+  const { ExcelJS } = await import("../server/excel/excelUtils.js");
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const a = "stu_12345678-1234-4234-8234-123456789abc", b = "stu_22345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [
+      { id: a, legacyDate: "2026-09-28", name: "Ana Example", matriculationNumber: "00123", accommodation: false, accommodationContact: "+49 1", enrolled: true },
+      { id: b, legacyDate: "2026-09-30", name: "Ben Example", matriculationNumber: "00456" },
+    ],
+    activity: [{ id: "act_12345678-1234-4234-8234-123456789abc", timestamp: "2026-09-30T08:15:00.000Z", type: "Check-in", studentId: a, actor: "Tutor Example", note: "Checked in" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const read = async (bytes) => { const book = new ExcelJS.Workbook(); await book.xlsx.load(bytes); return book.getWorksheet("Students").getSheetValues().slice(2).map((row) => row.slice(1)); };
+  const [header, ana] = await read(await repo.exportStudents({ date: "2026-09-30", by: "checkin" }));
+  assert.deepEqual([header.at(-2), ana[0], ana[1], ana[6], ana[7], ana[8], ana.at(-2), ana.at(-1)], ["Checked in at", "Ana Example", "00123", "Yes", "No", "+49 1", "10:15", "Tutor Example"]);
+  const added = await read(await repo.exportStudents({ date: "2026-09-30", by: "added" }));
+  assert.deepEqual(added.slice(1).map((row) => row[0]), ["Ben Example"]);
+  await assert.rejects(repo.exportStudents({ date: "2026-02-31", by: "checkin" }), /valid date/);
+  await assert.rejects(repo.exportStudents({ date: "2026-09-30", by: "everyone" }), /checked-in or added/);
 });

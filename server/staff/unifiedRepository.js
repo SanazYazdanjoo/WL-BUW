@@ -1,11 +1,12 @@
 import { randomUUID, createHash } from "node:crypto";
-import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook } from "../excel/unifiedWorkbook.js";
+import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames } from "../excel/unifiedWorkbook.js";
 import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
 import { CONTENT_KINDS } from "../../shared/contentKinds.js";
 import { StaffError } from "./auth.js";
 import { shiftSummary } from "../excel/masterExcel.js";
+import { EXPORT_MODES, exportStudentsForDay } from "../excel/studentExport.js";
 import { safeLink } from "../../shared/content.js";
 import onboardingSample from "../../content/app-content/onboarding.json" with { type: "json" };
 import eventsSample from "../../content/app-content/events.json" with { type: "json" };
@@ -28,6 +29,32 @@ const text = (value, max = 12000) => {
 const contentSections = new Set(["First Step", "Useful Info", "Student Support", "Community", "Help"]);
 const slug = (value) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "content-item";
 const idFor = (prefix) => `${prefix}_${randomUUID()}`;
+const STUDENT_FIELDS = ["name", "matriculationNumber", "enrolled", "accommodation", "accommodationContact", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"];
+const yesNo = (value) => (typeof value === "boolean" ? value : value ? true : null);
+const STUDENT_YES_NO_FIELDS = ["enrolled", "accommodation", "receivedBackpack", "cityRegistration"];
+const STUDENT_FIELD_LIMITS = { name: 200, matriculationNumber: 100, notes: 4000, email: 254, phone: 100, accommodationContact: 1000 };
+function checkStudentField(field, value, student, data) {
+  if (STUDENT_YES_NO_FIELDS.includes(field)) {
+    if (![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
+    return;
+  }
+  if (typeof value !== "string" || value.length > (STUDENT_FIELD_LIMITS[field] || 12000)) throw new StaffError(400, "A student field is too long.");
+  if (field === "name" && !value.trim()) throw new StaffError(400, "Enter the student's full name.");
+  if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new StaffError(400, "Enter a valid email address.");
+  const matriculation = value.trim().toLocaleLowerCase("en");
+  if (field === "matriculationNumber" && matriculation && data.students.some((other) => other.id !== student.id && String(other.matriculationNumber || "").trim().toLocaleLowerCase("en") === matriculation))
+    throw new StaffError(409, "Another student already has this matriculation number.");
+}
+// Shift grid cells: s1p1..s1p4, s2p1..s2p4 and the day note.
+const SHIFT_FIELDS = [...[1, 2].flatMap((slot) => [1, 2, 3, 4].map((person) => `s${slot}p${person}`)), "note"];
+const shiftCell = (field) => { const [, slot, person] = field.match(/^s([12])p([1-4])$/); return [slot === "1" ? "first" : "second", Number(person) - 1]; };
+const shiftValue = (day, field) => (field === "note" ? day.event : day[shiftCell(field)[0]][shiftCell(field)[1]]) || "";
+function setShiftValue(day, field, value) {
+  if (field === "note") day.event = value;
+  else { const [slot, index] = shiftCell(field); day[slot][index] = value; }
+}
+const shiftFieldLabel = (field) => (field === "note" ? "Note" : `S${field[1]} Person ${field[3]}`);
+const toShiftDay = (shift) => ({ id: shift.date, date: shift.date, first: slotNames((shift.first || []).filter(Boolean)), second: slotNames((shift.second || []).filter(Boolean)), event: shift.event || "" });
 const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "") && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 const isTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 function checkEvent(event) {
@@ -139,7 +166,7 @@ export function createUnifiedRepository(store) {
         record[targetField] = mappedValue;
       }
       if (!changed.length) return { ok: true, etag: file.etag, unchanged: true };
-      validate?.(record, patch);
+      validate?.(record, patch, data);
       appendActivity(data, actor, activityType, { studentId: collection === "students" ? record.id : "", note: collection === "students" ? changed.join(",") : `${record.title || record.date || "Record"} · ${changed.join(",")}` });
       const priorVersion = file.etag;
       try {
@@ -201,15 +228,9 @@ export function createUnifiedRepository(store) {
     const students = (staffData?.students || []).map((student) => {
       const id = /^stu_[0-9a-f-]{36}$/i.test(student.id || "") ? student.id : idFor("stu");
       if (student.id) legacyStudentIds.set(student.id, id);
-      return { id, legacyDate: student.legacyDate || student.dateAdded || "", name: student.name || "", matriculationNumber: String(student.matriculationNumber || ""), country: student.country || "", studyProgram: student.studyProgram || "", enrolled: student.enrolled ?? null, accommodation: student.accommodation || "", address: student.address || "", receivedBackpack: student.receivedBackpack ?? null, cityRegistration: student.cityRegistration || "", notes: student.notes || "", phone: student.phone || "", email: student.email || "", updatedAt: student.updatedAt || "", updatedBy: student.updatedBy || "" };
+      return { id, legacyDate: student.legacyDate || student.dateAdded || "", name: student.name || "", matriculationNumber: String(student.matriculationNumber || ""), country: student.country || "", studyProgram: student.studyProgram || "", enrolled: student.enrolled ?? null, accommodation: yesNo(student.accommodation), accommodationContact: student.accommodationContact || "", address: student.address || "", receivedBackpack: student.receivedBackpack ?? null, cityRegistration: yesNo(student.cityRegistration), notes: student.notes || "", phone: student.phone || "", email: student.email || "", updatedAt: student.updatedAt || "", updatedBy: student.updatedBy || "" };
     });
-    const shifts = [];
-    for (const shift of staffData?.shifts || []) {
-      for (const [slot, values] of [["first", shift.first || []], ["second", shift.second || []]]) {
-        if (!values.some(Boolean) && slot === "second") continue;
-        shifts.push({ id: idFor("shift"), date: shift.date, start: "", end: "", tutors: values.filter(Boolean).slice(0, 3), first: values.filter(Boolean).slice(0, 3), second: [], event: slot === "first" ? shift.event || "" : "", notes: `Imported legacy ${slot} shift slot` });
-      }
-    }
+    const shifts = (staffData?.shifts || []).map(toShiftDay);
     const staff = (staffData?.programTutors || []).filter((entry) => entry.tutor && entry.tutor !== "?").map((entry) => ({ id: idFor("staff"), name: entry.tutor, role: "tutor", program: entry.program || "", email: entry.email || "", phone: entry.phone || "", telegram: entry.telegram || "", isActive: true }));
     const activity = [];
     for (const entry of staffData?.checkins || []) {
@@ -237,7 +258,8 @@ export function createUnifiedRepository(store) {
   return {
     async workspace() {
       const file = await current();
-      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), unified: true };
+      const shiftLog = file.parsed.data.activity.filter((item) => item.type === "Shift Update").sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 30);
+      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, shiftLog, unified: true };
     },
     async listArrivals() {
       const { parsed } = await current();
@@ -245,26 +267,20 @@ export function createUnifiedRepository(store) {
     },
     async updateStudent(actor, input) {
       if (input.patch && input.base) return mutateFields(actor, input, {
-        id: input.id, collection: "students", allowed: ["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"],
+        id: input.id, collection: "students", allowed: STUDENT_FIELDS,
         reason: "student update", activityType: "Student Update",
-        validate(record, patch) {
-          for (const [field, value] of Object.entries(patch)) {
-            if (["enrolled", "receivedBackpack"].includes(field) && ![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
-            if (typeof value === "string" && value.length > (field === "notes" ? 4000 : field === "email" ? 254 : field === "phone" ? 100 : 12000)) throw new StaffError(400, "A student field is too long.");
-            if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new StaffError(400, "Enter a valid email address.");
-          }
+        validate(record, patch, data) {
+          for (const [field, value] of Object.entries(patch)) checkStudentField(field, value, record, data);
         },
       });
-      const allowed = new Set(["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"]);
+      const allowed = new Set(STUDENT_FIELDS);
       if (!input.patch || Object.keys(input.patch).length === 0 || Object.keys(input.patch).some((field) => !allowed.has(field))) throw new StaffError(400, "Only the listed student support details can be changed.");
       return mutate(actor, input, "student update", (data) => {
         const student = data.students.find((item) => item.id === input.id);
         if (!student) throw new StaffError(404, "Student not found.");
         for (const [field, value] of Object.entries(input.patch)) {
-          if (["enrolled", "receivedBackpack"].includes(field) && ![true, false, null].includes(value)) throw new StaffError(400, "Choose Yes, No or Unknown.");
-          if (typeof value === "string" && value.length > (field === "notes" ? 4000 : field === "email" ? 254 : field === "phone" ? 100 : 12000)) throw new StaffError(400, "A student field is too long.");
-          if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new StaffError(400, "Enter a valid email address.");
           student[field] = typeof value === "string" ? text(value) : value;
+          checkStudentField(field, value, student, data);
         }
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: Object.keys(input.patch).join(",") });
       });
@@ -280,7 +296,7 @@ export function createUnifiedRepository(store) {
         }
         const email = text(input.email || "", 254).trim();
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new StaffError(400, "Enter a valid email address.");
-        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: "", address: "", receivedBackpack: null, cityRegistration: "", notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
+        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: "", address: "", receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
         data.students.push(student);
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: "Student created" });
         return student.id;
@@ -427,32 +443,33 @@ export function createUnifiedRepository(store) {
         appendActivity(data, actor, "Other", { note: `${currentStaff ? "Updated" : "Added"} staff member` });
       }, { major: true, allowUnassigned: true });
     },
-    async addShift(actor, input) {
-      return mutate(actor, input, "shift updated", (data) => {
-        const shiftInput = input.shift || input;
-        const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(shiftInput.date || "") ? new Date(`${shiftInput.date}T00:00:00Z`) : null;
-        if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== shiftInput.date) throw new StaffError(400, "Enter a valid shift date.");
-        const tutors = [shiftInput.tutor1, shiftInput.tutor2, shiftInput.tutor3].map((value) => text(value || "", 200));
-        const start = text(shiftInput.start || "", 20), end = text(shiftInput.end || "", 20);
-        if ((start && !/^([01]\d|2[0-3]):[0-5]\d$/.test(start)) || (end && !/^([01]\d|2[0-3]):[0-5]\d$/.test(end))) throw new StaffError(400, "Enter shift times in 24-hour format.");
-        const existing = shiftInput.id ? data.shifts.find((entry) => entry.id === shiftInput.id) : null;
-        if (shiftInput.id && !existing) throw new StaffError(404, "Shift not found.");
-        const next = { id: existing?.id || idFor("shift"), date: shiftInput.date, start, end, tutors, first: tutors.filter(Boolean), second: [], event: text(shiftInput.event || "", 1000), notes: text(shiftInput.notes || "", 2000) };
-        if (existing) Object.assign(existing, next); else data.shifts.push(next);
-        appendActivity(data, actor, "Other", { note: `${existing ? "Updated" : "Added"} shift schedule` });
-      }, { major: true });
-    },
-    async autosaveShift(actor, input) {
-      return mutateFields(actor, input, {
-        id: input.id, collection: "shifts", allowed: ["date", "start", "end", "tutors", "event", "notes"], reason: "shift update", activityType: "Other",
-        validate(record) {
-          const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(record.date || "") ? new Date(`${record.date}T00:00:00Z`) : null;
-          if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== record.date) throw new StaffError(400, "Enter a valid shift date.");
-          if ((record.start && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.start)) || (record.end && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.end))) throw new StaffError(400, "Enter shift times in 24-hour format.");
-          if (!Array.isArray(record.tutors) || record.tutors.length > 3 || record.tutors.some((value) => typeof value !== "string" || value.length > 200)) throw new StaffError(400, "Enter up to three tutor names.");
-          record.first = record.tutors.filter(Boolean);
-        },
-      });
+    async updateShiftDay(actor, input) {
+      const date = text(input.date || input.id || "", 10);
+      if (!isDate(date)) throw new StaffError(400, "Choose a valid date.");
+      const patch = input.patch, base = input.base;
+      if (!patch || typeof patch !== "object" || !Object.keys(patch).length || Object.keys(patch).some((field) => !SHIFT_FIELDS.includes(field))) throw new StaffError(400, "Only shift names and the day note can be changed.");
+      if (!base || typeof base !== "object" || Object.keys(patch).some((field) => typeof base[field] !== "string")) throw new StaffError(400, "Reload the schedule before saving your changes.");
+      for (const [field, value] of Object.entries(patch)) text(value, field === "note" ? 1000 : 200);
+      return mutate(actor, input, "shift update", (data) => {
+        let day = data.shifts.find((entry) => entry.date === date);
+        if (!day) { day = toShiftDay({ date }); data.shifts.push(day); }
+        const conflicts = Object.keys(patch).filter((field) => shiftValue(day, field) !== base[field] && shiftValue(day, field) !== patch[field]);
+        if (conflicts.length) {
+          const error = new StaffError(409, "Someone else changed this day. Review both versions before continuing.");
+          error.code = "EDIT_CONFLICT"; error.fields = conflicts; error.latest = Object.fromEntries(conflicts.map((field) => [field, shiftValue(day, field)]));
+          throw error;
+        }
+        const changes = [];
+        for (const [field, value] of Object.entries(patch)) {
+          const before = shiftValue(day, field), after = value.trim();
+          if (before === after) continue;
+          setShiftValue(day, field, after);
+          changes.push(`${shiftFieldLabel(field)}: “${before || "—"}” → “${after || "—"}”`);
+        }
+        if (!changes.length) return false;
+        if (![...day.first, ...day.second, day.event].some(Boolean)) data.shifts = data.shifts.filter((entry) => entry !== day);
+        appendActivity(data, actor, "Shift Update", { note: `${date} · ${changes.join(" · ")}` });
+      }, { safeRetry: true });
     },
     async previewMasterExcelImport() {
       const [file, currentFile] = await Promise.all([store.read(store.paths.master, 10 * 1024 * 1024), current()]);
@@ -471,12 +488,12 @@ export function createUnifiedRepository(store) {
         const mat = String(row.matriculationNumber || "");
         const existing = data.students.find((student) => mat && student.matriculationNumber === mat) || data.students.find((student) => !mat && student.name === row.name && student.studyProgram === row.studyProgram);
         if (existing) Object.assign(existing, { ...row, id: existing.id, matriculationNumber: mat, enrolled: existing.enrolled, receivedBackpack: existing.receivedBackpack, accommodation: existing.accommodation, address: existing.address, cityRegistration: existing.cityRegistration, notes: existing.notes });
-        else data.students.push({ ...row, id: idFor("stu"), matriculationNumber: mat, enrolled: null, accommodation: "", address: "", receivedBackpack: null, cityRegistration: "", notes: "", updatedAt: now(), updatedBy: actor.name });
+        else data.students.push({ ...row, id: idFor("stu"), matriculationNumber: mat, enrolled: null, accommodation: null, accommodationContact: "", address: "", receivedBackpack: null, cityRegistration: null, notes: "", updatedAt: now(), updatedBy: actor.name });
       }
       for (const item of parsed.programTutors.filter((entry) => entry.tutor && entry.tutor !== "?")) {
         if (!data.staff.some((person) => person.name === item.tutor && person.program === item.program)) data.staff.push({ id: idFor("staff"), name: item.tutor, role: "tutor", program: item.program, email: item.email || "", phone: item.phone || "", telegram: item.telegram || "", isActive: true });
       }
-      const importedShifts = parsed.shifts.flatMap((shift) => [["first", shift.first || []], ["second", shift.second || []]].filter(([slot, tutors]) => slot === "first" || tutors.some(Boolean)).map(([slot, tutors]) => ({ id: idFor("shift"), date: shift.date, start: "", end: "", tutors: tutors.filter(Boolean).slice(0, 3), first: tutors.filter(Boolean).slice(0, 3), second: [], event: slot === "first" ? shift.event || "" : "", notes: `Imported legacy ${slot} shift slot` })));
+      const importedShifts = parsed.shifts.map(toShiftDay);
       const importedDates = new Set(importedShifts.map((shift) => shift.date));
       data.shifts = [...data.shifts.filter((shift) => !importedDates.has(shift.date)), ...importedShifts];
       data.semesterLabel = input.semesterLabel || data.semesterLabel;
@@ -484,6 +501,12 @@ export function createUnifiedRepository(store) {
       appendActivity(data, actor, "Other", { note: `Imported MasterExcel data: ${parsed.students.length} students` });
       await commit(currentFile, data, actor, "MasterExcel import", { major: true });
       return { ok: true, students: parsed.students.length };
+    },
+    async exportStudents({ date, by }) {
+      if (!isDate(date)) throw new StaffError(400, "Choose a valid date.");
+      if (!Object.hasOwn(EXPORT_MODES, by)) throw new StaffError(400, "Choose checked-in or added students.");
+      const { parsed } = await current();
+      return exportStudentsForDay(parsed.data, date, by);
     },
     async exportMasterExcel() {
       const { parsed } = await current();

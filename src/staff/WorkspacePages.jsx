@@ -4,8 +4,6 @@ import { useWorkspace } from "./useWorkspace";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
-const status = (value) =>
-  value === true ? "Yes" : value === false ? "No" : "Unknown";
 const localDateInput = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -23,32 +21,71 @@ function State({ error }) {
     <p role="status">Loading staff records…</p>
   );
 }
-function StudentTable({ students }) {
+// Excel export of the students checked in (or added) on a chosen day; built on the server.
+function StudentExport({ workspace }) {
+  const [date, setDate] = useState(workspace.today), [by, setBy] = useState("checkin");
+  const count = by === "added"
+    ? workspace.data.students.filter((student) => student.legacyDate === date).length
+    : new Set(workspace.data.checkins.filter((checkin) => checkin.date === date).map((checkin) => checkin.studentId)).size;
+  return (
+    <details className="staff-disclosure staff-student-export">
+      <summary>Export students for a day</summary>
+      <div className="staff-form staff-form-grid">
+        <label>Day<input type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>Students<select value={by} onChange={(e) => setBy(e.target.value)}><option value="checkin">Checked in on this day</option><option value="added">Added on this day</option></select></label>
+        <p className="staff-muted staff-field-wide">{count} student{count === 1 ? "" : "s"} · Excel file with all student details{by === "checkin" ? ", check-in time and who checked them in" : ""}.</p>
+        {date ? <a className="staff-export-link" href={`/api/staff/students/export?date=${encodeURIComponent(date)}&by=${by}`} download>Download Excel</a> : <p className="staff-muted">Choose a day.</p>}
+      </div>
+    </details>
+  );
+}
+// Quick-edit row: checkboxes save almost immediately, text fields after a short pause.
+function StudentRow({ student, save }) {
+  const autosave = useAutosave({
+    // Keep stored values (null = unknown) so the server sees the right base on first change.
+    enrolled: student.enrolled ?? null,
+    accommodation: student.accommodation ?? null,
+    accommodationContact: student.accommodationContact || "",
+    cityRegistration: student.cityRegistration ?? null,
+    notes: student.notes || "",
+  }, save);
+  const { draft, setField } = autosave;
+  const name = student.name || "Name not supplied";
+  const check = (field, label) => <td className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${name}`} checked={draft[field] === true} onChange={(e) => setField(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>;
+  return (
+    <tr>
+      <td><Link to={`/staff/students/${student.id}`}>{name}</Link></td>
+      <td>{student.matriculationNumber || "—"}</td>
+      <td>{student.studyProgram || "—"}</td>
+      {check("enrolled", "Enrolled")}
+      {check("accommodation", "Accommodation")}
+      <td><input className="staff-cell-input" aria-label={`Contact (if no accommodation) · ${name}`} maxLength={1000} disabled={draft.accommodation === true} placeholder={draft.accommodation === true ? "" : "Phone, email or address"} value={draft.accommodationContact} onChange={(e) => setField("accommodationContact", e.target.value)} /></td>
+      {check("cityRegistration", "City registration appointment")}
+      <td><input className="staff-cell-input" aria-label={`Note · ${name}`} maxLength={4000} value={draft.notes} onChange={(e) => setField("notes", e.target.value)} /></td>
+      <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
+    </tr>
+  );
+}
+function StudentTable({ students, save }) {
   if (!students.length) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
-      <table aria-label="Student records">
+      <table aria-label="Student records" className="staff-student-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Matriculation no.</th>
             <th>Study program</th>
             <th>Enrolled</th>
+            <th>Accommodation</th>
+            <th>Contact (if no accommodation)</th>
+            <th>City registration appointment</th>
+            <th>Note</th>
+            <th><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
-          {students.map((s) => (
-            <tr key={s.id}>
-              <td>
-                <Link to={`/staff/students/${s.id}`}>
-                  {s.name || "Name not supplied"}
-                </Link>
-              </td>
-              <td>{s.matriculationNumber || "—"}</td>
-              <td>{s.studyProgram || "—"}</td>
-              <td>{status(s.enrolled)}</td>
-            </tr>
-          ))}
+          {students.map((s) => <StudentRow key={s.id} student={s} save={(patch, base) => save(s.id, patch, base)} />)}
         </tbody>
       </table>
     </div>
@@ -135,7 +172,7 @@ export function Dashboard() {
   const { workspace, error } = useWorkspace();
   if (!workspace) return <State error={error} />;
   const { data, today } = workspace;
-  const shifts = data.shifts.filter((s) => s.date === today);
+  const todayShift = data.shifts.find((s) => s.date === today);
   const checkinsToday = data.checkins.filter((checkin) => checkin.date === today);
   const attentionStudents = data.students.filter((student) => student.enrolled !== true);
   const dayLabel = new Intl.DateTimeFormat("en-GB", {
@@ -171,7 +208,7 @@ export function Dashboard() {
           <div className="staff-dashboard-grid">
             <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
               <div className="staff-section-header"><h2 id="today-shifts-heading">On duty</h2><Link to="/staff/shifts">Schedule</Link></div>
-              <Shifts shifts={shifts} compact />
+              <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
             </section>
             <section className="staff-dashboard-section" aria-labelledby="today-checkins-heading">
               <div className="staff-section-header"><h2 id="today-checkins-heading">Latest check-ins</h2>{checkinsToday.length > 8 && <Link to="/staff/reports">View all</Link>}</div>
@@ -190,7 +227,7 @@ export function Dashboard() {
   );
 }
 export function Students() {
-  const { workspace, error, busy, act } = useWorkspace();
+  const { workspace, error, busy, act, autosave } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState(""),
     [newStudent, setNewStudent] = useState(emptyStudent);
@@ -236,22 +273,27 @@ export function Students() {
           <div className="staff-student-create-controls staff-field-wide"><label>Date added<input type="date" value={newStudent.dateAdded} readOnly /></label><button className="primary" disabled={busy}>{busy ? "Adding…" : "Add student"}</button></div>
         </form>
       </details>}
-      <StudentTable students={students} />
+      {workspace.unified && <StudentExport workspace={workspace} />}
+      <StudentTable students={students} save={(id, patch, base) => autosave("students/update", id, patch, base)} />
     </div>
   );
 }
 function StudentEditor({ student, save, programOptions }) {
   const autosave = useAutosave({
+    name: student.name || "",
+    matriculationNumber: String(student.matriculationNumber || ""),
     enrolled: student.enrolled,
-    accommodation: student.accommodation,
-    cityRegistration: student.cityRegistration,
+    receivedBackpack: student.receivedBackpack,
+    accommodation: student.accommodation ?? null,
+    accommodationContact: student.accommodationContact || "",
+    cityRegistration: student.cityRegistration ?? null,
     address: student.address,
     country: student.country,
     studyProgram: student.studyProgram,
     notes: student.notes,
     phone: student.phone || "",
     email: student.email || "",
-  }, save, { validate: (draft) => draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "" });
+  }, save, { validate: (draft) => !draft.name.trim() ? "Enter the student's full name." : draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "" });
   const { draft, setField } = autosave;
   return (
     <div className="staff-form staff-student-editor">
@@ -259,6 +301,8 @@ function StudentEditor({ student, save, programOptions }) {
       <fieldset className="staff-fieldset">
         <legend>Personal details</legend>
         <div className="staff-form-grid">
+          <label>Full name<input required maxLength={200} value={draft.name} onChange={(e) => setField("name", e.target.value)} /></label>
+          <label>Matriculation number<input maxLength={100} value={draft.matriculationNumber} onChange={(e) => setField("matriculationNumber", e.target.value)} /></label>
           <SuggestedInput label="Country" name="country" value={draft.country} options={COUNTRY_OPTIONS} onChange={(value) => setField("country", value)} maxLength={200} />
           <SuggestedInput label="Study programme" name="study-program" value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} />
           <label>Phone number<input type="tel" maxLength={100} value={draft.phone} onChange={(e) => setField("phone", e.target.value)} /></label>
@@ -269,15 +313,18 @@ function StudentEditor({ student, save, programOptions }) {
       <fieldset className="staff-fieldset">
         <legend>Arrival</legend>
         <div className="staff-form-grid">
-          <label className="staff-field-wide">
-            Enrolled
-            <select value={String(draft.enrolled ?? null)} onChange={(e) => setField("enrolled", e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}>
-              <option value="null">Unknown</option><option value="true">Yes</option><option value="false">No</option>
-            </select>
-          </label>
-          {[["accommodation", "Accommodation"], ["cityRegistration", "City registration appointment"]].map(([field, label]) => (
-            <label className="staff-field-wide" key={field}>{label}<textarea rows={2} maxLength={12000} value={draft[field] || ""} onChange={(e) => setField(field, e.target.value)} /></label>
+          {[["enrolled", "Enrolled"], ["receivedBackpack", "Welcome materials received"]].map(([field, label]) => (
+            <label key={field}>
+              {label}
+              <select value={String(draft[field] ?? null)} onChange={(e) => setField(field, e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}>
+                <option value="null">Unknown</option><option value="true">Yes</option><option value="false">No</option>
+              </select>
+            </label>
           ))}
+          {[["accommodation", "Accommodation"], ["cityRegistration", "City registration appointment"]].map(([field, label]) => (
+            <label className="checkbox-label" key={field}><input type="checkbox" checked={draft[field] === true} onChange={(e) => setField(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} />{label}</label>
+          ))}
+          {draft.accommodation !== true && <label className="staff-field-wide">Contact (if no accommodation)<textarea rows={2} maxLength={1000} value={draft.accommodationContact} onChange={(e) => setField("accommodationContact", e.target.value)} /></label>}
         </div>
       </fieldset>
       <fieldset className="staff-fieldset staff-fieldset-wide">
@@ -308,9 +355,12 @@ export function StudentDetail() {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .slice(0, 5);
   const fieldNames = {
+    name: "Name",
+    matriculationNumber: "Matriculation number",
     enrolled: "Enrollment",
     receivedBackpack: "Welcome materials",
     accommodation: "Accommodation",
+    accommodationContact: "Contact (if no accommodation)",
     cityRegistration: "City registration appointment",
     notes: "Note / Comment",
     address: "Address",
@@ -361,61 +411,94 @@ export function StudentDetail() {
     </div>
   );
 }
-function Shifts({ shifts, onEdit, compact = false }) {
-  return shifts.length ? (
-    shifts.map((s, i) => (
-      <section className="staff-shift-row" key={s.id || i}>
-        {!compact && <h3><time dateTime={s.date}>{s.date}</time></h3>}
-        {s.start && s.end && <p className="staff-shift-time">{s.start}–{s.end}</p>}
-        <p>{(s.tutors || [...(s.first || []), ...(s.second || [])]).filter(Boolean).join(", ") || "Tutors not assigned"}</p>
-        {s.event && <p className="source-text">{s.event}</p>}
-        {s.notes && <p className="source-text">{s.notes}</p>}
-        {onEdit && <button type="button" onClick={() => onEdit({ id: s.id, date: s.date, start: s.start || "", end: s.end || "", tutor1: (s.tutors || [])[0] || "", tutor2: (s.tutors || [])[1] || "", tutor3: (s.tutors || [])[2] || "", event: s.event || "", notes: s.notes || "" })}>Edit shift</button>}
-      </section>
-    ))
-  ) : (
-    <p className="staff-empty-state">No shifts scheduled.</p>
+const SLOT_KEYS = [["first", 1], ["second", 2]];
+const DEFAULT_SHIFT_TIMES = { first: "10:00–13:00", second: "12:00–15:00" };
+const isoDay = (date) => date.toISOString().slice(0, 10);
+const addDays = (iso, days) => { const date = new Date(`${iso}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return isoDay(date); };
+const weekday = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+const dayLabel = (iso) => `${iso} (${new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`))})`;
+const shiftDraft = (day) => ({
+  ...Object.fromEntries(SLOT_KEYS.flatMap(([slot, n]) => [0, 1, 2, 3].map((i) => [`s${n}p${i + 1}`, day?.[slot]?.[i] || ""]))),
+  note: day?.event || "",
+});
+
+function TodayShifts({ day, times }) {
+  if (!day) return <p className="staff-empty-state">No shifts scheduled.</p>;
+  return <>
+    {day.event && <p className="staff-shift-note">{day.event}</p>}
+    {SLOT_KEYS.map(([slot, n]) => <section className="staff-shift-row" key={slot}>
+      <p className="staff-shift-time">S{n} · {times[slot]}</p>
+      <p>{day[slot].filter(Boolean).join(", ") || "Nobody assigned"}</p>
+    </section>)}
+  </>;
+}
+
+// One day of the schedule; each cell autosaves and the server logs who changed what.
+function ShiftDayRow({ date, day, save }) {
+  const autosave = useAutosave(shiftDraft(day), save);
+  const { draft, setField } = autosave;
+  const weekend = [0, 6].includes(weekday(date));
+  const people = SLOT_KEYS.flatMap(([, n]) => [1, 2, 3, 4].map((p) => `s${n}p${p}`));
+  // Use saved values so the layout doesn't switch (and steal focus) while someone is typing.
+  const closed = Boolean(day?.event) && ![...day.first, ...day.second].some(Boolean);
+  const cell = (field, label) => <input className="staff-cell-input" list="staff-shift-names" aria-label={`${label} · ${date}`} maxLength={200} value={draft[field]} onChange={(e) => setField(field, e.target.value)} />;
+  return (
+    <tr className={closed ? "is-closed" : weekend ? "is-weekend" : undefined}>
+      <th scope="row" className="staff-shift-date">{dayLabel(date)}</th>
+      {closed
+        ? <td colSpan={9} className="staff-shift-closed">{cell("note", "Note")}</td>
+        : <>
+          {people.map((field) => <td key={field} className={field.startsWith("s1") ? "staff-shift-s1" : "staff-shift-s2"}>{cell(field, `S${field[1]} Person ${field[3]}`)}</td>)}
+          <td>{cell("note", "Note")}</td>
+        </>}
+      <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
+    </tr>
   );
 }
-const emptyShift = () => ({ date: "", start: "", end: "", tutor1: "", tutor2: "", tutor3: "", event: "", notes: "" });
-function ExistingShiftEditor({ shift, save, onDone }) {
-  const autosave = useAutosave({ date: shift.date, start: shift.start, end: shift.end, tutors: [shift.tutor1 || "", shift.tutor2 || "", shift.tutor3 || ""], event: shift.event, notes: shift.notes }, save);
-  const setTutor = (index, value) => {
-    const tutors = [...autosave.draft.tutors];
-    tutors[index] = value;
-    autosave.setField("tutors", tutors);
-  };
-  return <div className="staff-form staff-form-grid">
-    <div className="staff-autosave-position"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
-    <label>Date<input required type="date" value={autosave.draft.date} onChange={(e) => autosave.setField("date", e.target.value)} /></label>
-    <label>Start<input type="time" value={autosave.draft.start} onChange={(e) => autosave.setField("start", e.target.value, AUTOSAVE_TOGGLE_DELAY)} /></label>
-    <label>End<input type="time" value={autosave.draft.end} onChange={(e) => autosave.setField("end", e.target.value, AUTOSAVE_TOGGLE_DELAY)} /></label>
-    {[0, 1, 2].map((index) => <label key={index}>Tutor {index + 1}<input value={autosave.draft.tutors[index] || ""} onChange={(e) => setTutor(index, e.target.value)} /></label>)}
-    <label className="staff-field-wide">Event<input value={autosave.draft.event} onChange={(e) => autosave.setField("event", e.target.value)} /></label>
-    <label className="staff-field-wide">Notes<textarea rows={2} value={autosave.draft.notes} onChange={(e) => autosave.setField("notes", e.target.value)} /></label>
-    <button type="button" disabled={autosave.hasUnsavedChanges || autosave.status === "saving" || autosave.status === "error" || autosave.status === "conflict"} onClick={onDone}>Close editor</button>
-  </div>;
-}
+
 export function ShiftPage() {
-  const { session } = useOutletContext();
-  const { workspace, error, busy, act, autosave } = useWorkspace();
-  const [shift, setShift] = useState(emptyShift);
-  return !workspace ? (
-    <State error={error} />
-  ) : (
+  const { workspace, error, autosave } = useWorkspace();
+  const [extraWeeks, setExtraWeeks] = useState(0);
+  if (!workspace) return <State error={error} />;
+  const times = workspace.shiftTimes || DEFAULT_SHIFT_TIMES;
+  const days = new Map(workspace.data.shifts.map((day) => [day.date, day]));
+  const saved = [...days.keys()].sort();
+  const monday = addDays(workspace.today, -((weekday(workspace.today) + 6) % 7));
+  const first = saved[0] && saved[0] < monday ? saved[0] : monday;
+  const lastSaved = saved.at(-1) || "";
+  const last = addDays(lastSaved > addDays(monday, 13) ? lastSaved : addDays(monday, 13), extraWeeks * 7);
+  const dates = [];
+  for (let date = first; date <= last; date = addDays(date, 1)) dates.push(date);
+  const names = [...new Set([...workspace.data.programTutors.map((tutor) => tutor.tutor), ...workspace.data.shifts.flatMap((day) => [...day.first, ...day.second])].filter((name) => name && name !== "?"))].sort((a, b) => a.localeCompare(b));
+  const log = workspace.shiftLog || [];
+  return (
     <div className="staff-page staff-schedule-page">
       <header className="staff-page-heading"><h1>Schedule</h1></header>
       {error && <p role="alert">{error}</p>}
-      {workspace.unified && session.role === "admin" && (shift.id ? <section className="staff-disclosure staff-shift-editor"><h2>Edit shift</h2><ExistingShiftEditor key={shift.id} shift={shift} save={(patch, base) => autosave("shifts/autosave", shift.id, patch, base)} onDone={() => setShift(emptyShift())} /></section> : <details className="staff-disclosure"><summary>Add shift</summary><form className="staff-form staff-form-grid" onSubmit={async (event) => { event.preventDefault(); if (!busy && await act("shifts/save", { shift })) setShift(emptyShift()); }}>
-        <label>Date<input required type="date" value={shift.date} onChange={(e) => setShift({ ...shift, date: e.target.value })} /></label>
-        <label>Start<input type="time" value={shift.start} onChange={(e) => setShift({ ...shift, start: e.target.value })} /></label>
-        <label>End<input type="time" value={shift.end} onChange={(e) => setShift({ ...shift, end: e.target.value })} /></label>
-        {[1, 2, 3].map((n) => <label key={n}>Tutor {n}<input value={shift[`tutor${n}`]} onChange={(e) => setShift({ ...shift, [`tutor${n}`]: e.target.value })} /></label>)}
-        <label className="staff-field-wide">Event<input value={shift.event} onChange={(e) => setShift({ ...shift, event: e.target.value })} /></label>
-        <label className="staff-field-wide">Notes<textarea rows={2} value={shift.notes} onChange={(e) => setShift({ ...shift, notes: e.target.value })} /></label>
-        <button className="primary" disabled={busy}>{busy ? "Adding…" : "Add shift"}</button>
-      </form></details>)}
-      <div className="staff-shift-list"><Shifts shifts={workspace.data.shifts} onEdit={workspace.unified && session.role === "admin" ? setShift : null} /></div>
+      {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
+        <p className="staff-muted">Type a name in any cell; changes save automatically and are logged. For a closed day, clear the names and write the reason in Note.</p>
+        <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
+        <div className="table-scroll">
+          <table className="staff-shift-table" aria-label="Shift schedule">
+            <thead>
+              <tr>
+                <th>Date</th>
+                {SLOT_KEYS.flatMap(([slot, n]) => [1, 2, 3, 4].map((p) => <th key={`${slot}${p}`} className={n === 1 ? "staff-shift-s1" : "staff-shift-s2"}>{p === 1 ? `S${n} (${times[slot]}) – Person 1` : `S${n} – Person ${p}`}</th>))}
+                <th>Note</th>
+                <th><span className="sr-only">Save status</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {dates.map((date) => <ShiftDayRow key={date} date={date} day={days.get(date)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
+            </tbody>
+          </table>
+        </div>
+        <button type="button" onClick={() => setExtraWeeks((weeks) => weeks + 1)}>Show one more week</button>
+        <details className="staff-disclosure staff-shift-log">
+          <summary>Change log <span className="staff-count">{log.length}</span></summary>
+          {log.length === 0 ? <p className="staff-muted">No changes yet.</p> : log.map((entry) => <article className="staff-handover-entry" key={entry.id}><p>{entry.note}</p><small>{entry.actor} · {staffDateTime(entry.timestamp)}</small></article>)}
+        </details>
+      </>}
     </div>
   );
 }

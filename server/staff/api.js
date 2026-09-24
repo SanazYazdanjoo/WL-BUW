@@ -106,8 +106,7 @@ export function staffMiddleware(
         "events/autosave": ["read", "autosaveEvent", true],
         "events/delete": ["read", "deleteEvent", true],
         "settings/save": ["admin", "saveSettings", true],
-        "shifts/save": ["admin", "addShift", true],
-        "shifts/autosave": ["admin", "autosaveShift", true],
+        "shifts/day": ["read", "updateShiftDay", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
         "workbook/backup": ["admin", "createBackup", true],
@@ -154,6 +153,13 @@ export function staffMiddleware(
         requireActor(actor, "admin");
         const data = await unifiedRepository.downloadWorkbook();
         res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": 'attachment; filename="Welcome-Lounge.xlsx"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+        return res.end(Buffer.from(data));
+      }
+      if (req.method === "GET" && action === "students/export") {
+        const query = new URL(req.url, "http://localhost").searchParams;
+        const date = query.get("date") || "", by = query.get("by") || "checkin";
+        const data = await unifiedRepository.exportStudents({ date, by });
+        res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="welcome-lounge-students-${by}-${date}.xlsx"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
         return res.end(Buffer.from(data));
       }
       if (req.method === "GET" && action === "workbook/template") {

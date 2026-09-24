@@ -128,3 +128,24 @@ test("Events tab is optional and maps active events with Excel time formats", as
   bad.getWorksheet("Events").addRow(["Late", "2026-10-05", "18:00", "17:00", "", "", "", true, ""]);
   await assert.rejects(parseUnifiedWorkbook(Buffer.from(await bad.xlsx.writeBuffer())), /End must be after Start/);
 });
+
+test("Shifts tab uses one row per day and converts the old one-row-per-shift layout", async () => {
+  const book = await loadWorkbook(Buffer.from(await createUnifiedWorkbook({ settings, shifts: [{ date: "2026-10-02", first: ["Ehsan", "Ali"], second: ["Zarina", "Darina", "Ali", "Sanaz"], event: "" }] }).xlsx.writeBuffer()));
+  const sheet = book.getWorksheet("Shifts");
+  assert.deepEqual(sheet.getRow(3).values.slice(1), ["Date", "S1 - Person 1", "S1 - Person 2", "S1 - Person 3", "S1 - Person 4", "S2 - Person 1", "S2 - Person 2", "S2 - Person 3", "S2 - Person 4", "Note"]);
+  sheet.addRow(["2026-10-03", "", "", "", "", "", "", "", "", "Bank Holiday"]);
+  const parsed = await parseUnifiedWorkbook(Buffer.from(await book.xlsx.writeBuffer()));
+  assert.deepEqual(parsed.data.shifts.map(({ date, first, second, event }) => [date, first, second, event]), [
+    ["2026-10-02", ["Ehsan", "Ali", "", ""], ["Zarina", "Darina", "Ali", "Sanaz"], ""],
+    ["2026-10-03", ["", "", "", ""], ["", "", "", ""], "Bank Holiday"],
+  ]);
+  assert.deepEqual(parsed.data.shiftTimes, { first: "10:00–13:00", second: "12:00–15:00" });
+
+  const legacy = await loadWorkbook(Buffer.from(await createUnifiedWorkbook({ settings }).xlsx.writeBuffer()));
+  const old = legacy.getWorksheet("Shifts");
+  old.spliceRows(3, 1, ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"]);
+  old.addRow(["shift_1", "2026-09-15", "10:00", "13:00", "Sanaz", "Ali", "", "", ""]);
+  old.addRow(["shift_2", "2026-09-15", "12:00", "15:00", "Nayeem", "Daniel", "", "Welcome party", ""]);
+  const converted = await parseUnifiedWorkbook(Buffer.from(await legacy.xlsx.writeBuffer()));
+  assert.deepEqual(converted.data.shifts.map(({ first, second, event }) => [first, second, event]), [[["Sanaz", "Ali", "", ""], ["Nayeem", "Daniel", "", ""], "Welcome party"]]);
+});

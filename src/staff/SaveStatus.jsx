@@ -1,6 +1,6 @@
 export function SaveStatus({ status, error, onRetry, conflict, onUseMine, onUseLatest }) {
   const labels = { idle: "", dirty: "Changes pending", saving: "Saving…", saved: "✓ Saved", error: "Couldn’t save", conflict: "Changed elsewhere · Review" };
-  const fieldNames = { notes: "Case notes", studyProgram: "Study programme", receivedBackpack: "Backpack status", cityRegistration: "City registration", active: "Active", order: "Order", tutors: "Tutor assignments", start: "Start time", end: "End time" };
+  const fieldNames = { notes: "Case notes", studyProgram: "Study programme", receivedBackpack: "Welcome materials", matriculationNumber: "Matriculation number", cityRegistration: "City registration appointment", accommodation: "Accommodation", accommodationContact: "Contact (if no accommodation)", enrolled: "Enrolled", active: "Active", order: "Order", tutors: "Tutor assignments", start: "Start time", end: "End time" };
   return <div className="staff-autosave" aria-live="polite" aria-atomic="true">
     <span>{labels[status] || ""}</span>
     {status === "error" && <button type="button" onClick={onRetry}>Retry</button>}

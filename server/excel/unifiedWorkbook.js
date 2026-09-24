@@ -3,16 +3,20 @@ import { booleanValue, cellText, dateValue, key, readWorkbook, rows, WorkbookErr
 import { inferLinkLabel, safeLink, whatsappLink } from "../../shared/content.js";
 
 export const UNIFIED_WORKBOOK = "Welcome-Lounge.xlsx";
+export const SHIFT_SLOTS = ["S1", "S2"];
+export const DEFAULT_SHIFT_TIMES = { first: "10:00–13:00", second: "12:00–15:00" };
+const LEGACY_SHIFT_HEADERS = ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"];
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
 export const OPTIONAL_SHEETS = ["Events"];
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
-  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes", "Phone", "Email"],
+  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes", "Phone", "Email", "Contact (if no accommodation)"],
   Activity: ["ID", "Timestamp", "Type", "Student ID", "Actor", "Note"],
   Staff: ["ID", "Name", "Role", "Program", "Email", "Phone", "Telegram", "Active"],
-  Shifts: ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"],
+  // One row per day: two shifts with up to four people each, plus a day note (e.g. "Bank Holiday").
+  Shifts: ["Date", ...SHIFT_SLOTS.flatMap((slot) => [1, 2, 3, 4].map((n) => `${slot} - Person ${n}`)), "Note"],
   Events: ["Title", "Date", "Start", "End", "Location", "Description", "Link", "Active", "ID"],
 };
 const sectionMap = new Map(["First Step", "Useful Info", "Student Support", "Community", "Help"].map((x) => [key(x), x]));
@@ -44,7 +48,9 @@ const dateCell = (value, context, optional = true) => {
   if (!cellText(value)) return optional ? "" : (() => { throw new WorkbookError(`${context} is required.`); })();
   try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or YYYY-MM-DD.`); }
 };
-const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email"]) };
+const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email", "Contact (if no accommodation)"]) };
+// Accommodation and City Registration used to be free text; any old non-empty text counts as ticked.
+const checkbox = (value) => booleanValue(value) ?? (cellText(value) ? true : null);
 // Excel may store a time as text ("14:00"), a day fraction (0.5833) or a Date on 1899-12-30.
 const timeCell = (raw, context) => {
   const value = raw?.result ?? raw;
@@ -60,23 +66,60 @@ const timeCell = (raw, context) => {
   if (minutes === null || minutes >= 1440) throw new WorkbookError(`${context} must be a 24-hour time such as 14:00.`);
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 };
-const readTable = (workbook, name) => {
+const readTable = (workbook, name, labels = HEADERS[name]) => {
   const sheet = workbook.getWorksheet(name);
   if (!sheet) throw new WorkbookError(`The ${name} sheet is missing.`);
   const allRows = rows(sheet);
-  const requiredHeaders = HEADERS[name].filter((label) => !OPTIONAL_HEADERS[name]?.has(label));
+  const requiredHeaders = labels.filter((label) => !OPTIONAL_HEADERS[name]?.has(label));
   const header = allRows.find(({ values }) => requiredHeaders.every((label) => values.map(key).includes(key(label))));
-  if (!header) throw new WorkbookError(`The ${name} sheet has missing or renamed column headings.`);
+  if (!header) return null;
   const headers = header.values.map(key);
-  return { sheet, header, dataRows: allRows.filter((row) => row.number > header.number), col: Object.fromEntries(HEADERS[name].map((label) => [label, headers.indexOf(key(label))])) };
+  return { sheet, header, dataRows: allRows.filter((row) => row.number > header.number), col: Object.fromEntries(labels.map((label) => [label, headers.indexOf(key(label))])), labels };
+};
+const requireTable = (workbook, name) => {
+  const table = readTable(workbook, name) || (name === "Shifts" ? readTable(workbook, name, LEGACY_SHIFT_HEADERS) : null);
+  if (!table) throw new WorkbookError(`The ${name} sheet has missing or renamed column headings.`);
+  return table;
 };
 const valueAt = (row, table, label) => row.values[table.col[label]] ?? "";
+export const slotNames = (names = []) => [0, 1, 2, 3].map((index) => names[index] || "");
+function readShiftDays(table) {
+  const days = new Map();
+  const name = (row, label) => {
+    const value = cellText(valueAt(row, table, label));
+    if (value.length > 200) throw new WorkbookError(`Shifts row ${row.number}: ${label} is too long.`);
+    return value;
+  };
+  for (const row of table.dataRows) {
+    if (!row.values.some((value) => String(value ?? "").trim())) continue;
+    const date = dateCell(row.row.getCell(table.col.Date + 1).value, `Shifts row ${row.number} Date`, false);
+    if (table.labels === LEGACY_SHIFT_HEADERS) {
+      // Old format had one row per shift: afternoon starts (12:00 or later) become S2.
+      const day = days.get(date) || { id: date, date, first: [], second: [], event: "" };
+      const slot = name(row, "Start") >= "12:00" ? day.second : day.first;
+      slot.push(...["Tutor 1", "Tutor 2", "Tutor 3"].map((label) => name(row, label)).filter(Boolean));
+      day.event = [day.event, name(row, "Important Event"), cellText(valueAt(row, table, "Notes"))].filter(Boolean).join("\n");
+      days.set(date, day);
+      continue;
+    }
+    if (days.has(date)) throw new WorkbookError(`Shifts row ${row.number}: ${date} appears twice. Use one row per day.`);
+    const people = (slot) => [1, 2, 3, 4].map((n) => name(row, `${slot} - Person ${n}`));
+    const event = cellText(valueAt(row, table, "Note"));
+    if (event.length > 1000) throw new WorkbookError(`Shifts row ${row.number}: Note is too long.`);
+    days.set(date, { id: date, date, first: people("S1"), second: people("S2"), event });
+  }
+  // Legacy days may hold more than four people per shift; keep extras visible in the note.
+  return [...days.values()].map((day) => {
+    const extra = [...day.first.slice(4), ...day.second.slice(4)];
+    return { ...day, first: slotNames(day.first), second: slotNames(day.second), event: extra.length ? [day.event, `Also: ${extra.join(", ")}`].filter(Boolean).join("\n") : day.event };
+  });
+}
 
 export async function parseUnifiedWorkbook(bytes) {
   const workbook = await readWorkbook(bytes);
   if (SHEETS.some((name) => !workbook.getWorksheet(name)) || workbook.worksheets.some((sheet) => !SHEETS.includes(sheet.name) && !OPTIONAL_SHEETS.includes(sheet.name)))
     throw new WorkbookError(`The workbook must contain these sheets: ${SHEETS.join(", ")} (and optionally ${OPTIONAL_SHEETS.join(", ")}).`);
-  const tables = Object.fromEntries([...SHEETS, ...OPTIONAL_SHEETS].filter((name) => name !== "Settings" && workbook.getWorksheet(name)).map((name) => [name, readTable(workbook, name)]));
+  const tables = Object.fromEntries([...SHEETS, ...OPTIONAL_SHEETS].filter((name) => name !== "Settings" && workbook.getWorksheet(name)).map((name) => [name, requireTable(workbook, name)]));
   const settingsSheet = workbook.getWorksheet("Settings");
   const settingsRows = rows(settingsSheet);
   const settingsHeader = settingsRows.find(({ values }) => values.map(key).includes("setting") && values.map(key).includes("value"));
@@ -93,6 +136,7 @@ export async function parseUnifiedWorkbook(bytes) {
   const workbookVersion = cellText(settingMap.get("workbookversion"));
   if (workbookVersion && workbookVersion !== "1") throw new WorkbookError(`Workbook version ${workbookVersion} is not supported by this app.`);
   const whatsappEnabled = bool(settingMap.get("whatsappenabled"), "WhatsApp Enabled", false);
+  const shiftTimes = { first: cellText(settingMap.get("shift1time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.first, second: cellText(settingMap.get("shift2time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.second };
   const whatsappGroupUrl = safeUrl(settingMap.get("whatsappgroupurl"), "WhatsApp Group URL");
   const config = { version: 1, semesterLabel, contactLabel: "Welcome Lounge tutors", helpText: "For individual questions, contact the Welcome Lounge.", whatsappEnabled, whatsappGroupUrl: whatsappEnabled ? whatsappGroupUrl : "", contentReviewedDate: dateCell(settingMap.get("lastreviewed"), "Last Reviewed") };
   if (whatsappEnabled && !whatsappLink(config)) throw new WorkbookError("When WhatsApp is enabled, enter a valid chat.whatsapp.com invitation link.");
@@ -162,7 +206,9 @@ export async function parseUnifiedWorkbook(bytes) {
     studentIds.add(id);
     const enrolled = bool(valueAt(row, tables.Students, "Enrolled"), `Students row ${row.number} Enrolled`);
     const receivedBackpack = bool(valueAt(row, tables.Students, "Backpack Received"), `Students row ${row.number} Backpack Received`);
-    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation: cellText(valueAt(row, tables.Students, "Accommodation")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration: cellText(valueAt(row, tables.Students, "City Registration")), notes: cellText(valueAt(row, tables.Students, "Notes")), phone: cellText(valueAt(row, tables.Students, "Phone")), email: cellText(valueAt(row, tables.Students, "Email")), updatedAt: "", updatedBy: "" });
+    const accommodation = checkbox(valueAt(row, tables.Students, "Accommodation"));
+    const cityRegistration = checkbox(valueAt(row, tables.Students, "City Registration"));
+    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation, accommodationContact: cellText(valueAt(row, tables.Students, "Contact (if no accommodation)")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration, notes: cellText(valueAt(row, tables.Students, "Notes")), phone: cellText(valueAt(row, tables.Students, "Phone")), email: cellText(valueAt(row, tables.Students, "Email")), updatedAt: "", updatedBy: "" });
   }
   const staff = [], staffIds = new Set();
   for (const row of tables.Staff.dataRows) {
@@ -183,26 +229,14 @@ export async function parseUnifiedWorkbook(bytes) {
     const timestamp = cellText(valueAt(row, tables.Activity, "Timestamp"));
     if (!Number.isFinite(Date.parse(timestamp))) throw new WorkbookError(`Activity row ${row.number}: Timestamp is invalid.`);
     const type = cellText(valueAt(row, tables.Activity, "Type"));
-    if (!new Set(["Check-in", "Handover", "Student Update", "Content Update", "Other"]).has(type)) throw new WorkbookError(`Activity row ${row.number}: Type is not supported.`);
+    if (!new Set(["Check-in", "Handover", "Student Update", "Content Update", "Shift Update", "Other"]).has(type)) throw new WorkbookError(`Activity row ${row.number}: Type is not supported.`);
     const id = cellText(valueAt(row, tables.Activity, "ID"));
     if (!/^act_[0-9a-f-]{36}$/i.test(id)) throw new WorkbookError(`Activity row ${row.number}: enter an app-generated ID.`);
     if (activityIds.has(id)) throw new WorkbookError(`Activity row ${row.number}: duplicate ID.`);
     activityIds.add(id);
     activity.push({ id, timestamp, type, studentId: cellText(valueAt(row, tables.Activity, "Student ID")), actor: cellText(valueAt(row, tables.Activity, "Actor")) || "Staff", note: cellText(valueAt(row, tables.Activity, "Note")) });
   }
-  const shifts = [], shiftIds = new Set();
-  for (const row of tables.Shifts.dataRows) {
-    if (!row.values.some((v) => String(v ?? "").trim())) continue;
-    const date = dateCell(valueAt(row, tables.Shifts, "Date"), `Shifts row ${row.number} Date`, false);
-    const id = cellText(valueAt(row, tables.Shifts, "ID"));
-    if (!/^shift_[0-9a-f-]{36}$/i.test(id)) throw new WorkbookError(`Shifts row ${row.number}: enter an app-generated ID.`);
-    if (shiftIds.has(id)) throw new WorkbookError(`Shifts row ${row.number}: duplicate ID.`);
-    shiftIds.add(id);
-    const tutors = ["Tutor 1", "Tutor 2", "Tutor 3"].map((field) => cellText(valueAt(row, tables.Shifts, field)));
-    const start = cellText(valueAt(row, tables.Shifts, "Start")), end = cellText(valueAt(row, tables.Shifts, "End"));
-    if ((start && !/^([01]\d|2[0-3]):[0-5]\d$/.test(start)) || (end && !/^([01]\d|2[0-3]):[0-5]\d$/.test(end))) throw new WorkbookError(`Shifts row ${row.number}: use 24-hour times such as 09:30.`);
-    shifts.push({ id, date, start, end, first: tutors.filter(Boolean), second: [], tutors, event: cellText(valueAt(row, tables.Shifts, "Important Event")), notes: cellText(valueAt(row, tables.Shifts, "Notes")) });
-  }
+  const shifts = readShiftDays(tables.Shifts);
   for (const item of content) if (item.active && item.section === "First Step" && !item.text.trim()) throw new WorkbookError(`First Step ${item.title} needs a short Text description.`);
   for (const item of activity) if (item.studentId && !studentIds.has(item.studentId)) throw new WorkbookError(`Activity entry ${item.id} refers to a missing student ID.`);
   const handover = activity.filter((item) => item.type === "Handover").map((item) => ({ id: item.id, date: item.timestamp.slice(0, 10), timestamp: item.timestamp, author: item.actor, note: item.note }));
@@ -212,7 +246,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const student = students.find((item) => item.id === entry.recordId);
     if (student) { student.updatedAt = entry.timestamp; student.updatedBy = entry.actor.name; }
   }
-  return { workbook, data: { version: 1, settings: config, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
+  return { workbook, data: { version: 1, settings: config, shiftTimes, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
 }
 
 const SHEET_GUIDANCE = {
@@ -221,7 +255,7 @@ const SHEET_GUIDANCE = {
   Students: "Private staff records. The app keeps IDs stable and stores matriculation numbers as text.",
   Activity: "App-maintained history of check-ins, handovers and changes. Do not remove history rows.",
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
-  Shifts: "One shift per row. Use 24-hour times, for example 09:30.",
+  Shifts: "One row per day. Write who works in each shift; use Note for closures such as a bank holiday.",
   Events: "One event per row. Date as YYYY-MM-DD, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
@@ -246,7 +280,8 @@ export function createUnifiedWorkbook(data = {}) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Welcome Lounge";
   const settings = data.settings || {};
-  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Workbook Version", "1"]];
+  const shiftTimes = data.shiftTimes || DEFAULT_SHIFT_TIMES;
+  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
   const sheetSettings = addSheet(workbook, "Settings", settingsRows);
   sheetSettings.getColumn(1).width = 28;
   sheetSettings.getColumn(2).width = 60;
@@ -260,7 +295,7 @@ export function createUnifiedWorkbook(data = {}) {
   eventsSheet.getColumn(3).numFmt = "@";
   eventsSheet.getColumn(4).numFmt = "@";
   for (let row = 4; row <= 1003; row++) eventsSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
-  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email]));
+  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email, s.accommodationContact || ""]));
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
   addSheet(workbook, "Activity", (data.activity || []).map((a) => [a.id, a.timestamp, a.type, a.studentId, a.actor, a.note]));
@@ -269,7 +304,12 @@ export function createUnifiedWorkbook(data = {}) {
     staffSheet.getCell(row, 3).dataValidation = { type: "list", allowBlank: true, formulae: ['"Tutor,Admin"'] };
     staffSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
-  addSheet(workbook, "Shifts", (data.shifts || []).map((s) => { const tutors = (s.tutors || s.first || []).slice(0, 3); return [s.id, s.date, s.start || "", s.end || "", tutors[0] || "", tutors[1] || "", tutors[2] || "", s.event || "", s.notes || ""]; }));
+  const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [s.date, ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));
+  shiftsSheet.getColumn(1).numFmt = "@";
+  HEADERS.Shifts.forEach((label, index) => {
+    const color = label.startsWith("S1") ? "FF2F5D62" : label.startsWith("S2") ? "FFB8860B" : null;
+    if (color) shiftsSheet.getCell(3, index + 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+  });
   return workbook;
 }
 export async function serializeUnifiedWorkbook(data) {
