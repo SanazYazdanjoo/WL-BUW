@@ -82,19 +82,25 @@ export default function StaffLayout() {
       setError(e.message);
     }
   }
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Staff workspace · Welcome Lounge";
+    return () => { document.title = previous; };
+  }, []);
   return (
     <div className="app-container staff">
       <a className="skip-link" href="#staff-main">
         Skip to staff content
       </a>
       <header className="staff-header">
-        <Link className="staff-brand" to="/">
-          <span className="staff-brand-mark" aria-hidden="true" />
+        <Link className="staff-brand" to="/staff">
+          <span className="staff-badge">Staff workspace</span>
           <span>
             <strong>Welcome Lounge</strong>
-            <small>Staff workspace{semesterLabel && <span> · {semesterLabel}</span>}</small>
+            {semesterLabel && <small>{semesterLabel}</small>}
           </span>
         </Link>
+        <a className="staff-student-site" href="/" target="_blank" rel="noreferrer">Student site ↗</a>
         {session && <div className="staff-header-account">
           <span className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
             <strong>{session.name}</strong>
@@ -170,6 +176,7 @@ export default function StaffLayout() {
               ["students", "Students"],
               ["shifts", "Schedule"],
               ["handover", "Handover"],
+              ["statistics", "Statistics"],
               ["events", "Events"],
               ...(session.role === "admin"
                 ? [

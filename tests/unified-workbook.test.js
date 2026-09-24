@@ -12,7 +12,7 @@ async function workbookBytes(content = []) {
 test("unified template contains the workbook sheets, including Events, and inactive examples", async () => {
   const bytes = await createUnifiedWorkbookTemplate();
   const parsed = await loadWorkbook(bytes);
-  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), ["Settings", "Content", "Events", "Students", "Activity", "Staff", "Shifts"]);
+  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), ["Settings", "Content", "Events", "Students", "Activity", "Staff", "Shifts", "Tutors"]);
   assert.ok(SHEETS.every((name) => parsed.getWorksheet(name)));
   const content = parsed.getWorksheet("Content");
   assert.deepEqual(content.getRow(3).values.slice(1), ["Section", "Order", "Title", "Text", "Link", "Active", "ID"]);
@@ -148,4 +148,22 @@ test("Shifts tab uses one row per day and converts the old one-row-per-shift lay
   old.addRow(["shift_2", "2026-09-15", "12:00", "15:00", "Nayeem", "Daniel", "", "Welcome party", ""]);
   const converted = await parseUnifiedWorkbook(Buffer.from(await legacy.xlsx.writeBuffer()));
   assert.deepEqual(converted.data.shifts.map(({ first, second, event }) => [first, second, event]), [[["Sanaz", "Ali", "", ""], ["Nayeem", "Daniel", "", ""], "Welcome party"]]);
+});
+
+test("Tutors tab has ten named slots and Settings holds the schedule period", async () => {
+  const book = await loadWorkbook(Buffer.from(await createUnifiedWorkbook({ settings, tutors: ["Sanaz", "Ali"], schedule: { start: "2026-09-28", end: "2026-10-23" } }).xlsx.writeBuffer()));
+  const tutorsSheet = book.getWorksheet("Tutors");
+  assert.deepEqual([4, 5, 13].map((row) => tutorsSheet.getRow(row).values.slice(1)), [["Tutor 1", "Sanaz"], ["Tutor 2", "Ali"], ["Tutor 10", ""]]);
+  tutorsSheet.getCell(6, 2).value = "Zarina";
+  const parsed = await parseUnifiedWorkbook(Buffer.from(await book.xlsx.writeBuffer()));
+  assert.deepEqual(parsed.data.tutors.slice(0, 4), ["Sanaz", "Ali", "Zarina", ""]);
+  assert.equal(parsed.data.tutors.length, 10);
+  assert.deepEqual(parsed.data.schedule, { start: "2026-09-28", end: "2026-10-23" });
+
+  const withoutTab = await loadWorkbook(await workbookBytes());
+  withoutTab.removeWorksheet(withoutTab.getWorksheet("Tutors").id);
+  assert.deepEqual((await parseUnifiedWorkbook(Buffer.from(await withoutTab.xlsx.writeBuffer()))).data.tutors, Array(10).fill(""));
+
+  const backwards = await loadWorkbook(Buffer.from(await createUnifiedWorkbook({ settings, schedule: { start: "2026-10-23", end: "2026-09-28" } }).xlsx.writeBuffer()));
+  await assert.rejects(parseUnifiedWorkbook(Buffer.from(await backwards.xlsx.writeBuffer())), /Schedule End must be on or after/);
 });

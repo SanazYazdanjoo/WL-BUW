@@ -8,7 +8,9 @@ export const DEFAULT_SHIFT_TIMES = { first: "10:00–13:00", second: "12:00–15
 const LEGACY_SHIFT_HEADERS = ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"];
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
-export const OPTIONAL_SHEETS = ["Events"];
+export const OPTIONAL_SHEETS = ["Events", "Tutors"];
+// Fixed tutor slots ("Tutor 1" … "Tutor 10"); names are re-entered each semester.
+export const TUTOR_SLOTS = 10;
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
@@ -18,6 +20,7 @@ export const HEADERS = {
   // One row per day: two shifts with up to four people each, plus a day note (e.g. "Bank Holiday").
   Shifts: ["Date", ...SHIFT_SLOTS.flatMap((slot) => [1, 2, 3, 4].map((n) => `${slot} - Person ${n}`)), "Note"],
   Events: ["Title", "Date", "Start", "End", "Location", "Description", "Link", "Active", "ID"],
+  Tutors: ["Tutor", "Name"],
 };
 const sectionMap = new Map(["First Step", "Useful Info", "Student Support", "Community", "Help"].map((x) => [key(x), x]));
 const bool = (value, context, blank = null) => {
@@ -138,6 +141,8 @@ export async function parseUnifiedWorkbook(bytes) {
   const whatsappEnabled = bool(settingMap.get("whatsappenabled"), "WhatsApp Enabled", false);
   const shiftTimes = { first: cellText(settingMap.get("shift1time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.first, second: cellText(settingMap.get("shift2time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.second };
   const whatsappGroupUrl = safeUrl(settingMap.get("whatsappgroupurl"), "WhatsApp Group URL");
+  const schedule = { start: dateCell(settingMap.get("schedulestart"), "Schedule Start"), end: dateCell(settingMap.get("scheduleend"), "Schedule End") };
+  if (schedule.start && schedule.end && schedule.end < schedule.start) throw new WorkbookError("Schedule End must be on or after Schedule Start.");
   const config = { version: 1, semesterLabel, contactLabel: "Welcome Lounge tutors", helpText: "For individual questions, contact the Welcome Lounge.", whatsappEnabled, whatsappGroupUrl: whatsappEnabled ? whatsappGroupUrl : "", contentReviewedDate: dateCell(settingMap.get("lastreviewed"), "Last Reviewed") };
   if (whatsappEnabled && !whatsappLink(config)) throw new WorkbookError("When WhatsApp is enabled, enter a valid chat.whatsapp.com invitation link.");
   const contentIds = new Set(), content = [], idAssignments = [], warnings = [];
@@ -237,6 +242,15 @@ export async function parseUnifiedWorkbook(bytes) {
     activity.push({ id, timestamp, type, studentId: cellText(valueAt(row, tables.Activity, "Student ID")), actor: cellText(valueAt(row, tables.Activity, "Actor")) || "Staff", note: cellText(valueAt(row, tables.Activity, "Note")) });
   }
   const shifts = readShiftDays(tables.Shifts);
+  const tutors = Array(TUTOR_SLOTS).fill("");
+  for (const row of tables.Tutors?.dataRows || []) {
+    const slot = cellText(valueAt(row, tables.Tutors, "Tutor")).match(/^tutor\s*(\d+)$/i);
+    if (!slot) continue;
+    const index = Number(slot[1]) - 1;
+    const tutorName = cellText(valueAt(row, tables.Tutors, "Name"));
+    if (tutorName.length > 200) throw new WorkbookError(`Tutors row ${row.number}: Name is too long.`);
+    if (index >= 0 && index < TUTOR_SLOTS) tutors[index] = tutorName;
+  }
   for (const item of content) if (item.active && item.section === "First Step" && !item.text.trim()) throw new WorkbookError(`First Step ${item.title} needs a short Text description.`);
   for (const item of activity) if (item.studentId && !studentIds.has(item.studentId)) throw new WorkbookError(`Activity entry ${item.id} refers to a missing student ID.`);
   const handover = activity.filter((item) => item.type === "Handover").map((item) => ({ id: item.id, date: item.timestamp.slice(0, 10), timestamp: item.timestamp, author: item.actor, note: item.note }));
@@ -246,7 +260,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const student = students.find((item) => item.id === entry.recordId);
     if (student) { student.updatedAt = entry.timestamp; student.updatedBy = entry.actor.name; }
   }
-  return { workbook, data: { version: 1, settings: config, shiftTimes, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
+  return { workbook, data: { version: 1, settings: config, shiftTimes, schedule, tutors, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
 }
 
 const SHEET_GUIDANCE = {
@@ -256,6 +270,7 @@ const SHEET_GUIDANCE = {
   Activity: "App-maintained history of check-ins, handovers and changes. Do not remove history rows.",
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
   Shifts: "One row per day. Write who works in each shift; use Note for closures such as a bank holiday.",
+  Tutors: "This semester's tutors. Change the names each semester; they are suggested in the Schedule.",
   Events: "One event per row. Date as YYYY-MM-DD, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
@@ -281,10 +296,11 @@ export function createUnifiedWorkbook(data = {}) {
   workbook.creator = "Welcome Lounge";
   const settings = data.settings || {};
   const shiftTimes = data.shiftTimes || DEFAULT_SHIFT_TIMES;
-  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
+  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Schedule Start", data.schedule?.start || ""], ["Schedule End", data.schedule?.end || ""], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
   const sheetSettings = addSheet(workbook, "Settings", settingsRows);
   sheetSettings.getColumn(1).width = 28;
   sheetSettings.getColumn(2).width = 60;
+  sheetSettings.getColumn(2).numFmt = "@";
   const contentSheet = addSheet(workbook, "Content", (data.content || []).map((item) => [item.section, item.order, item.title, item.text, item.link, item.active, item.id]));
   for (let row = 4; row <= 1003; row++) {
     contentSheet.getCell(row, 1).dataValidation = { type: "list", allowBlank: true, formulae: ['"First Step,Useful Info,Student Support,Community,Help"'] };
@@ -306,6 +322,7 @@ export function createUnifiedWorkbook(data = {}) {
   }
   const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [s.date, ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));
   shiftsSheet.getColumn(1).numFmt = "@";
+  addSheet(workbook, "Tutors", Array.from({ length: TUTOR_SLOTS }, (_, index) => [`Tutor ${index + 1}`, data.tutors?.[index] || ""]));
   HEADERS.Shifts.forEach((label, index) => {
     const color = label.startsWith("S1") ? "FF2F5D62" : label.startsWith("S2") ? "FFB8860B" : null;
     if (color) shiftsSheet.getCell(3, index + 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };

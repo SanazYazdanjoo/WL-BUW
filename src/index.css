@@ -2920,3 +2920,241 @@ main:focus {
   font-weight: 600;
   text-decoration: none;
 }
+
+/* Statistics: blue ramp steps 550 (worked) and 250 (planned); totals are always written out. */
+.staff-statistics-page {
+  --stat-done: #1c5cab;
+  --stat-planned: #86b6ef;
+}
+
+.staff-stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.staff-stat-tiles div {
+  display: grid;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: white;
+}
+
+.staff-stat-tiles strong {
+  font-size: 1.6rem;
+}
+
+.staff-stat-tiles span {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.staff-hours-chart ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-hours-chart li {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) 1fr 3.5rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.staff-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-bar-track {
+  display: flex;
+  gap: 2px;
+  height: 1rem;
+  border-left: 1px solid var(--color-border);
+}
+
+.staff-bar {
+  display: block;
+  height: 100%;
+}
+
+.staff-bar.is-done {
+  background: var(--stat-done);
+}
+
+.staff-bar.is-planned {
+  background: var(--stat-planned);
+}
+
+.staff-bar-track > .staff-bar:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.staff-bar-value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.staff-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.staff-chart-legend span {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-left: 0.4rem;
+  border-radius: 2px;
+}
+
+.staff-chart-legend .is-done {
+  background: var(--stat-done);
+}
+
+.staff-chart-legend .is-planned {
+  background: var(--stat-planned);
+}
+
+/* Inline student editing: the name column stays visible while scrolling sideways. */
+.staff-student-table td {
+  padding: 0.2rem 0.3rem;
+  vertical-align: middle;
+}
+
+.staff-student-table .staff-cell-input {
+  min-width: 9rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.staff-student-table .staff-cell-input:hover,
+.staff-student-table .staff-cell-input:focus {
+  border-color: var(--color-border);
+  background: white;
+}
+
+.staff-student-table .staff-cell-note {
+  min-width: 16rem;
+}
+
+.staff-student-table .staff-cell-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: white;
+  box-shadow: 1px 0 0 var(--color-border);
+}
+
+.staff-student-table thead .staff-cell-sticky {
+  background: #f0f0ed;
+}
+
+/* Staff workspace identity: dark chrome with the BUW yellow, so it never looks like the student site. */
+.staff {
+  --staff-chrome: #18181c;
+  --staff-chrome-raised: #232329;
+  --staff-chrome-text: #f4f4f0;
+  --staff-chrome-muted: #b8b8bf;
+  --staff-accent: var(--buw-yellow);
+  background: #eeeeea;
+}
+
+.staff .staff-header {
+  border-top: 5px solid var(--staff-accent);
+  border-bottom: 0;
+  background: var(--staff-chrome);
+  color: var(--staff-chrome-text);
+}
+
+.staff .staff-brand,
+.staff .staff-brand strong {
+  color: var(--staff-chrome-text);
+}
+
+.staff .staff-brand small,
+.staff .staff-header-account .staff-identity small {
+  color: var(--staff-chrome-muted);
+}
+
+.staff .staff-header-account .staff-identity strong {
+  color: var(--staff-chrome-text);
+}
+
+.staff-badge {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  background: var(--staff-accent);
+  color: #000;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.staff-student-site {
+  margin-left: auto;
+  color: var(--staff-chrome-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.staff-student-site:hover,
+.staff-student-site:focus-visible {
+  color: var(--staff-chrome-text);
+}
+
+.staff .staff-signout {
+  border-color: #4a4a52;
+  color: var(--staff-chrome-text);
+  background: transparent;
+}
+
+.staff .staff-signout:hover {
+  border-color: var(--staff-chrome-muted);
+}
+
+.staff .staff-nav {
+  border-bottom: 0;
+  background: var(--staff-chrome-raised);
+}
+
+.staff .staff-nav a {
+  color: var(--staff-chrome-muted);
+}
+
+.staff .staff-nav a:hover,
+.staff .staff-nav a[aria-current] {
+  color: var(--staff-chrome-text);
+}
+
+.staff .staff-nav a[aria-current] {
+  border-bottom: 3px solid var(--staff-accent);
+  color: var(--staff-chrome-text);
+}
+
+@media (max-width: 640px) {
+  .staff .staff-header {
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+  }
+
+  .staff-student-site {
+    margin-left: 0;
+  }
+}
+

@@ -270,3 +270,19 @@ test("students can be exported for a day by check-in or by date added", async ()
   await assert.rejects(repo.exportStudents({ date: "2026-02-31", by: "checkin" }), /valid date/);
   await assert.rejects(repo.exportStudents({ date: "2026-09-30", by: "everyone" }), /checked-in or added/);
 });
+
+test("coordinators save the semester period, shift times and tutor names to the workbook", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false }, staff: [{ id: staffId, name: "Coordinator", role: "admin", isActive: true }] }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Coordinator", role: "admin", staffId };
+  const tutors = ["Sanaz", "Ali", "", "", "", "", "", "", "", "Zarina"];
+  const { etag } = await repo.workspace();
+  await assert.rejects(repo.saveScheduleSetup(actor, { etag, start: "2026-10-23", end: "2026-09-28", tutors }), /on or after the start date/);
+  await repo.saveScheduleSetup(actor, { etag, start: "2026-09-28", end: "2026-10-23", shift1Time: "09:30–12:30", shift2Time: "", tutors });
+  const workspace = await repo.workspace();
+  assert.deepEqual(workspace.schedule, { start: "2026-09-28", end: "2026-10-23" });
+  assert.deepEqual(workspace.shiftTimes, { first: "09:30–12:30", second: "12:00–15:00" });
+  assert.deepEqual(workspace.tutors, tutors);
+  assert.match(workspace.shiftLog[0].note, /^Semester setup: 2026-09-28 – 2026-10-23 · tutors: Sanaz, Ali, Zarina$/);
+});

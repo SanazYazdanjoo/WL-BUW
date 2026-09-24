@@ -107,6 +107,7 @@ export function staffMiddleware(
         "events/delete": ["read", "deleteEvent", true],
         "settings/save": ["admin", "saveSettings", true],
         "shifts/day": ["read", "updateShiftDay", true],
+        "schedule/setup": ["admin", "saveScheduleSetup", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
         "workbook/backup": ["admin", "createBackup", true],
