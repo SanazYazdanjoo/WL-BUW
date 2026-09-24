@@ -4,6 +4,8 @@ import { inferLinkLabel, safeLink, whatsappLink } from "../../shared/content.js"
 
 export const UNIFIED_WORKBOOK = "Welcome-Lounge.xlsx";
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
+// Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
+export const OPTIONAL_SHEETS = ["Events"];
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
@@ -11,6 +13,7 @@ export const HEADERS = {
   Activity: ["ID", "Timestamp", "Type", "Student ID", "Actor", "Note"],
   Staff: ["ID", "Name", "Role", "Program", "Email", "Phone", "Telegram", "Active"],
   Shifts: ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"],
+  Events: ["Title", "Date", "Start", "End", "Location", "Description", "Link", "Active", "ID"],
 };
 const sectionMap = new Map(["First Step", "Useful Info", "Student Support", "Community", "Help"].map((x) => [key(x), x]));
 const bool = (value, context, blank = null) => {
@@ -42,6 +45,21 @@ const dateCell = (value, context, optional = true) => {
   try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or YYYY-MM-DD.`); }
 };
 const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email"]) };
+// Excel may store a time as text ("14:00"), a day fraction (0.5833) or a Date on 1899-12-30.
+const timeCell = (raw, context) => {
+  const value = raw?.result ?? raw;
+  let minutes = null;
+  if (value instanceof Date) minutes = value.getUTCHours() * 60 + value.getUTCMinutes();
+  else if (typeof value === "number" && value >= 0 && value < 1) minutes = Math.round(value * 1440);
+  else {
+    const textValue = cellText(value);
+    if (!textValue) return "";
+    const match = textValue.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?$/);
+    if (match && Number(match[1]) < 24 && Number(match[2]) < 60) minutes = Number(match[1]) * 60 + Number(match[2]);
+  }
+  if (minutes === null || minutes >= 1440) throw new WorkbookError(`${context} must be a 24-hour time such as 14:00.`);
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+};
 const readTable = (workbook, name) => {
   const sheet = workbook.getWorksheet(name);
   if (!sheet) throw new WorkbookError(`The ${name} sheet is missing.`);
@@ -56,9 +74,9 @@ const valueAt = (row, table, label) => row.values[table.col[label]] ?? "";
 
 export async function parseUnifiedWorkbook(bytes) {
   const workbook = await readWorkbook(bytes);
-  if (workbook.worksheets.length !== SHEETS.length || SHEETS.some((name) => !workbook.getWorksheet(name)) || workbook.worksheets.some((sheet) => !SHEETS.includes(sheet.name)))
-    throw new WorkbookError(`The workbook must contain exactly these sheets: ${SHEETS.join(", ")}.`);
-  const tables = Object.fromEntries(SHEETS.filter((name) => name !== "Settings").map((name) => [name, readTable(workbook, name)]));
+  if (SHEETS.some((name) => !workbook.getWorksheet(name)) || workbook.worksheets.some((sheet) => !SHEETS.includes(sheet.name) && !OPTIONAL_SHEETS.includes(sheet.name)))
+    throw new WorkbookError(`The workbook must contain these sheets: ${SHEETS.join(", ")} (and optionally ${OPTIONAL_SHEETS.join(", ")}).`);
+  const tables = Object.fromEntries([...SHEETS, ...OPTIONAL_SHEETS].filter((name) => name !== "Settings" && workbook.getWorksheet(name)).map((name) => [name, readTable(workbook, name)]));
   const settingsSheet = workbook.getWorksheet("Settings");
   const settingsRows = rows(settingsSheet);
   const settingsHeader = settingsRows.find(({ values }) => values.map(key).includes("setting") && values.map(key).includes("value"));
@@ -105,6 +123,34 @@ export async function parseUnifiedWorkbook(bytes) {
       if (host !== "uni-weimar.de" && !host.endsWith(".uni-weimar.de")) warnings.push(`First Step “${title}” links outside the university domain. Confirm that this is intentional.`);
     }
     content.push({ id, section, order, title, text, link, active, _row: row.number });
+  }
+  let events = null;
+  if (tables.Events) {
+    events = [];
+    const eventIds = new Set();
+    for (const row of tables.Events.dataRows) {
+      if (!row.values.some((value) => String(value ?? "").trim())) continue;
+      const context = `Events row ${row.number}`;
+      const title = required(valueAt(row, tables.Events, "Title"), `${context} Title`, 200);
+      // Raw cell values: Excel may hand back dates and times as Date objects or serial numbers.
+      const raw = (label) => row.row.getCell(tables.Events.col[label] + 1).value;
+      const date = dateCell(raw("Date"), `${context} Date`, false);
+      const startTime = timeCell(raw("Start"), `${context} Start`), endTime = timeCell(raw("End"), `${context} End`);
+      if (endTime && (!startTime || endTime < startTime)) throw new WorkbookError(`${context}: End must be after Start.`);
+      const location = cellText(valueAt(row, tables.Events, "Location"));
+      if (location.length > 300) throw new WorkbookError(`${context}: Location is too long.`);
+      const description = cellText(valueAt(row, tables.Events, "Description"));
+      const link = safeUrl(valueAt(row, tables.Events, "Link"), `${context} Link`);
+      const active = bool(valueAt(row, tables.Events, "Active"), `${context} Active`, false);
+      let id = cellText(valueAt(row, tables.Events, "ID"));
+      if (!id) { id = uniqueId(`event-${slug(`${date} ${title}`)}`.slice(0, 80), eventIds); idAssignments.push({ sheet: "Events", row: row.number, column: tables.Events.col.ID + 1, id }); }
+      else {
+        if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(id)) throw new WorkbookError(`${context}: ID must use lowercase letters, numbers and hyphens.`);
+        if (eventIds.has(id)) throw new WorkbookError(`${context}: duplicate ID ${id}.`);
+        eventIds.add(id);
+      }
+      events.push({ id, title, date, startTime, endTime, location, description, link, active, _row: row.number });
+    }
   }
   const students = [];
   const studentIds = new Set();
@@ -166,7 +212,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const student = students.find((item) => item.id === entry.recordId);
     if (student) { student.updatedAt = entry.timestamp; student.updatedBy = entry.actor.name; }
   }
-  return { workbook, data: { version: 1, settings: config, content, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
+  return { workbook, data: { version: 1, settings: config, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
 }
 
 const SHEET_GUIDANCE = {
@@ -176,6 +222,7 @@ const SHEET_GUIDANCE = {
   Activity: "App-maintained history of check-ins, handovers and changes. Do not remove history rows.",
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
   Shifts: "One shift per row. Use 24-hour times, for example 09:30.",
+  Events: "One event per row. Date as YYYY-MM-DD, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
   const sheet = workbook.addWorksheet(name);
@@ -191,7 +238,7 @@ function addSheet(workbook, name, dataRows = []) {
   sheet.views = [{ state: "frozen", ySplit: 3 }];
   for (const values of dataRows) sheet.addRow(values.map((value) => value ?? ""));
   sheet.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: HEADERS[name].length } };
-  sheet.columns = HEADERS[name].map((header) => ({ width: ["Text", "Notes", "Address", "Accommodation"].includes(header) ? 48 : 24 }));
+  sheet.columns = HEADERS[name].map((header) => ({ width: ["Text", "Notes", "Address", "Accommodation", "Description"].includes(header) ? 48 : 24 }));
   sheet.eachRow((row) => { row.alignment = { vertical: "top", wrapText: true }; });
   return sheet;
 }
@@ -208,6 +255,11 @@ export function createUnifiedWorkbook(data = {}) {
     contentSheet.getCell(row, 1).dataValidation = { type: "list", allowBlank: true, formulae: ['"First Step,Useful Info,Student Support,Community,Help"'] };
     contentSheet.getCell(row, 6).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
+  const eventsSheet = addSheet(workbook, "Events", (data.events || []).map((e) => [e.title, e.date, e.startTime || "", e.endTime || "", e.location || "", e.description || "", e.link || "", e.active, e.id]));
+  eventsSheet.getColumn(2).numFmt = "@";
+  eventsSheet.getColumn(3).numFmt = "@";
+  eventsSheet.getColumn(4).numFmt = "@";
+  for (let row = 4; row <= 1003; row++) eventsSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email]));
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
@@ -268,6 +320,8 @@ export function publicContentFromWorkbook(parsed, preserved = {}) {
     "useful-links": validatePublic("useful-links", { version: 1, semesterLabel: parsed.data.semesterLabel, links }),
     "support-resources": validatePublic("support-resources", { version: 1, resources }),
     "community-resources": validatePublic("community-resources", { version: 1, resources: communityResources }),
+    // Without an Events tab the existing events source stays in charge.
+    ...(parsed.data.events ? { events: validatePublic("events", { version: 1, events: parsed.data.events.filter((item) => item.active).map((item) => ({ id: item.id, title: item.title, date: item.date, startTime: item.startTime, endTime: item.endTime, location: item.location, description: item.description, externalLink: item.link, isActive: true, isDemo: false })) }) } : {}),
   };
 }
 

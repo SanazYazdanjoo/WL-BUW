@@ -353,9 +353,10 @@ export function validateContent(kind, value) {
             fail();
           const time = (v) =>
             /^([01]\d|2[0-3]):[0-5]\d$/.test(text(v, 5)) ? v : fail();
-          const startTime = time(e.startTime),
-            endTime = time(e.endTime);
-          if (endTime < startTime) fail();
+          // Times are optional (e.g. all-day events); an end time needs a start time.
+          const startTime = e.startTime ? time(e.startTime) : "",
+            endTime = e.endTime ? time(e.endTime) : "";
+          if (endTime && (!startTime || endTime < startTime)) fail();
           return {
             id: id(e.id),
             title: text(e.title, 200),

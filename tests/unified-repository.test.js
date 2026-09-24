@@ -159,3 +159,28 @@ test("template initialization is explicit, inactive and never overwrites an exis
   assert.equal(parsed.data.content.every((item) => item.active === false), true);
   await assert.rejects(repo.createFromTemplate({ name: "Coordinator" }, { confirm: true, semesterLabel: "Summer Semester 2027" }), (error) => error.status === 409);
 });
+
+test("staff can add, autosave and remove events stored in the Events tab", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    content: [],
+    staff: [{ id: staffId, name: "Tutor Example", role: "admin", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  let status = await repo.listEvents();
+  await assert.rejects(repo.saveEvent(actor, { etag: status.etag, event: { title: "Bad", date: "2026-13-45", active: true } }), /valid event date/);
+  await repo.saveEvent(actor, { etag: status.etag, event: { title: "Welcome brunch", date: "2026-10-05", startTime: "10:30", endTime: "12:00", location: "Mensa", description: "Meet peers.", link: "", active: true } });
+  const [event] = (await repo.listEvents()).events;
+  assert.equal(event.id, "event-2026-10-05-welcome-brunch");
+  assert.deepEqual((await repo.contentStatus()).content.events.events.map(({ title, startTime }) => [title, startTime]), [["Welcome brunch", "10:30"]]);
+  await repo.autosaveEvent(actor, { id: event.id, patch: { location: "Main building" }, base: { location: "Mensa" } });
+  await assert.rejects(repo.autosaveEvent(actor, { id: event.id, patch: { endTime: "09:00" }, base: { endTime: "12:00" } }), /after the start time/);
+  status = await repo.listEvents();
+  assert.equal(status.events[0].location, "Main building");
+  await repo.deleteEvent(actor, { id: event.id });
+  const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.deepEqual(stored.data.events, []);
+  assert.deepEqual(publicContentFromWorkbook(stored, {}).events.events, []);
+});

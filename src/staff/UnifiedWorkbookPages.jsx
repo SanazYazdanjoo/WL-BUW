@@ -182,3 +182,98 @@ export function BackupPage() {
   }
   return <section className="staff-page"><p className="staff-eyebrow">COORDINATOR · DATA SAFETY</p><h1>Backup</h1><p>Last backup: {statusDate(status?.lastBackup)}</p><button className="primary" onClick={backup}>Create backup now</button> <a href="/api/staff/workbook/download">Download Welcome-Lounge.xlsx</a>{message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}</section>;
 }
+
+const emptyEvent = () => ({ title: "", date: "", startTime: "", endTime: "", location: "", description: "", link: "", active: true });
+function eventProblem(draft) {
+  if (!draft.title.trim()) return "Enter an event title.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) return "Choose the event date.";
+  if (draft.endTime && (!draft.startTime || draft.endTime < draft.startTime)) return "The end time must be after the start time.";
+  if (draft.link && !/^https:\/\/[^\s]+$/i.test(draft.link)) return "Enter a complete HTTPS link.";
+  return "";
+}
+const eventWhen = (event) => [new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`)), event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime)].filter(Boolean).join(" · ");
+
+function EventFields({ value, set }) {
+  return <>
+    <label>Title<input autoFocus required maxLength={200} value={value.title} onChange={(e) => set("title", e.target.value)} /></label>
+    <label>Date<input type="date" required value={value.date} onChange={(e) => set("date", e.target.value)} /></label>
+    <label>Start<input type="time" value={value.startTime} onChange={(e) => set("startTime", e.target.value)} /></label>
+    <label>End<input type="time" value={value.endTime} onChange={(e) => set("endTime", e.target.value)} /></label>
+    <label>Location<input maxLength={300} value={value.location} onChange={(e) => set("location", e.target.value)} /></label>
+    <label>Description<textarea maxLength={12000} value={value.description} onChange={(e) => set("description", e.target.value)} /></label>
+    <label>Link<input type="url" placeholder="https://" value={value.link} onChange={(e) => set("link", e.target.value)} /></label>
+  </>;
+}
+
+function EventItemEditor({ event, save, onDone }) {
+  const autosave = useAutosave({ title: event.title, date: event.date, startTime: event.startTime, endTime: event.endTime, location: event.location, description: event.description, link: event.link, active: event.active }, save, { validate: eventProblem });
+  const set = (field, value, delay) => autosave.setField(field, value, delay);
+  return <section className="staff-panel staff-content-editor" aria-labelledby="event-edit-heading">
+    <h2 id="event-edit-heading">Edit event</h2>
+    <div className="staff-form">
+      <div className="staff-autosave-position"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></div>
+      <EventFields value={autosave.draft} set={set} />
+      <label className="checkbox-label"><input type="checkbox" checked={autosave.draft.active} onChange={(e) => set("active", e.target.checked, AUTOSAVE_TOGGLE_DELAY)} />Active</label>
+      <button type="button" disabled={autosave.hasUnsavedChanges || autosave.status === "saving" || autosave.status === "error" || autosave.status === "conflict"} onClick={onDone}>Close editor</button>
+    </div>
+  </section>;
+}
+
+export function EventsManagementPage() {
+  const { session } = useOutletContext();
+  const [data, setData] = useState(null), [form, setForm] = useState(null), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  const reload = useCallback(async () => {
+    try { setData(await staffRequest("events")); } catch (e) { setError(e.message); }
+  }, []);
+  useEffect(() => {
+    let active = true;
+    staffRequest("events").then((result) => { if (active) setData(result); }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, []);
+  async function save(action, body, savedMessage) {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await staffRequest(action, { csrf: session.csrf, body: { ...body, etag: data?.etag } });
+      setMessage(savedMessage);
+      setForm(null);
+      await reload();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  async function autosaveEvent(id, patch, base) {
+    const result = await staffRequest("events/autosave", { csrf: session.csrf, body: { id, patch, base, etag: data?.etag } });
+    await reload();
+    return result;
+  }
+  async function removeEvent(event) {
+    if (!window.confirm(`Remove the event “${event.title}” from the workbook?`)) return;
+    await save("events/delete", { id: event.id }, `Removed ${event.title}.`);
+  }
+  if (!data) return <div className="staff-page"><h1>Events</h1>{error ? <><p role="alert">{error}</p><button type="button" onClick={reload}>Retry</button></> : <p role="status">Loading events…</p>}</div>;
+  const events = [...data.events].sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+  return <div className="staff-page staff-content-page">
+    <header className="staff-page-heading"><h1>Events</h1><button type="button" className="primary" disabled={Boolean(form)} onClick={() => setForm(emptyEvent())}>Add event</button></header>
+    {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
+    {form?.id && <EventItemEditor key={form.id} event={form} save={(patch, base) => autosaveEvent(form.id, patch, base)} onDone={() => setForm(null)} />}
+    {form && !form.id && <section className="staff-panel staff-content-editor" aria-labelledby="event-add-heading"><h2 id="event-add-heading">Add event</h2><form className="staff-form" onSubmit={(event) => { event.preventDefault(); const problem = eventProblem(form); if (problem) { setError(problem); return; } save("events/save", { event: form }, "Event saved."); }}>
+      <EventFields value={form} set={(field, value) => setForm({ ...form, [field]: value })} />
+      <label className="checkbox-label"><input type="checkbox" checked={form.active === true} onChange={(e) => setForm({ ...form, active: e.target.checked })} />Active</label>
+      <div className="button-row"><button className="primary" disabled={busy}>Save</button><button type="button" onClick={() => setForm(null)}>Cancel</button></div>
+    </form></section>}
+    <section className="staff-panel" aria-label="Event list">
+      {events.length === 0 && <p className="staff-muted">No events yet.</p>}
+      {events.map((event) => <details className="staff-content-item" key={event.id}>
+        <summary><span className="staff-content-item-heading"><strong>{event.title}</strong><span className={`staff-content-state${event.active ? "" : " is-inactive"}`}>{event.active ? "Active" : "Inactive"}</span></span><span className="staff-muted">{eventWhen(event)}</span></summary>
+        <div className="staff-content-item-body">
+          {event.location && <p>{event.location}</p>}{event.description && <p>{event.description}</p>}{event.link && <a href={event.link} target="_blank" rel="noreferrer">Open link</a>}
+          <div className="button-row">
+            <button type="button" disabled={Boolean(form) || busy} onClick={() => setForm({ ...event })}>Edit</button>
+            <button type="button" disabled={Boolean(form) || busy} onClick={() => save("events/save", { event: { ...event, active: !event.active } }, event.active ? "Event deactivated." : "Event activated.")}>{event.active ? "Deactivate" : "Activate"}</button>
+            <button type="button" className="content-delete-button" disabled={Boolean(form) || busy} onClick={() => removeEvent(event)}>Remove</button>
+          </div>
+        </div>
+      </details>)}
+      <details className="staff-disclosure"><summary>How Events work</summary><p>Active events from today onwards appear on the student Events page, sorted by date. They are stored in the Events tab of Welcome-Lounge.xlsx, so they can also be edited there.</p></details>
+    </section>
+  </div>;
+}

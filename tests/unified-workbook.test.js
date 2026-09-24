@@ -9,10 +9,11 @@ async function workbookBytes(content = []) {
   return Buffer.from(await createUnifiedWorkbook({ settings, content }).xlsx.writeBuffer());
 }
 
-test("unified template contains only the six simple workbook sheets and inactive examples", async () => {
+test("unified template contains the workbook sheets, including Events, and inactive examples", async () => {
   const bytes = await createUnifiedWorkbookTemplate();
   const parsed = await loadWorkbook(bytes);
-  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), SHEETS);
+  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), ["Settings", "Content", "Events", "Students", "Activity", "Staff", "Shifts"]);
+  assert.ok(SHEETS.every((name) => parsed.getWorksheet(name)));
   const content = parsed.getWorksheet("Content");
   assert.deepEqual(content.getRow(3).values.slice(1), ["Section", "Order", "Title", "Text", "Link", "Active", "ID"]);
   assert.ok([4, 5, 6, 7, 8].every((row) => content.getCell(row, 6).value === false));
@@ -94,9 +95,36 @@ test("parser rejects incomplete workbook structures and invalid links or orders"
   const bytes = await workbookBytes();
   const missing = await loadWorkbook(bytes);
   missing.removeWorksheet(missing.getWorksheet("Activity").id);
-  await assert.rejects(parseUnifiedWorkbook(Buffer.from(await missing.xlsx.writeBuffer())), /exactly these sheets/);
+  await assert.rejects(parseUnifiedWorkbook(Buffer.from(await missing.xlsx.writeBuffer())), /must contain these sheets/);
   const bad = await loadWorkbook(await workbookBytes([{ id: "bad", section: "Useful Info", order: 0, title: "Bad", text: "Text", link: "javascript:alert(1)", active: false }]));
   await assert.rejects(parseUnifiedWorkbook(Buffer.from(await bad.xlsx.writeBuffer())), /positive whole number/);
   const unsafe = await loadWorkbook(await workbookBytes([{ id: "bad", section: "Useful Info", order: 1, title: "Bad", text: "Text", link: "javascript:alert(1)", active: false }]));
   await assert.rejects(parseUnifiedWorkbook(Buffer.from(await unsafe.xlsx.writeBuffer())), /public HTTPS link/);
+});
+
+test("Events tab is optional and maps active events with Excel time formats", async () => {
+  const withoutEvents = await loadWorkbook(await workbookBytes());
+  withoutEvents.removeWorksheet(withoutEvents.getWorksheet("Events").id);
+  const legacy = await parseUnifiedWorkbook(Buffer.from(await withoutEvents.xlsx.writeBuffer()));
+  assert.equal(legacy.data.events, null);
+  assert.equal(publicContentFromWorkbook(legacy, {}).events, undefined);
+
+  const book = await loadWorkbook(await workbookBytes());
+  const sheet = book.getWorksheet("Events");
+  sheet.addRow(["Welcome brunch", "2026-10-05", "10:30", "12:00", "Mensa", "Meet other new students.", "https://www.uni-weimar.de/en/university/", true, ""]);
+  sheet.addRow(["City tour", new Date(Date.UTC(2026, 9, 2)), new Date(Date.UTC(1899, 11, 30, 14, 0)), 0.75, "", "", "", "TRUE", "city-tour"]);
+  sheet.addRow(["Draft party", "2026-10-09", "", "", "", "", "", false, ""]);
+  const parsed = await parseUnifiedWorkbook(Buffer.from(await book.xlsx.writeBuffer()));
+  assert.deepEqual(parsed.data.events.map(({ id, date, startTime, endTime }) => [id, date, startTime, endTime]), [
+    ["event-2026-10-05-welcome-brunch", "2026-10-05", "10:30", "12:00"],
+    ["city-tour", "2026-10-02", "14:00", "18:00"],
+    ["event-2026-10-09-draft-party", "2026-10-09", "", ""],
+  ]);
+  const events = publicContentFromWorkbook(parsed, {}).events.events;
+  assert.deepEqual(events.map(({ id }) => id), ["city-tour", "event-2026-10-05-welcome-brunch"]);
+  assert.equal(events[1].description, "Meet other new students.");
+
+  const bad = await loadWorkbook(await workbookBytes());
+  bad.getWorksheet("Events").addRow(["Late", "2026-10-05", "18:00", "17:00", "", "", "", true, ""]);
+  await assert.rejects(parseUnifiedWorkbook(Buffer.from(await bad.xlsx.writeBuffer())), /End must be after Start/);
 });

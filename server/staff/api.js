@@ -84,6 +84,7 @@ export function staffMiddleware(
       const reads = {
         workspace: ["read", "workspace"],
         content: ["admin", "contentStatus"],
+        events: ["read", "listEvents"],
         config: ["admin", "getConfig"],
       };
       const writes = {
@@ -101,6 +102,9 @@ export function staffMiddleware(
         "content/delete": ["admin", "deleteContent", true],
         "content/autosave": ["admin", "autosaveContent", true],
         "content/deactivate": ["admin", "deactivateContent", true],
+        "events/save": ["read", "saveEvent", true],
+        "events/autosave": ["read", "autosaveEvent", true],
+        "events/delete": ["read", "deleteEvent", true],
         "settings/save": ["admin", "saveSettings", true],
         "shifts/save": ["admin", "addShift", true],
         "shifts/autosave": ["admin", "autosaveShift", true],
@@ -204,6 +208,7 @@ export function staffMiddleware(
       if (req.method !== "GET" || !route)
         throw new StaffError(404, "Staff action not found.");
       requireActor(actor, route[0]);
+      if (action === "events") return send(200, await unifiedRepository.listEvents());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {
         const result = action === "workspace" ? await unifiedRepository.workspace() : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
         return send(200, result);

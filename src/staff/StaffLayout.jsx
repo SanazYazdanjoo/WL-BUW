@@ -170,6 +170,7 @@ export default function StaffLayout() {
               ["students", "Students"],
               ["shifts", "Schedule"],
               ["handover", "Handover"],
+              ["events", "Events"],
               ...(session.role === "admin"
                 ? [
                     ["content", "Content"],

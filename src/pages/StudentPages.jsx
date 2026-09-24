@@ -315,7 +315,7 @@ function EventEntry({ event, needsReview = false }) {
         ) : (
           metadata && <p className="event-meta">{metadata}</p>
         )}
-        {event.descriptionSnippet && <p className="event-description">{event.descriptionSnippet}</p>}
+        {(event.descriptionSnippet || event.description) && <p className="event-description">{event.descriptionSnippet || event.description}</p>}
         <div className="event-links">
           {event.registrationUrl && (
             <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">

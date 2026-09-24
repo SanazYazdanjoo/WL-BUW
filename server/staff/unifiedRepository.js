@@ -28,6 +28,17 @@ const text = (value, max = 12000) => {
 const contentSections = new Set(["First Step", "Useful Info", "Student Support", "Community", "Help"]);
 const slug = (value) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "content-item";
 const idFor = (prefix) => `${prefix}_${randomUUID()}`;
+const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "") && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+const isTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+function checkEvent(event) {
+  if (!event.title?.trim() || event.title.length > 200) throw new StaffError(400, "Enter an event title.");
+  if (!isDate(event.date)) throw new StaffError(400, "Enter a valid event date.");
+  if ((event.startTime && !isTime(event.startTime)) || (event.endTime && !isTime(event.endTime))) throw new StaffError(400, "Enter event times in 24-hour format, for example 14:00.");
+  if (event.endTime && (!event.startTime || event.endTime < event.startTime)) throw new StaffError(400, "The end time must be after the start time.");
+  if (event.location.length > 300 || event.description.length > 12000) throw new StaffError(400, "An event field is too long.");
+  if (event.link && !safeLink(event.link)) throw new StaffError(400, "Use a valid public HTTPS link.");
+  if (typeof event.active !== "boolean") throw new StaffError(400, "Choose whether this event is active.");
+}
 
 export function createUnifiedRepository(store) {
   async function current() {
@@ -105,7 +116,7 @@ export function createUnifiedRepository(store) {
       if (!selectedStaff) throw new StaffError(403, "Your selected staff identity is no longer active. Choose an active name before saving.");
       actor.name = selectedStaff.name;
       const data = structuredClone(file.parsed.data);
-      const record = data[collection].find((item) => item.id === id);
+      const record = (data[collection] || []).find((item) => item.id === id);
       if (!record) throw new StaffError(404, "The record could not be found. Reload and try again.");
       const latest = {}, conflicts = [];
       for (const field of Object.keys(patch)) {
@@ -352,6 +363,39 @@ export function createUnifiedRepository(store) {
         item.active = false;
         appendActivity(data, actor, "Content Update", { note: `Deactivated ${item.section}: ${item.title}` });
       }, { major: true });
+    },
+    async listEvents() {
+      const file = await current();
+      return { events: file.parsed.data.events || [], etag: file.etag };
+    },
+    async saveEvent(actor, input) {
+      const item = input.event || {};
+      const next = { title: text(item.title || "", 200).trim(), date: text(item.date || "", 10), startTime: text(item.startTime || "", 5), endTime: text(item.endTime || "", 5), location: text(item.location || "", 300).trim(), description: text(item.description || "", 12000).trim(), link: text(item.link || "", 1000).trim(), active: item.active === true };
+      checkEvent(next);
+      return mutate(actor, input, "event updated", (data) => {
+        data.events ||= [];
+        const existing = item.id ? data.events.find((entry) => entry.id === item.id) : null;
+        if (item.id && !existing) throw new StaffError(404, "Event not found.");
+        const id = existing?.id || uniqueContentId(`event-${slug(`${next.date} ${next.title}`)}`.slice(0, 80), data.events);
+        if (existing) Object.assign(existing, next); else data.events.push({ id, ...next });
+        appendActivity(data, actor, "Content Update", { note: `${existing ? "Updated" : "Added"} event: ${next.title}` });
+      }, { major: true });
+    },
+    async autosaveEvent(actor, input) {
+      return mutateFields(actor, input, {
+        id: input.id, collection: "events", allowed: ["title", "date", "startTime", "endTime", "location", "description", "link", "active"], reason: "event update", activityType: "Content Update",
+        validate: checkEvent,
+      });
+    },
+    async deleteEvent(actor, input) {
+      const id = text(input.id || "", 100).trim();
+      if (!id) throw new StaffError(400, "Choose an event to remove.");
+      return mutate(actor, input, "event removed", (data) => {
+        const index = (data.events || []).findIndex((entry) => entry.id === id);
+        if (index < 0) throw new StaffError(404, "Event not found.");
+        const [removed] = data.events.splice(index, 1);
+        appendActivity(data, actor, "Content Update", { note: `Removed event: ${removed.title}` });
+      }, { major: true, safeRetry: true });
     },
     async saveSettings(actor, input) {
       return mutate(actor, input, "settings updated", (data) => {
