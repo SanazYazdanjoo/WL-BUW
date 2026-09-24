@@ -9,8 +9,7 @@ const LEGACY_SHIFT_HEADERS = ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2"
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
 export const OPTIONAL_SHEETS = ["Events", "Tutors"];
-// Fixed tutor slots ("Tutor 1" … "Tutor 10"); names are re-entered each semester.
-export const TUTOR_SLOTS = 10;
+export const MAX_TUTORS = 100;
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
@@ -242,14 +241,13 @@ export async function parseUnifiedWorkbook(bytes) {
     activity.push({ id, timestamp, type, studentId: cellText(valueAt(row, tables.Activity, "Student ID")), actor: cellText(valueAt(row, tables.Activity, "Actor")) || "Staff", note: cellText(valueAt(row, tables.Activity, "Note")) });
   }
   const shifts = readShiftDays(tables.Shifts);
-  const tutors = Array(TUTOR_SLOTS).fill("");
+  // Tutors are a plain list in row order; the "Tutor N" labels are renumbered on save.
+  const tutors = [], tutorKeys = new Set();
   for (const row of tables.Tutors?.dataRows || []) {
-    const slot = cellText(valueAt(row, tables.Tutors, "Tutor")).match(/^tutor\s*(\d+)$/i);
-    if (!slot) continue;
-    const index = Number(slot[1]) - 1;
     const tutorName = cellText(valueAt(row, tables.Tutors, "Name"));
     if (tutorName.length > 200) throw new WorkbookError(`Tutors row ${row.number}: Name is too long.`);
-    if (index >= 0 && index < TUTOR_SLOTS) tutors[index] = tutorName;
+    const tutorKey = tutorName.toLocaleLowerCase("en");
+    if (tutorName && !tutorKeys.has(tutorKey) && tutors.length < MAX_TUTORS) { tutorKeys.add(tutorKey); tutors.push(tutorName); }
   }
   for (const item of content) if (item.active && item.section === "First Step" && !item.text.trim()) throw new WorkbookError(`First Step ${item.title} needs a short Text description.`);
   for (const item of activity) if (item.studentId && !studentIds.has(item.studentId)) throw new WorkbookError(`Activity entry ${item.id} refers to a missing student ID.`);
@@ -270,7 +268,7 @@ const SHEET_GUIDANCE = {
   Activity: "App-maintained history of check-ins, handovers and changes. Do not remove history rows.",
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
   Shifts: "One row per day. Write who works in each shift; use Note for closures such as a bank holiday.",
-  Tutors: "This semester's tutors. Change the names each semester; they are suggested in the Schedule.",
+  Tutors: "This semester's tutors, one per row. Add, rename or delete rows; the numbering is updated automatically.",
   Events: "One event per row. Date as YYYY-MM-DD, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
@@ -322,7 +320,9 @@ export function createUnifiedWorkbook(data = {}) {
   }
   const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [s.date, ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));
   shiftsSheet.getColumn(1).numFmt = "@";
-  addSheet(workbook, "Tutors", Array.from({ length: TUTOR_SLOTS }, (_, index) => [`Tutor ${index + 1}`, data.tutors?.[index] || ""]));
+  // An empty list still gets ten numbered rows so the tab is easy to fill in Excel.
+  const tutorRows = data.tutors?.length ? data.tutors : Array(10).fill("");
+  addSheet(workbook, "Tutors", tutorRows.map((name, index) => [`Tutor ${index + 1}`, name]));
   HEADERS.Shifts.forEach((label, index) => {
     const color = label.startsWith("S1") ? "FF2F5D62" : label.startsWith("S2") ? "FFB8860B" : null;
     if (color) shiftsSheet.getCell(3, index + 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };

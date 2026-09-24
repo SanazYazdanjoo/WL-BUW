@@ -85,6 +85,7 @@ export function staffMiddleware(
         workspace: ["read", "workspace"],
         content: ["admin", "contentStatus"],
         events: ["read", "listEvents"],
+        activity: ["admin", "activityLog"],
         config: ["admin", "getConfig"],
       };
       const writes = {
@@ -108,6 +109,7 @@ export function staffMiddleware(
         "settings/save": ["admin", "saveSettings", true],
         "shifts/day": ["read", "updateShiftDay", true],
         "schedule/setup": ["admin", "saveScheduleSetup", true],
+        "tutors/save": ["admin", "saveTutors", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
         "workbook/backup": ["admin", "createBackup", true],
@@ -216,8 +218,9 @@ export function staffMiddleware(
         throw new StaffError(404, "Staff action not found.");
       requireActor(actor, route[0]);
       if (action === "events") return send(200, await unifiedRepository.listEvents());
+      if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {
-        const result = action === "workspace" ? await unifiedRepository.workspace() : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
+        const result = action === "workspace" ? await unifiedRepository.workspace(actor) : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
         return send(200, result);
       }
       return send(200, await getLegacyRepository()[route[1]]());

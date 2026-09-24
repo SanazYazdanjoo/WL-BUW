@@ -1,6 +1,7 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useParams, useOutletContext, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
+import { staffRequest } from "./service";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
@@ -479,11 +480,10 @@ function ShiftDayRow({ date, day, save }) {
   );
 }
 
-// Coordinators set the semester period, shift times and the ten tutor names (also editable in the workbook).
+// The Super Admin sets the semester period and shift times (also editable in the workbook's Settings tab).
 function ScheduleSetup({ workspace, busy, act }) {
-  const initial = () => ({ start: workspace.schedule?.start || "", end: workspace.schedule?.end || "", shift1Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).first, shift2Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).second, tutors: [...(workspace.tutors || Array(10).fill(""))] });
+  const initial = () => ({ start: workspace.schedule?.start || "", end: workspace.schedule?.end || "", shift1Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).first, shift2Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).second });
   const [form, setForm] = useState(initial);
-  const setTutor = (index, value) => setForm({ ...form, tutors: form.tutors.map((name, i) => (i === index ? value : name)) });
   return (
     <details className="staff-disclosure staff-schedule-setup">
       <summary>Semester setup</summary>
@@ -492,11 +492,83 @@ function ScheduleSetup({ workspace, busy, act }) {
         <label>Last day<input type="date" min={form.start || undefined} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
         <label>S1 time<input maxLength={40} placeholder="10:00–13:00" value={form.shift1Time} onChange={(e) => setForm({ ...form, shift1Time: e.target.value })} /></label>
         <label>S2 time<input maxLength={40} placeholder="12:00–15:00" value={form.shift2Time} onChange={(e) => setForm({ ...form, shift2Time: e.target.value })} /></label>
-        {form.tutors.map((name, index) => <label key={index}>Tutor {index + 1}<input maxLength={200} value={name} onChange={(e) => setTutor(index, e.target.value)} /></label>)}
         <div className="button-row staff-field-wide"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save semester setup"}</button><button type="button" onClick={() => setForm(initial())}>Reset</button></div>
-        <p className="staff-muted staff-field-wide">These are stored in the workbook: the dates and times in the Settings tab, the names in the Tutors tab.</p>
+        <p className="staff-muted staff-field-wide">Stored in the workbook's Settings tab. Tutor names are managed on the <Link to="/staff/tutor-list">Tutors</Link> page.</p>
       </form>
     </details>
+  );
+}
+
+// Super Admin: the semester's tutor list (Tutors tab in the workbook).
+export function TutorListPage() {
+  const { session } = useOutletContext();
+  const { workspace, error, busy, act } = useWorkspace();
+  const [draft, setDraft] = useState(null);
+  if (session.role !== "admin") return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin can manage the tutor list.</p></div>;
+  if (!workspace) return <State error={error} />;
+  const saved = workspace.tutors || [];
+  const names = draft ?? (saved.length ? saved : [""]);
+  const set = (next) => setDraft(next);
+  const cleaned = names.map((name) => name.trim()).filter(Boolean);
+  const changed = cleaned.join("\n") !== saved.join("\n");
+  const duplicate = cleaned.find((name, index) => cleaned.findIndex((other) => other.toLocaleLowerCase("en") === name.toLocaleLowerCase("en")) !== index);
+  return (
+    <div className="staff-page staff-tutor-list-page">
+      <header className="staff-page-heading"><h1>Tutors <span className="staff-count">{cleaned.length}</span></h1></header>
+      <p className="staff-muted">This semester's tutors. They are suggested in the Schedule and listed in Statistics, and stored in the workbook's Tutors tab.</p>
+      {error && <p role="alert">{error}</p>}
+      <form className="staff-panel staff-form" onSubmit={async (event) => { event.preventDefault(); if (!busy && !duplicate && await act("tutors/save", { tutors: cleaned })) setDraft(null); }}>
+        <ol className="staff-tutor-rows">
+          {names.map((name, index) => (
+            <li key={index}>
+              <label><span className="staff-muted">Tutor {index + 1}</span><input maxLength={200} value={name} placeholder="Name" onChange={(e) => set(names.map((value, i) => (i === index ? e.target.value : value)))} /></label>
+              <button type="button" aria-label={`Move Tutor ${index + 1} up`} disabled={index === 0} onClick={() => set(names.map((value, i) => (i === index - 1 ? names[index] : i === index ? names[index - 1] : value)))}>↑</button>
+              <button type="button" className="content-delete-button" aria-label={`Delete ${name || `Tutor ${index + 1}`}`} onClick={() => set(names.filter((_, i) => i !== index))}>Delete</button>
+            </li>
+          ))}
+        </ol>
+        {duplicate && <p role="alert">“{duplicate}” is in the list twice.</p>}
+        <div className="button-row">
+          <button type="button" onClick={() => set([...names, ""])}>Add tutor</button>
+          <button className="primary" disabled={busy || !changed || Boolean(duplicate)}>{busy ? "Saving…" : "Save tutor list"}</button>
+          {changed && <button type="button" onClick={() => setDraft(null)}>Discard changes</button>}
+        </div>
+        <p className="staff-muted">Removing a tutor doesn't change shifts already in the schedule; their hours stay in Statistics under their name.</p>
+      </form>
+    </div>
+  );
+}
+
+const ACTIVITY_TYPES = ["Shift Update", "Student Update", "Content Update", "Check-in", "Handover", "Other"];
+// Super Admin: everything that changed, newest first, with who did it.
+export function ChangeLogPage() {
+  const { session } = useOutletContext();
+  const [log, setLog] = useState(null), [error, setError] = useState(""), [type, setType] = useState(""), [query, setQuery] = useState("");
+  useEffect(() => {
+    if (session.role !== "admin") return undefined;
+    let active = true;
+    staffRequest("activity").then((result) => { if (active) setLog(result.entries); }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [session.role]);
+  if (session.role !== "admin") return <div className="staff-page"><h1>Change log</h1><p>Only the Super Admin can see the change log.</p></div>;
+  if (!log) return <State error={error} />;
+  const needle = query.trim().toLowerCase();
+  const entries = log.filter((entry) => (!type || entry.type === type) && (!needle || `${entry.actor} ${entry.note} ${entry.studentName}`.toLowerCase().includes(needle)));
+  return (
+    <div className="staff-page staff-change-log-page">
+      <header className="staff-page-heading"><h1>Change log <span className="staff-count">{entries.length}</span></h1></header>
+      <div className="staff-student-toolbar">
+        <label className="staff-search">Search<input type="search" placeholder="Name, tutor or change" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+        <label>Type<select value={type} onChange={(e) => setType(e.target.value)}><option value="">All changes</option>{ACTIVITY_TYPES.map((value) => <option key={value}>{value}</option>)}</select></label>
+      </div>
+      {entries.length === 0 ? <p className="staff-empty-state">No changes found.</p> : <div className="table-scroll">
+        <table aria-label="Change log">
+          <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Student</th><th>Change</th></tr></thead>
+          <tbody>{entries.map((entry) => <tr key={entry.id}><td>{staffDateTime(entry.timestamp)}</td><td>{entry.actor}</td><td>{entry.type}</td><td>{entry.studentName || "—"}</td><td>{entry.note}</td></tr>)}</tbody>
+        </table>
+      </div>}
+      <p className="staff-muted">The latest 500 changes. The full history stays in the workbook's Activity tab.</p>
+    </div>
   );
 }
 
@@ -519,14 +591,13 @@ export function ShiftPage() {
   for (let date = first; date <= last && dates.length < 366; date = addDays(date, 1)) dates.push(date);
   const tutorNames = (workspace.tutors || []).filter(Boolean);
   const names = [...new Set([...tutorNames, ...(tutorNames.length ? [] : workspace.data.programTutors.map((tutor) => tutor.tutor))].filter((name) => name && name !== "?"))];
-  const log = workspace.shiftLog || [];
   return (
     <div className="staff-page staff-schedule-page">
       <header className="staff-page-heading"><h1>Schedule</h1></header>
       {error && <p role="alert">{error}</p>}
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
         {session.role === "admin" && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
-        <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}Type a name in any cell; changes save automatically and are logged. For a closed day, clear the names and write the reason in Note.</p>
+        <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note.</p>
         <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
         <div className="table-scroll">
           <table className="staff-shift-table" aria-label="Shift schedule">
@@ -544,16 +615,14 @@ export function ShiftPage() {
           </table>
         </div>
         {!period.end && <button type="button" onClick={() => setExtraWeeks((weeks) => weeks + 1)}>Show one more week</button>}
-        <details className="staff-disclosure staff-shift-log">
-          <summary>Change log <span className="staff-count">{log.length}</span></summary>
-          {log.length === 0 ? <p className="staff-muted">No changes yet.</p> : log.map((entry) => <article className="staff-handover-entry" key={entry.id}><p>{entry.note}</p><small>{entry.actor} · {staffDateTime(entry.timestamp)}</small></article>)}
-        </details>
       </>}
     </div>
   );
 }
 export function StatisticsPage() {
+  const { session } = useOutletContext();
   const { workspace, error } = useWorkspace();
+  if (session.role !== "admin") return <div className="staff-page"><h1>Statistics</h1><p>Only the Super Admin can see statistics.</p></div>;
   if (!workspace) return <State error={error} />;
   const shiftTimes = workspace.shiftTimes || DEFAULT_SHIFT_TIMES;
   const rows = tutorStatistics({ shifts: workspace.data.shifts, shiftTimes, tutors: workspace.tutors, schedule: workspace.schedule, today: workspace.today });
@@ -571,7 +640,7 @@ export function StatisticsPage() {
         <div><strong>{formatHours(totals.planned)}</strong><span>still planned</span></div>
         <div><strong>{rows.filter((row) => row.total > 0).length}</strong><span>tutors with shifts</span></div>
       </div>
-      {rows.length === 0 ? <p className="staff-empty-state">No tutors or shifts yet. Add tutor names in Schedule → Semester setup.</p> : <>
+      {rows.length === 0 ? <p className="staff-empty-state">No tutors or shifts yet. Add tutor names on the Tutors page.</p> : <>
         <section className="staff-panel staff-hours-chart" aria-labelledby="hours-chart-heading">
           <div className="staff-section-header">
             <h2 id="hours-chart-heading">Hours per tutor</h2>

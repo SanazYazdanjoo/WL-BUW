@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, TUTOR_SLOTS, DEFAULT_SHIFT_TIMES } from "../excel/unifiedWorkbook.js";
+import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES } from "../excel/unifiedWorkbook.js";
 import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
@@ -256,10 +256,11 @@ export function createUnifiedRepository(store) {
     return { version: 1, semesterLabel: data.semesterLabel, students: data.students, programTutors, shifts: data.shifts, checkins: data.checkins, handover: data.handover, audit: data.audit, lastImported: data.lastImported };
   }
   return {
-    async workspace() {
+    async workspace(actor = { role: "admin" }) {
       const file = await current();
+      const admin = actor.role === "admin";
       const shiftLog = file.parsed.data.activity.filter((item) => item.type === "Shift Update").sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 30);
-      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, schedule: file.parsed.data.schedule, tutors: file.parsed.data.tutors, shiftLog, unified: true };
+      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, schedule: file.parsed.data.schedule, tutors: file.parsed.data.tutors, shiftLog: admin ? shiftLog : [], unified: true, ...(admin ? {} : { data: { ...workspaceData(file.parsed.data), audit: [] } }) };
     },
     async listArrivals() {
       const { parsed } = await current();
@@ -448,14 +449,30 @@ export function createUnifiedRepository(store) {
       if ((start && !isDate(start)) || (end && !isDate(end))) throw new StaffError(400, "Enter valid start and end dates.");
       if (start && end && end < start) throw new StaffError(400, "The end date must be on or after the start date.");
       const times = [input.shift1Time, input.shift2Time].map((value) => text(value || "", 40).trim());
-      if (!Array.isArray(input.tutors) || input.tutors.length !== TUTOR_SLOTS) throw new StaffError(400, "Send all tutor names.");
-      const tutors = input.tutors.map((name) => text(name || "", 200).trim());
       return mutate(actor, input, "schedule setup", (data) => {
         data.schedule = { start, end };
         data.shiftTimes = { first: times[0] || DEFAULT_SHIFT_TIMES.first, second: times[1] || DEFAULT_SHIFT_TIMES.second };
-        data.tutors = tutors;
-        appendActivity(data, actor, "Shift Update", { note: `Semester setup: ${start || "no start"} – ${end || "no end"} · tutors: ${tutors.filter(Boolean).join(", ") || "none"}` });
+        appendActivity(data, actor, "Shift Update", { note: `Semester setup: ${start || "no start"} – ${end || "no end"} · S1 ${data.shiftTimes.first} · S2 ${data.shiftTimes.second}` });
       }, { major: true });
+    },
+    async saveTutors(actor, input) {
+      if (!Array.isArray(input.tutors) || input.tutors.length > MAX_TUTORS) throw new StaffError(400, `Send the tutor list (at most ${MAX_TUTORS} names).`);
+      const tutors = input.tutors.map((name) => text(name ?? "", 200).trim()).filter(Boolean);
+      const keys = tutors.map((name) => name.toLocaleLowerCase("en"));
+      const duplicate = tutors.find((_, index) => keys.indexOf(keys[index]) !== index);
+      if (duplicate) throw new StaffError(400, `“${duplicate}” is in the list twice.`);
+      return mutate(actor, input, "tutor list", (data) => {
+        const before = data.tutors || [];
+        const added = tutors.filter((name) => !before.includes(name)), removed = before.filter((name) => !tutors.includes(name));
+        if (!added.length && !removed.length && before.join("\n") === tutors.join("\n")) return false;
+        data.tutors = tutors;
+        appendActivity(data, actor, "Other", { note: `Tutor list updated${added.length ? ` · added: ${added.join(", ")}` : ""}${removed.length ? ` · removed: ${removed.join(", ")}` : ""}${!added.length && !removed.length ? " · reordered" : ""}` });
+      }, { major: true });
+    },
+    async activityLog() {
+      const { parsed } = await current();
+      const studentNames = new Map(parsed.data.students.map((student) => [student.id, student.name]));
+      return { entries: [...parsed.data.activity].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500).map((entry) => ({ ...entry, studentName: studentNames.get(entry.studentId) || "" })) };
     },
     async updateShiftDay(actor, input) {
       const date = text(input.date || input.id || "", 10);

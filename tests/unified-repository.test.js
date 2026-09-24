@@ -271,18 +271,27 @@ test("students can be exported for a day by check-in or by date added", async ()
   await assert.rejects(repo.exportStudents({ date: "2026-09-30", by: "everyone" }), /checked-in or added/);
 });
 
-test("coordinators save the semester period, shift times and tutor names to the workbook", async () => {
-  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
-  const store = memoryStore(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false }, staff: [{ id: staffId, name: "Coordinator", role: "admin", isActive: true }] }));
+test("the Super Admin saves the semester period and manages the tutor list; tutors don't get change history", async () => {
+  const adminId = "staff_12345678-1234-4234-8234-123456789abc", tutorId = "staff_22345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false }, staff: [{ id: adminId, name: "Super Admin", role: "admin", isActive: true }, { id: tutorId, name: "Tutor Example", role: "tutor", isActive: true }] }));
   const repo = createUnifiedRepository(store);
-  const actor = { name: "Coordinator", role: "admin", staffId };
-  const tutors = ["Sanaz", "Ali", "", "", "", "", "", "", "", "Zarina"];
-  const { etag } = await repo.workspace();
-  await assert.rejects(repo.saveScheduleSetup(actor, { etag, start: "2026-10-23", end: "2026-09-28", tutors }), /on or after the start date/);
-  await repo.saveScheduleSetup(actor, { etag, start: "2026-09-28", end: "2026-10-23", shift1Time: "09:30–12:30", shift2Time: "", tutors });
-  const workspace = await repo.workspace();
+  const admin = { name: "Super Admin", role: "admin", staffId: adminId };
+  let { etag } = await repo.workspace();
+  await assert.rejects(repo.saveScheduleSetup(admin, { etag, start: "2026-10-23", end: "2026-09-28" }), /on or after the start date/);
+  await repo.saveScheduleSetup(admin, { etag, start: "2026-09-28", end: "2026-10-23", shift1Time: "09:30–12:30", shift2Time: "" });
+  ({ etag } = await repo.workspace());
+  await assert.rejects(repo.saveTutors(admin, { etag, tutors: ["Sanaz", "sanaz "] }), /twice/);
+  await repo.saveTutors(admin, { etag, tutors: ["Sanaz", " Ali", "", "Zarina"] });
+  ({ etag } = await repo.workspace());
+  await repo.saveTutors(admin, { etag, tutors: ["Sanaz", "Zarina", "Nayeem"] });
+  const workspace = await repo.workspace(admin);
   assert.deepEqual(workspace.schedule, { start: "2026-09-28", end: "2026-10-23" });
   assert.deepEqual(workspace.shiftTimes, { first: "09:30–12:30", second: "12:00–15:00" });
-  assert.deepEqual(workspace.tutors, tutors);
-  assert.match(workspace.shiftLog[0].note, /^Semester setup: 2026-09-28 – 2026-10-23 · tutors: Sanaz, Ali, Zarina$/);
+  assert.deepEqual(workspace.tutors, ["Sanaz", "Zarina", "Nayeem"]);
+  const log = (await repo.activityLog()).entries.map((entry) => entry.note);
+  assert.deepEqual(log.slice(0, 2), ["Tutor list updated · added: Nayeem · removed: Ali", "Tutor list updated · added: Sanaz, Ali, Zarina"]);
+  assert.ok(workspace.shiftLog.length > 0);
+  const tutorView = await repo.workspace({ name: "Tutor Example", role: "tutor", staffId: tutorId });
+  assert.deepEqual([tutorView.shiftLog, tutorView.data.audit], [[], []]);
+  assert.deepEqual(tutorView.tutors, ["Sanaz", "Zarina", "Nayeem"]);
 });

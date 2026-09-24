@@ -5,6 +5,8 @@ import {
   StudentDetail,
   ShiftPage,
   StatisticsPage,
+  TutorListPage,
+  ChangeLogPage,
   Tutors,
   Handover,
   Reports,
@@ -37,6 +39,8 @@ export default function App() {
           <Route path="students/:studentId" element={<StudentDetail />} />
           <Route path="shifts" element={<ShiftPage />} />
           <Route path="statistics" element={<StatisticsPage />} />
+          <Route path="tutor-list" element={<TutorListPage />} />
+          <Route path="activity" element={<ChangeLogPage />} />
           <Route path="program-tutors" element={<Tutors />} />
           <Route path="handover" element={<Handover />} />
           <Route path="reports" element={<Reports />} />

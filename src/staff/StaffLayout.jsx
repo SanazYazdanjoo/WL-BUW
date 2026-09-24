@@ -104,7 +104,7 @@ export default function StaffLayout() {
         {session && <div className="staff-header-account">
           <span className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
             <strong>{session.name}</strong>
-            <small>{session.role === "admin" ? "Coordinator" : "Tutor"}</small>
+            <small>{session.role === "admin" ? "Super Admin" : "Tutor"}</small>
           </span>
           <button className="staff-signout" onClick={logout}>Sign out</button>
         </div>}
@@ -176,16 +176,18 @@ export default function StaffLayout() {
               ["students", "Students"],
               ["shifts", "Schedule"],
               ["handover", "Handover"],
-              ["statistics", "Statistics"],
               ["events", "Events"],
               ...(session.role === "admin"
                 ? [
+                    ["tutor-list", "Tutors"],
+                    ["statistics", "Statistics"],
+                    ["activity", "Change log"],
                     ["content", "Content"],
                     ["backup", "Backup"],
                   ]
                 : []),
             ].map(([path, title]) => (
-              <NavLink key={path} to={`/staff/${path}`} className={path === "content" ? "staff-nav-admin" : undefined}>
+              <NavLink key={path} to={`/staff/${path}`} className={path === "tutor-list" ? "staff-nav-admin" : undefined}>
                 {title}
               </NavLink>
             ))}
