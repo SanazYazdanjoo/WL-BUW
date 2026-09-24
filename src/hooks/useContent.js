@@ -57,7 +57,8 @@ export function useContent() {
       .then((bundle) => {
         const entries = Object.entries(samples).map(([kind, sample]) => {
           const source = bundle.sources?.[kind];
-          if (!["demo", "nextcloud"].includes(source))
+          // "stale" is the last workbook version the server could read; still prefer it over bundled samples.
+          if (!["demo", "nextcloud", "stale"].includes(source))
             return [
               kind,
               { source: "demo", data: validateContent(kind, sample) },

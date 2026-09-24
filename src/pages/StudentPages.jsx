@@ -180,8 +180,8 @@ export function CommunityPage() {
   const community = content.community.data;
   const supportResources = content["support-resources"].data.resources;
   const communityResources = content["community-resources"].data.resources;
-  const workbookResourcesPublished = content["support-resources"].source === "nextcloud" ||
-    content["community-resources"].source === "nextcloud";
+  const fromWorkbook = (kind) => ["nextcloud", "stale"].includes(content[kind].source);
+  const workbookResourcesPublished = fromWorkbook("support-resources") || fromWorkbook("community-resources");
   const legacyResources = workbookResourcesPublished ? [] : community.resources;
   const legacySharing = !workbookResourcesPublished
     ? community.sharingIsCaring

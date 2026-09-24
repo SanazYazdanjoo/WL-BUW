@@ -89,7 +89,7 @@ export function ContentManagementPage() {
       <h2>Connect your workbook</h2>
       <p>Upload <strong>Welcome-Lounge.xlsx</strong> to the configured Nextcloud app folder, then refresh.</p>
       <details className="staff-disclosure"><summary>Workbook requirements</summary><p>Use the operational workbook at the root of the app folder. The public content workbook, <strong>content-source/Welcome-Lounge-Content.xlsx</strong>, is a separate file.</p></details>
-    </section> : <p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : status.workbook === "invalid" ? "Welcome-Lounge.xlsx could not be read. Check the workbook and Nextcloud access." : "Welcome-Lounge.xlsx is unavailable. Check the configured Nextcloud app folder and access."}</p>}
+    </section> : <p>{status.workbook === "not-configured" ? "Unified workbook detection is disabled for this deployment." : status.workbook === "invalid" ? (status.error || "Welcome-Lounge.xlsx could not be read. Check the workbook and Nextcloud access.") : "Welcome-Lounge.xlsx is unavailable. Check the configured Nextcloud app folder and access."}</p>}
     {error && <p role="alert">{error}</p>}<button type="button" onClick={reload}>Refresh</button>
   </div>;
   const items = data.items;

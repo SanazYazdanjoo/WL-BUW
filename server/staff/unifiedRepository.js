@@ -458,6 +458,7 @@ export function createUnifiedRepository(store) {
       } catch (error) {
         if (error.status === 404 || error.status === 409) return { connected: true, workbook: "missing", fileName: store.paths.unifiedName };
         if (error.status === 503) return { connected: false, workbook: "unknown", fileName: store.paths.unifiedName };
+        if (error.status === 422) return { connected: true, workbook: "invalid", error: error.message, fileName: store.paths.unifiedName };
         return { connected: false, workbook: "invalid", fileName: store.paths.unifiedName };
       }
     },
