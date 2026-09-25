@@ -3310,15 +3310,6 @@ main:focus {
   white-space: normal;
 }
 
-.staff-student-table th:first-child {
-  width: 11rem;
-}
-
-.staff-student-table th:nth-child(n + 8):nth-child(-n + 10),
-.staff-student-table th:nth-child(12) {
-  width: 6.5rem;
-}
-
 .staff-student-table th:last-child,
 .staff-shift-table th:last-child {
   width: 6rem;
@@ -3328,8 +3319,8 @@ main:focus {
   width: 9.5rem;
 }
 
-/* Below very wide screens, each student row becomes a card with labelled fields. */
-@media (max-width: 1600px) {
+/* Below laptop width, each student row becomes a card with labelled fields. */
+@media (max-width: 1100px) {
   .staff-student-table,
   .staff-student-table tbody {
     display: block;
@@ -3520,3 +3511,103 @@ body:has(.staff)::before {
   min-height: 44px;
 }
 
+/* One line per student: columns take proportional shares; the save status gets a small fixed slot. */
+.staff-student-table .staff-col-status {
+  width: 6%;
+}
+
+.staff-student-table th {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  vertical-align: bottom;
+}
+
+.staff-student-table .staff-col-check,
+.staff-student-table td.staff-cell-check {
+  text-align: center;
+}
+
+@media (min-width: 1101px) {
+  .staff-student-table td {
+    white-space: nowrap;
+  }
+
+  .staff-student-table .staff-cell-input {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Mid-size screens: a slimmer sidebar leaves more room for the tables. */
+@media (min-width: 901px) and (max-width: 1500px) {
+  .staff-dashboard-shell {
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+  }
+
+  .staff-dashboard-shell > .staff-main {
+    padding-inline: 1.25rem;
+  }
+}
+
+.staff-student-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Today page: tutors on duty, top right of the page heading. */
+.staff-dashboard-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+
+.staff-on-duty {
+  min-width: min(100%, 20rem);
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--staff-accent);
+  border-radius: 10px;
+  background: white;
+}
+
+.staff-on-duty h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.staff-on-duty-slot {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0.55rem 0 0;
+}
+
+.staff-on-duty-label {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.staff-on-duty-label.is-s1::before,
+.staff-on-duty-label.is-s2::before {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  content: "";
+}
+
+.staff-on-duty-label.is-s1::before {
+  background: #2f5d62;
+}
+
+.staff-on-duty-label.is-s2::before {
+  background: #e8b923;
+}
+
+
+.staff-student-table th,
+.staff-student-table td {
+  padding-inline: 0.4rem;
+}

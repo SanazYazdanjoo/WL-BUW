@@ -175,7 +175,7 @@ export default function StaffLayout() {
             {[
               ["dashboard", "Today"],
               ["students", "Students"],
-              ["shifts", "Schedule"],
+              ["shifts", "Shifts"],
               ["handover", "Handover"],
               ["events", "Events"],
             ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}

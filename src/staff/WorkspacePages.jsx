@@ -35,49 +35,64 @@ function StudentExport({ workspace }) {
 }
 // Every student field is edited right in the table. Checkboxes save almost
 // immediately, text after a short pause; the server logs who changed what.
-const STUDENT_TEXT_COLUMNS = [
-  ["name", "Full name", 200],
-  ["matriculationNumber", "Matriculation no.", 100],
-  ["country", "Country", 200, "staff-country-options"],
-  ["studyProgram", "Study program", 300, "staff-program-options"],
-  ["phone", "Phone", 100],
-  ["email", "Email", 254],
-  ["address", "Address", 12000],
+// One line per student. Address is optional ("Show address"); checkboxes save
+// almost immediately, text after a short pause; the server logs who changed what.
+const STUDENT_COLUMNS = [
+  { field: "name", label: "Full name", max: 200, share: 12 },
+  { field: "matriculationNumber", label: "Matriculation no.", short: "Matric. no.", max: 100, share: 8 },
+  { field: "country", label: "Country", max: 200, list: "staff-country-options", share: 8 },
+  { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 11 },
+  { field: "phone", label: "Phone", max: 100, share: 9 },
+  { field: "email", label: "Email", max: 254, type: "email", share: 11 },
+  { field: "address", label: "Address", max: 12000, optional: true, share: 11 },
+  { field: "enrolled", label: "Enrolled", check: true, share: 7 },
+  { field: "accommodation", label: "Accommodation", short: "Accomm.", check: true, share: 8 },
+  { field: "accommodationContact", label: "Contact (if no accommodation)", short: "Contact", max: 1000, contact: true, share: 10 },
+  { field: "cityRegistration", label: "City registration appointment", short: "City reg.", check: true, share: 7 },
+  { field: "notes", label: "Note", max: 4000, share: 9 },
 ];
-const STUDENT_CHECK_COLUMNS = [["enrolled", "Enrolled"], ["receivedBackpack", "Welcome materials"], ["accommodation", "Accommodation"]];
+const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
-  ...Object.fromEntries(STUDENT_TEXT_COLUMNS.map(([field]) => [field, String(student[field] ?? "")])),
+  ...Object.fromEntries(STUDENT_COLUMNS.filter((column) => !column.check).map(({ field }) => [field, String(student[field] ?? "")])),
   // Keep stored values (null = unknown) so the server sees the right base on first change.
-  enrolled: student.enrolled ?? null,
-  receivedBackpack: student.receivedBackpack ?? null,
-  accommodation: student.accommodation ?? null,
-  accommodationContact: student.accommodationContact || "",
-  cityRegistration: student.cityRegistration ?? null,
-  notes: student.notes || "",
+  ...Object.fromEntries(STUDENT_COLUMNS.filter((column) => column.check).map(({ field }) => [field, student[field] ?? null])),
 });
 const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "");
 
-function StudentRow({ student, save }) {
+function StudentCells({ columns, draft, set, who, nameRef }) {
+  return columns.map(({ field, label, max, list, type, check, contact }) => check
+    ? <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => set(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>
+    : <td key={field} data-label={label}>
+      <input
+        ref={field === "name" ? nameRef : undefined}
+        className="staff-cell-input"
+        aria-label={`${label} · ${who}`}
+        placeholder={field === "name" && nameRef ? "+ New student" : contact && draft.accommodation !== true ? "Phone, email or address" : ""}
+        disabled={contact && draft.accommodation === true}
+        list={list}
+        type={type || "text"}
+        maxLength={max}
+        title={draft[field] || undefined}
+        value={draft[field]}
+        onChange={(e) => set(field, e.target.value)}
+      />
+    </td>);
+}
+
+function StudentRow({ student, save, columns }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
-  const { draft, setField } = autosave;
-  const who = draft.name || "student";
-  const text = ([field, label, maxLength, list]) => <td key={field} data-label={label} className={field === "name" ? "staff-cell-sticky" : undefined}><input className="staff-cell-input" aria-label={`${label} · ${who}`} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} title={draft[field] || undefined} value={draft[field]} onChange={(e) => setField(field, e.target.value)} /></td>;
-  const check = ([field, label]) => <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => setField(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>;
   return (
     <tr>
-      {STUDENT_TEXT_COLUMNS.map(text)}
-      {STUDENT_CHECK_COLUMNS.map(check)}
-      <td data-label="Contact (if no accommodation)"><input className="staff-cell-input" aria-label={`Contact (if no accommodation) · ${who}`} maxLength={1000} disabled={draft.accommodation === true} placeholder={draft.accommodation === true ? "" : "Phone, email or address"} title={draft.accommodationContact || undefined} value={draft.accommodationContact} onChange={(e) => setField("accommodationContact", e.target.value)} /></td>
-      {check(["cityRegistration", "City registration appointment"])}
-      <td data-label="Note"><input className="staff-cell-input staff-cell-note" aria-label={`Note · ${who}`} maxLength={4000} title={draft.notes || undefined} value={draft.notes} onChange={(e) => setField("notes", e.target.value)} /></td>
+      <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
       <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
     </tr>
   );
 }
+
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
-function NewStudentRow({ onCreate, columnCount }) {
-  const blank = () => ({ ...studentRowDraft({}), enrolled: false, receivedBackpack: false, accommodation: false, cityRegistration: false });
+function NewStudentRow({ onCreate, columns }) {
+  const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
   const nameRef = useRef(null);
@@ -95,20 +110,14 @@ function NewStudentRow({ onCreate, columnCount }) {
     if (result.ok) { setDraft(blank()); setState({ saving: false, error: "" }); nameRef.current?.focus(); }
     else setState({ saving: false, error: result.error || "The student could not be added." });
   }
-  const text = ([field, label, maxLength, list]) => <td key={field} data-label={label} className={field === "name" ? "staff-cell-sticky" : undefined}><input ref={field === "name" ? nameRef : undefined} className="staff-cell-input" aria-label={`New student · ${label}`} placeholder={field === "name" ? "+ New student" : ""} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} value={draft[field]} onChange={(e) => set(field, e.target.value)} /></td>;
-  const check = ([field, label]) => <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`New student · ${label}`} checked={draft[field]} onChange={(e) => set(field, e.target.checked)} /></td>;
   return (
     <tr
       className="staff-new-student-row"
       onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); create(); } if (event.key === "Escape") { setDraft(blank()); setState({ saving: false, error: "" }); } }}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
     >
-      {STUDENT_TEXT_COLUMNS.map(text)}
-      {STUDENT_CHECK_COLUMNS.map(check)}
-      <td data-label="Contact (if no accommodation)"><input className="staff-cell-input" aria-label="New student · Contact (if no accommodation)" maxLength={1000} disabled={draft.accommodation} value={draft.accommodationContact} onChange={(e) => set("accommodationContact", e.target.value)} /></td>
-      {check(["cityRegistration", "City registration appointment"])}
-      <td data-label="Note"><input className="staff-cell-input staff-cell-note" aria-label="New student · Note" maxLength={4000} value={draft.notes} onChange={(e) => set("notes", e.target.value)} /></td>
-      <td colSpan={columnCount - STUDENT_TEXT_COLUMNS.length - STUDENT_CHECK_COLUMNS.length - 3} className="staff-cell-status">
+      <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
+      <td className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
           {state.saving ? <span>Adding…</span> : state.error ? <span className="staff-autosave-error" role="alert">{state.error}</span> : touched ? <span>Press Enter to add</span> : null}
         </div>
@@ -116,8 +125,9 @@ function NewStudentRow({ onCreate, columnCount }) {
     </tr>
   );
 }
-function StudentTable({ students, save, programOptions, onCreate }) {
-  const columnCount = STUDENT_TEXT_COLUMNS.length + STUDENT_CHECK_COLUMNS.length + 4;
+
+function StudentTable({ students, save, programOptions, onCreate, showAddress }) {
+  const columns = visibleStudentColumns(showAddress);
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
@@ -126,17 +136,14 @@ function StudentTable({ students, save, programOptions, onCreate }) {
       <table aria-label="Student records" className="staff-student-table">
         <thead>
           <tr>
-            {STUDENT_TEXT_COLUMNS.map(([field, label]) => <th key={field} className={field === "name" ? "staff-cell-sticky" : undefined}>{label}</th>)}
-            {STUDENT_CHECK_COLUMNS.map(([field, label]) => <th key={field}>{label}</th>)}
-            <th>Contact (if no accommodation)</th>
-            <th>City registration appointment</th>
-            <th>Note</th>
-            <th><span className="sr-only">Save status</span></th>
+            {/* Column widths are proportional shares, so a row always fits on one line. */}
+            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / columns.reduce((sum, column) => sum + column.share, 0)) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
+            <th className="staff-col-status"><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
-          {students.map((s) => <StudentRow key={s.id} student={s} save={(patch, base) => save(s.id, patch, base)} />)}
-          {onCreate && <NewStudentRow onCreate={onCreate} columnCount={columnCount} />}
+          {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} save={(patch, base) => save(s.id, patch, base)} />)}
+          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} />}
         </tbody>
       </table>
     </div>
@@ -224,6 +231,7 @@ export function Dashboard() {
     <div className="staff-page staff-dashboard">
       <header className="staff-page-heading staff-dashboard-heading">
         <div><h1>Today</h1><p className="staff-page-meta">{dayLabel}</p></div>
+        <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
       </header>
           <nav className="staff-quick-actions" aria-label="Today’s actions">
             <Link to="/staff/students">Students <span aria-hidden="true">→</span></Link>
@@ -236,10 +244,6 @@ export function Dashboard() {
               : <span key={item.title}>Semester not set · Contact a coordinator</span>)}
           </aside>}
           <div className="staff-dashboard-grid">
-            <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
-              <div className="staff-section-header"><h2 id="today-shifts-heading">On duty</h2><Link to="/staff/shifts">Schedule</Link></div>
-              <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
-            </section>
             <section className="staff-dashboard-section" aria-labelledby="attention-heading">
               <div className="staff-section-header"><h2 id="attention-heading">Needs attention <span className="staff-count">{attentionStudents.length}</span></h2>{attentionStudents.length > 0 && <Link to="/staff/students?filter=attention">View all</Link>}</div>
               <AttentionList students={attentionStudents.slice(0, 5)} />
@@ -257,6 +261,8 @@ export function Students() {
   const { workspace, error, autosave, reload } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+  const [showAddress, setShowAddress] = useState(() => { try { return localStorage.getItem("wl-staff-show-address") === "1"; } catch { return false; } });
+  const toggleAddress = (value) => { setShowAddress(value); try { localStorage.setItem("wl-staff-show-address", value ? "1" : "0"); } catch { /* storage unavailable */ } };
   if (!workspace) return <State error={error} />;
   async function createStudent(fields) {
     try {
@@ -289,12 +295,14 @@ export function Students() {
             return next;
           });
         }} />Needs attention</label>
+        <label className="staff-filter"><input type="checkbox" checked={showAddress} onChange={(e) => toggleAddress(e.target.checked)} />Show address</label>
       </div>
       <StudentTable
         students={students}
         programOptions={studyProgramOptions(workspace)}
         save={(id, patch, base) => autosave("students/update", id, patch, base)}
         onCreate={workspace.unified ? createStudent : null}
+        showAddress={showAddress}
       />
       {workspace.unified && <StudentExport workspace={workspace} />}
     </div>
@@ -305,7 +313,6 @@ function StudentEditor({ student, save, programOptions }) {
     name: student.name || "",
     matriculationNumber: String(student.matriculationNumber || ""),
     enrolled: student.enrolled,
-    receivedBackpack: student.receivedBackpack,
     accommodation: student.accommodation ?? null,
     accommodationContact: student.accommodationContact || "",
     cityRegistration: student.cityRegistration ?? null,
@@ -335,7 +342,7 @@ function StudentEditor({ student, save, programOptions }) {
       <fieldset className="staff-fieldset">
         <legend>Arrival</legend>
         <div className="staff-form-grid">
-          {[["enrolled", "Enrolled"], ["receivedBackpack", "Welcome materials received"]].map(([field, label]) => (
+          {[["enrolled", "Enrolled"]].map(([field, label]) => (
             <label key={field}>
               {label}
               <select value={String(draft[field] ?? null)} onChange={(e) => setField(field, e.target.value === "null" ? null : e.target.value === "true", AUTOSAVE_TOGGLE_DELAY)}>
@@ -376,7 +383,6 @@ export function StudentDetail() {
     name: "Name",
     matriculationNumber: "Matriculation number",
     enrolled: "Enrollment",
-    receivedBackpack: "Welcome materials",
     accommodation: "Accommodation",
     accommodationContact: "Contact (if no accommodation)",
     cityRegistration: "City registration appointment",
@@ -426,15 +432,23 @@ const shiftDraft = (day) => ({
   note: day?.event || "",
 });
 
+// Top right of the Today page: who works in each shift today (or why the lounge is closed).
 function TodayShifts({ day, times }) {
-  if (!day) return <p className="staff-empty-state">No shifts scheduled.</p>;
-  return <>
-    {day.event && <p className="staff-shift-note">{day.event}</p>}
-    {SLOT_KEYS.map(([slot, n]) => <section className="staff-shift-row" key={slot}>
-      <p className="staff-shift-time">S{n} · {times[slot]}</p>
-      <p>{day[slot].filter(Boolean).join(", ") || "Nobody assigned"}</p>
-    </section>)}
-  </>;
+  const closed = day?.event && ![...day.first, ...day.second].some(Boolean);
+  return (
+    <aside className="staff-on-duty" aria-labelledby="on-duty-heading">
+      <div className="staff-section-header"><h2 id="on-duty-heading">On duty today</h2><Link to="/staff/shifts">Shifts</Link></div>
+      {!day ? <p className="staff-muted">Nobody is scheduled today.</p> : <>
+        {day.event && <p className="staff-shift-note">{day.event}</p>}
+        {!closed && SLOT_KEYS.map(([slot, n]) => (
+          <p key={slot} className="staff-on-duty-slot">
+            <span className={`staff-on-duty-label is-s${n}`}>S{n} · {times[slot]}</span>
+            <strong>{day[slot].filter(Boolean).join(", ") || "Nobody assigned"}</strong>
+          </p>
+        ))}
+      </>}
+    </aside>
+  );
 }
 
 // One day of the schedule; each cell autosaves and the server logs who changed what.
@@ -496,7 +510,7 @@ export function TutorListPage() {
   return (
     <div className="staff-page staff-tutor-list-page">
       <header className="staff-page-heading"><h1>Tutors <span className="staff-count">{cleaned.length}</span></h1></header>
-      <p className="staff-muted">This semester's tutors. They are suggested in the Schedule and listed in Statistics, and stored in the workbook's Tutors tab.</p>
+      <p className="staff-muted">This semester's tutors. They are suggested in Shifts and listed in Statistics, and stored in the workbook's Tutors tab.</p>
       {error && <p role="alert">{error}</p>}
       <form className="staff-panel staff-form" onSubmit={async (event) => { event.preventDefault(); if (!busy && !duplicate && await act("tutors/save", { tutors: cleaned })) setDraft(null); }}>
         <ol className="staff-tutor-rows">
@@ -621,7 +635,7 @@ export function ShiftPage() {
   const names = [...new Set([...tutorNames, ...(tutorNames.length ? [] : workspace.data.programTutors.map((tutor) => tutor.tutor))].filter((name) => name && name !== "?"))];
   return (
     <div className="staff-page staff-schedule-page">
-      <header className="staff-page-heading"><h1>Schedule</h1></header>
+      <header className="staff-page-heading"><h1>Shifts</h1></header>
       {error && <p role="alert">{error}</p>}
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
         {session.role === "admin" && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
@@ -662,7 +676,7 @@ export function StatisticsPage() {
     <div className="staff-page staff-statistics-page">
       <header className="staff-page-heading"><h1>Statistics</h1></header>
       {fair ? <p className="staff-fair-share"><strong>Fair share: {formatHours(Math.round(fair.perTutor * 10) / 10)} per tutor</strong> <span className="staff-muted">({fair.openDays} open days × 2 shifts × {fair.perShift} tutors = {formatHours(fair.totalHours)} ÷ {fair.tutorCount} tutors)</span></p>
-        : <p className="staff-muted">Set the first and last day in Schedule → Semester setup and add tutors to see the fair share per tutor.</p>}
+        : <p className="staff-muted">Set the first and last day in Shifts → Semester setup and add tutors to see the fair share per tutor.</p>}
       {unreadable.length > 0 && <p role="alert">Shift time “{unreadable.join("”, “")}” can’t be read as hours. Use a format like 10:00–13:00 in Semester setup.</p>}
       {rows.length === 0 ? <p className="staff-empty-state">No tutors or shifts yet. Add tutor names on the Tutors page.</p> : <>
         <section className="staff-panel staff-hours-chart" aria-labelledby="hours-chart-heading">
