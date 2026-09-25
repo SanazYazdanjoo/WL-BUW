@@ -3,6 +3,7 @@ import { Link, useParams, useOutletContext, useSearchParams } from "react-router
 import { useWorkspace } from "./useWorkspace";
 import { staffRequest } from "./service";
 import { PasswordInput } from "./PasswordInput";
+import { canManage, canManageLogins, roleLabel } from "./roles";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
@@ -244,8 +245,8 @@ export function Dashboard() {
   const addedToday = data.students.filter((student) => STUDENT_FILTERS.today.test(student, today));
   const dayLabel = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone: "Europe/Berlin" }).format(new Date(`${today}T12:00:00Z`));
   const setupItems = [
-    !data.semesterLabel && { title: "Set the semester", to: session?.role === "admin" ? "/staff/content" : null },
-    data.shifts.length === 0 && session?.role === "admin" && { title: "Add shifts", to: "/staff/shifts" },
+    !data.semesterLabel && { title: "Set the semester", to: canManage(session) ? "/staff/content" : null },
+    data.shifts.length === 0 && canManage(session) && { title: "Add shifts", to: "/staff/shifts" },
   ].filter(Boolean);
   const percent = (count) => (data.students.length ? `${Math.round((count / data.students.length) * 100)}% of all students` : "");
   return (
@@ -537,7 +538,7 @@ function ScheduleSetup({ workspace, busy, act }) {
 function StaffLogins({ session }) {
   const [staff, setStaff] = useState(null), [shared, setShared] = useState(null), [editing, setEditing] = useState(null), [form, setForm] = useState({ username: "", newPassword: "" });
   const [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
-  const load = useCallback(() => staffRequest("accounts").then((result) => { setStaff(result.staff); setShared(result.sharedTutor || { custom: false }); }).catch((e) => setError(e.message)), []);
+  const load = useCallback(() => staffRequest("accounts").then((result) => { setStaff(result.staff); setShared(result.sharedLogins || {}); }).catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
   async function run(action, body, done) {
     setBusy(true); setError(""); setMessage("");
@@ -549,31 +550,36 @@ function StaffLogins({ session }) {
   return (
     <section className="staff-panel staff-logins" aria-labelledby="logins-heading">
       <h2 id="logins-heading">Logins</h2>
-      <p className="staff-muted">Everyone can use the shared login (username “tutor”); change its password here. If someone with a personal login forgets their password, set a temporary one and tell them; they can change it on My account.</p>
+      <p className="staff-muted">Shared logins: “tutor”, “coordinator”, “admin” and “superadmin”; change their passwords here (Admins manage tutor and coordinator logins only). If someone with a personal login forgets their password, set a temporary one and tell them; they can change it on My account.</p>
       {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
       <ul className="staff-staff-list">
-        <li className="staff-staff-row staff-shared-login">
-          <div>
-            <strong>Shared tutor login</strong>
-            <p className="staff-muted">Username “tutor” · {shared?.custom ? `password set here${shared.updatedAt ? ` · changed ${staffDateTime(shared.updatedAt)}` : ""}` : "password from the server settings (Vercel)"}</p>
-            {editing === "shared" && (
-              <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/shared-tutor", { newPassword: form.newPassword }, "Shared tutor password changed. Tell the tutors the new password."); }}>
-                <label>New shared password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
-                <p className="staff-muted">From now on only this password works for “tutor”. Personal logins are not affected.</p>
-                <div className="button-row"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
-              </form>
-            )}
-          </div>
-          {editing !== "shared" && <div className="button-row">
-            <button type="button" disabled={busy} onClick={() => { setEditing("shared"); setForm({ username: "", newPassword: "" }); }}>Change shared password</button>
-            {shared?.custom && <button type="button" disabled={busy} onClick={() => { if (window.confirm("Use the password from the server settings (Vercel) for “tutor” again?")) run("account/shared-tutor", { useEnvironment: true }, "The shared tutor login uses the server setting again."); }}>Use Vercel value again</button>}
-          </div>}
-        </li>
+        {[["tutor", "Shared tutor login"], ["coordinator", "Coordinator login"], ["admin", "Admin login"], ["superadmin", "Super Admin login"]].filter(([login]) => shared?.[login]).map(([login, title]) => {
+          const state = shared[login];
+          return (
+            <li className="staff-staff-row staff-shared-login" key={login}>
+              <div>
+                <strong>{title}</strong>
+                <p className="staff-muted">Username “{login}” · {state.custom ? `password set here${state.updatedAt ? ` · changed ${staffDateTime(state.updatedAt)}` : ""}` : state.fromEnvironment ? "password from the server settings (Vercel)" : "no password yet — set one to enable this login"}</p>
+                {editing === `shared-${login}` && (
+                  <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/shared-login", { login, newPassword: form.newPassword }, `${title}: password changed.`); }}>
+                    <label>New password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
+                    <p className="staff-muted">From now on only this password works for “{login}”. Personal logins are not affected.</p>
+                    <div className="button-row"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
+                  </form>
+                )}
+              </div>
+              {editing !== `shared-${login}` && <div className="button-row">
+                <button type="button" disabled={busy} onClick={() => { setEditing(`shared-${login}`); setForm({ username: "", newPassword: "" }); }}>Change password</button>
+                {state.custom && state.fromEnvironment && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Use the password from the server settings (Vercel) for “${login}” again?`)) run("account/shared-login", { login, useEnvironment: true }, `${title} uses the server setting again.`); }}>Use Vercel value again</button>}
+              </div>}
+            </li>
+          );
+        })}
         {staff.map((person) => (
           <li className="staff-staff-row" key={person.id}>
             <div>
               <strong>{person.name}</strong>
-              <p className="staff-muted">{person.role === "admin" ? "Super Admin" : "Tutor"} · {person.username ? `personal login “${person.username}”${person.updatedAt ? ` · changed ${staffDateTime(person.updatedAt)}` : ""}` : "shared login"}</p>
+              <p className="staff-muted">{roleLabel(person.role)} · {person.username ? `personal login “${person.username}”${person.updatedAt ? ` · changed ${staffDateTime(person.updatedAt)}` : ""}` : "shared login"}</p>
               {editing === person.id && (
                 <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/set-password", { staffId: person.id, username: form.username, newPassword: form.newPassword }, `${person.name} can now sign in with “${person.username || form.username.trim().toLowerCase()}” and the new password.`); }}>
                   {!person.username && <label>Username<input required autoCapitalize="none" spellCheck={false} minLength={3} maxLength={40} pattern="[A-Za-z0-9._\-]{3,40}" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>}
@@ -582,7 +588,7 @@ function StaffLogins({ session }) {
                 </form>
               )}
             </div>
-            {editing !== person.id && <div className="button-row">
+            {editing !== person.id && person.manageable && <div className="button-row">
               <button type="button" disabled={busy} onClick={() => { setEditing(person.id); setForm({ username: "", newPassword: "" }); }}>{person.username ? "Reset password" : "Set up login"}</button>
               {person.username && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Remove ${person.name}'s personal login? They will use the shared login again.`)) run("account/reset", { staffId: person.id }, `${person.name} uses the shared login again.`); }}>Back to shared login</button>}
             </div>}
@@ -599,7 +605,7 @@ export function TutorListPage() {
   const { session } = useOutletContext();
   const { workspace, error, busy, act } = useWorkspace();
   const [draft, setDraft] = useState(null);
-  if (session.role !== "admin") return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin can manage the tutor list.</p></div>;
+  if (!canManage(session)) return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin or the Coordinator can manage the tutor list.</p></div>;
   if (!workspace) return <State error={error} />;
   const saved = workspace.tutors || [];
   const names = draft ?? (saved.length ? saved : [""]);
@@ -630,7 +636,7 @@ export function TutorListPage() {
         </div>
         <p className="staff-muted">Removing a tutor doesn't change shifts already in the schedule; their hours stay in Statistics under their name.</p>
       </form>
-      <StaffLogins session={session} />
+      {canManageLogins(session) && <StaffLogins session={session} />}
     </div>
   );
 }
@@ -663,7 +669,7 @@ export function AccountPage() {
     <div className="staff-page staff-account-page">
       <header className="staff-page-heading"><h1>My account</h1></header>
       <section className="staff-panel">
-        <p><strong>{session.name}</strong> · {session.role === "admin" ? "Super Admin" : "Tutor"}</p>
+        <p><strong>{session.name}</strong> · {roleLabel(session.role)}</p>
         {!account ? <p role="status">{error || "Loading…"}</p> : <p className="staff-muted">{account.personal ? `You sign in with your personal username “${account.username}”.` : "You are using the shared login. Set your own username and password below if you like; the shared login then can no longer be used for your name."}</p>}
       </section>
       {!session.staffId ? <p>Choose your name first, then come back here.</p> : account && (
@@ -688,12 +694,12 @@ export function ChangeLogPage() {
   const { session } = useOutletContext();
   const [log, setLog] = useState(null), [error, setError] = useState(""), [type, setType] = useState(""), [query, setQuery] = useState("");
   useEffect(() => {
-    if (session.role !== "admin") return undefined;
+    if (!canManage(session)) return undefined;
     let active = true;
     staffRequest("activity").then((result) => { if (active) setLog(result.entries); }).catch((e) => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [session.role]);
-  if (session.role !== "admin") return <div className="staff-page"><h1>Change log</h1><p>Only the Super Admin can see the change log.</p></div>;
+  }, [session]);
+  if (!canManage(session)) return <div className="staff-page"><h1>Change log</h1><p>Only the Super Admin or the Coordinator can see the change log.</p></div>;
   if (!log) return <State error={error} />;
   const needle = query.trim().toLowerCase();
   const entries = log.filter((entry) => (!type || entry.type === type) && (!needle || `${entry.actor} ${entry.note} ${entry.studentName}`.toLowerCase().includes(needle)));
@@ -738,7 +744,7 @@ export function ShiftPage() {
       <header className="staff-page-heading"><h1>Shifts</h1></header>
       {error && <p role="alert">{error}</p>}
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
-        {session.role === "admin" && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
+        {canManage(session) && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
         <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note.</p>
         <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
         <div className="table-scroll">
@@ -763,7 +769,7 @@ export function ShiftPage() {
 export function StatisticsPage() {
   const { session } = useOutletContext();
   const { workspace, error } = useWorkspace();
-  if (session.role !== "admin") return <div className="staff-page"><h1>Statistics</h1><p>Only the Super Admin can see statistics.</p></div>;
+  if (!canManage(session)) return <div className="staff-page"><h1>Statistics</h1><p>Only the Super Admin or the Coordinator can see statistics.</p></div>;
   if (!workspace) return <State error={error} />;
   const shiftTimes = workspace.shiftTimes || DEFAULT_SHIFT_TIMES;
   const rows = tutorStatistics({ shifts: workspace.data.shifts, shiftTimes, tutors: workspace.tutors, schedule: workspace.schedule, today: workspace.today });

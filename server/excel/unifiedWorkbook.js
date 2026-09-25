@@ -11,6 +11,8 @@ export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
 export const OPTIONAL_SHEETS = ["Events", "Tutors"];
 export const MAX_TUTORS = 100;
+// Staff tab Role column: stored key → label shown in Excel ("Super Admin" reads as "superadmin").
+export const STAFF_ROLE_LABELS = { tutor: "Tutor", coordinator: "Coordinator", admin: "Admin", superadmin: "Super Admin" };
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
@@ -222,12 +224,13 @@ export async function parseUnifiedWorkbook(bytes) {
     if (!row.values.some((v) => String(v ?? "").trim())) continue;
     const name = required(valueAt(row, tables.Staff, "Name"), `Staff row ${row.number} Name`, 200);
     const role = cellText(valueAt(row, tables.Staff, "Role")) || "Tutor";
-    if (!new Set(["Tutor", "Admin", "tutor", "admin"]).has(role)) throw new WorkbookError(`Staff row ${row.number}: Role must be Tutor or Admin.`);
+    const roleKey = key(role);
+    if (!Object.hasOwn(STAFF_ROLE_LABELS, roleKey)) throw new WorkbookError(`Staff row ${row.number}: Role must be Tutor, Coordinator, Admin or Super Admin.`);
     const id = cellText(valueAt(row, tables.Staff, "ID"));
     if (!/^staff_[0-9a-f-]{36}$/i.test(id)) throw new WorkbookError(`Staff row ${row.number}: enter a unique app-generated ID.`);
     if (staffIds.has(id)) throw new WorkbookError(`Staff row ${row.number}: duplicate ID.`);
     staffIds.add(id);
-    staff.push({ id, name, role: role.toLowerCase() === "admin" ? "admin" : "tutor", program: cellText(valueAt(row, tables.Staff, "Program")), email: cellText(valueAt(row, tables.Staff, "Email")), phone: cellText(valueAt(row, tables.Staff, "Phone")), telegram: cellText(valueAt(row, tables.Staff, "Telegram")), isActive: bool(valueAt(row, tables.Staff, "Active"), `Staff row ${row.number} Active`, false) });
+    staff.push({ id, name, role: roleKey, program: cellText(valueAt(row, tables.Staff, "Program")), email: cellText(valueAt(row, tables.Staff, "Email")), phone: cellText(valueAt(row, tables.Staff, "Phone")), telegram: cellText(valueAt(row, tables.Staff, "Telegram")), isActive: bool(valueAt(row, tables.Staff, "Active"), `Staff row ${row.number} Active`, false) });
   }
   const activity = [];
   const activityIds = new Set();
@@ -316,9 +319,9 @@ export function createUnifiedWorkbook(data = {}) {
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
   addSheet(workbook, "Activity", (data.activity || []).map((a) => [a.id, a.timestamp, a.type, a.studentId, a.actor, a.note]));
-  const staffSheet = addSheet(workbook, "Staff", (data.staff || []).map((s) => [s.id, s.name, s.role === "admin" ? "Admin" : "Tutor", s.program, s.email, s.phone, s.telegram, s.isActive]));
+  const staffSheet = addSheet(workbook, "Staff", (data.staff || []).map((s) => [s.id, s.name, STAFF_ROLE_LABELS[s.role] || "Tutor", s.program, s.email, s.phone, s.telegram, s.isActive]));
   for (let row = 4; row <= 1003; row++) {
-    staffSheet.getCell(row, 3).dataValidation = { type: "list", allowBlank: true, formulae: ['"Tutor,Admin"'] };
+    staffSheet.getCell(row, 3).dataValidation = { type: "list", allowBlank: true, formulae: ['"Tutor,Coordinator,Admin,Super Admin"'] };
     staffSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
   const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [s.date, ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));

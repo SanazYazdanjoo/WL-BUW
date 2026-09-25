@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
+import { assignableRoles, roleLabel } from "./roles";
 
 const sections = ["First Step", "Useful Info", "Student Support", "Community", "Help"];
 const emptyItem = () => ({ section: "First Step", order: 1, title: "", text: "", link: "", active: true });
@@ -152,7 +153,7 @@ export function ContentManagementPage() {
         <div className="staff-toolbar"><button type="button" disabled={Boolean(staffForm)} onClick={() => setStaffForm({ name: "", role: "tutor", program: "", email: "", phone: "", telegram: "", active: true })}>Add staff member</button></div>
         {staffForm && <form className="staff-form" onSubmit={(event) => { event.preventDefault(); save("staff/save", { staff: staffForm }, "Staff list saved."); }}>
           <label>Name<input autoFocus required value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} /></label>
-          <label>Role<select value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}><option value="tutor">Tutor</option><option value="admin">Admin</option></select></label>
+          <label>Role<select value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}>{assignableRoles(session).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}</select></label>
           <label>Program<input value={staffForm.program || ""} onChange={(e) => setStaffForm({ ...staffForm, program: e.target.value })} /></label>
           <label>Email<input type="email" value={staffForm.email || ""} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} /></label>
           <label>Phone<input value={staffForm.phone || ""} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} /></label>
@@ -160,7 +161,7 @@ export function ContentManagementPage() {
           <label className="checkbox-label"><input type="checkbox" checked={staffForm.active} onChange={(e) => setStaffForm({ ...staffForm, active: e.target.checked })} />Active</label>
           <div className="button-row"><button className="primary" disabled={busy || Boolean(form)}>Save staff member</button><button type="button" onClick={() => setStaffForm(null)}>Cancel</button></div>
         </form>}
-        <ul className="staff-staff-list">{data.staff.map((person) => <li className="staff-staff-row" key={person.id}><div><strong>{person.name}</strong><p className="staff-muted">{person.role}{person.program ? ` · ${person.program}` : ""}{!person.isActive ? " · Inactive" : ""} · {logins[person.id] ? `personal login “${logins[person.id]}”` : "shared login"}</p></div>{logins[person.id] && <button type="button" disabled={busy} onClick={() => resetLogin(person)}>Reset login</button>}<button type="button" disabled={Boolean(staffForm)} aria-label={`Edit ${person.name}`} onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button></li>)}</ul>
+        <ul className="staff-staff-list">{data.staff.map((person) => <li className="staff-staff-row" key={person.id}><div><strong>{person.name}</strong><p className="staff-muted">{roleLabel(person.role)}{person.program ? ` · ${person.program}` : ""}{!person.isActive ? " · Inactive" : ""} · {logins[person.id] ? `personal login “${logins[person.id]}”` : "shared login"}</p></div>{logins[person.id] && <button type="button" disabled={busy} onClick={() => resetLogin(person)}>Reset login</button>}{assignableRoles(session).includes(person.role) && <button type="button" disabled={Boolean(staffForm)} aria-label={`Edit ${person.name}`} onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button>}</li>)}</ul>
       </details>
       <details className="staff-panel staff-disclosure">
         <summary>Workbook</summary>

@@ -2,15 +2,19 @@
 import {
   cookie,
   encodeSession,
+  decodeSession,
   login,
   sessionFromRequest,
   requireActor,
   checkMutation,
   StaffError,
   verifyShared,
+  sharedCode,
+  sharedEnvironmentCodes,
+  rankOf,
 } from "./auth.js";
 import { createPrivateStore } from "./store.js";
-import { createAccountStore, normalizeUsername, verifyPassword } from "./accounts.js";
+import { createAccountStore, normalizeUsername, SHARED_LOGINS, verifyPassword } from "./accounts.js";
 import { createStaffRepository } from "./repository.js";
 import { createUnifiedRepository } from "./unifiedRepository.js";
 import { createUnifiedWorkbookTemplate } from "../excel/unifiedWorkbook.js";
@@ -61,10 +65,21 @@ export function staffMiddleware(
     const path = new URL(req.url, "http://localhost").pathname;
     if (!path.startsWith("/api/staff/")) return next();
     const accountStore = () => createAccountStore(createPrivateStore(env, fetchImpl));
-    const checkSharedTutor = async (password) => {
+    const checkShared = async (login, password) => {
       if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) return null;
-      const stored = await accountStore().sharedTutor();
+      const stored = await accountStore().shared(login);
       return stored ? verifyPassword(password, stored) : null;
+    };
+    const environmentCode = sharedEnvironmentCodes(env);
+    // Admins manage logins below their own role; the Super Admin manages all of them.
+    const mayManageLoginOf = (actor, role) => actor?.role === "superadmin" || rankOf(role) < rankOf(actor?.role);
+    // True when the password matches any shared login (as stored in the app, else from the environment).
+    const matchesSharedLogin = async (password) => {
+      for (const login of SHARED_LOGINS) {
+        const stored = await checkShared(login, password);
+        if (stored ?? (Boolean(environmentCode[login]) && verifyShared(password, environmentCode[login]))) return true;
+      }
+      return false;
     };
     // A personal login needs a matching account and an active staff record; its role comes from the staff list.
     const findPersonalAccount = async (username, password) => {
@@ -87,7 +102,13 @@ export function staffMiddleware(
     };
     try {
       if (action === "login" && req.method === "POST") {
-        const token = await login(req, await readBody(req), env, findPersonalAccount, checkSharedTutor);
+        let token = await login(req, await readBody(req), env, findPersonalAccount, checkShared);
+        const signedIn = decodeSession(token, env);
+        // The Super Admin is never asked "Who is working?": attach the one Super Admin staff entry.
+        if (signedIn?.role === "superadmin" && !signedIn.staffId && await hasUnifiedWorkbook()) {
+          const identity = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).superAdminIdentity();
+          token = encodeSession({ id: identity.id, name: identity.name, role: "superadmin", staffId: identity.id }, env);
+        }
         return send(200, { ok: true }, { "Set-Cookie": cookie(token, env) });
       }
       const actor = requireActor(sessionFromRequest(req, env));
@@ -105,7 +126,7 @@ export function staffMiddleware(
         events: ["read", "listEvents"],
         activity: ["admin", "activityLog"],
         account: ["read", "account"],
-        accounts: ["admin", "accounts"],
+        accounts: ["logins", "accounts"],
         config: ["admin", "getConfig"],
       };
       const writes = {
@@ -144,9 +165,11 @@ export function staffMiddleware(
           return send(200, { ok: true }, { "Set-Cookie": cookie("", env) });
         if (action === "actor/select") {
           const input = await readBody(req);
-          const roster = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).staffRoster();
-          const person = roster.staff.find((entry) => entry.id === input.staffId);
-          if (!person) throw new StaffError(400, "Choose an active staff member from the list.");
+          const repository = createUnifiedRepository(createPrivateStore(env, fetchImpl));
+          // Only names for the role you signed in with can be chosen.
+          const choice = (await repository.namesForRole(actor.role)).find((entry) => entry.id === input.staffId);
+          if (!choice) throw new StaffError(400, "Choose your name from the list.");
+          const person = choice.id.startsWith("new:") ? { id: await repository.ensureTutorStaff(choice.name), name: choice.name } : choice;
           if (await accountStore().byStaffId(person.id)) throw new StaffError(403, `${person.name} has a personal login. Sign in with it instead.`);
           const token = encodeSession({ id: person.id, name: person.name, role: actor.role, staffId: person.id }, env);
           return send(200, { ok: true, name: person.name }, { "Set-Cookie": cookie(token, env) });
@@ -157,7 +180,7 @@ export function staffMiddleware(
           const accounts = accountStore();
           const existing = await accounts.byStaffId(actor.staffId);
           const current = typeof input.currentPassword === "string" ? input.currentPassword : "";
-          const allowed = existing ? verifyPassword(current, existing) : Boolean((await checkSharedTutor(current)) ?? verifyShared(current, env.STAFF_ACCESS_CODE)) || verifyShared(current, env.STAFF_ADMIN_CODE);
+          const allowed = existing ? verifyPassword(current, existing) : await matchesSharedLogin(current);
           if (!allowed) throw new StaffError(401, "Your current password was not accepted.");
           if (input.newPassword !== input.confirmPassword) throw new StaffError(400, "The new passwords don't match.");
           const username = normalizeUsername(input.username);
@@ -165,36 +188,40 @@ export function staffMiddleware(
           await unifiedRepository.logStaffEvent(actor, `${actor.name} ${existing ? "changed their personal login" : "set up a personal login"} (username: ${username})`);
           return send(200, { ok: true, username });
         }
-        if (action === "account/shared-tutor") {
-          // Super Admin changes the shared "tutor" password (or returns to the environment value).
-          requireActor(actor, "admin");
+        if (action === "account/shared-login") {
+          // Super Admin changes a shared login's password (or returns to the environment value).
+          requireActor(actor, "logins");
           const input = await readBody(req);
+          if (!SHARED_LOGINS.includes(input.login)) throw new StaffError(400, "Choose a shared login.");
+          if (!mayManageLoginOf(actor, input.login)) throw new StaffError(403, "Only the Super Admin can change this login.");
           if (input.useEnvironment === true) {
-            await accountStore().clearSharedTutor();
-            await unifiedRepository.logStaffEvent(actor, "Shared tutor password reset to the server setting");
+            await accountStore().clearShared(input.login);
+            await unifiedRepository.logStaffEvent(actor, `Shared "${input.login}" password reset to the server setting`);
           } else {
-            await accountStore().setSharedTutor(input.newPassword);
-            await unifiedRepository.logStaffEvent(actor, "Changed the shared tutor password");
+            await accountStore().setShared(input.login, input.newPassword);
+            await unifiedRepository.logStaffEvent(actor, `Changed the shared "${input.login}" password`);
           }
           return send(200, { ok: true });
         }
         if (action === "account/reset") {
-          requireActor(actor, "admin");
+          requireActor(actor, "logins");
           const input = await readBody(req);
           const roster = await unifiedRepository.staffRoster();
           const person = roster.staff.find((entry) => entry.id === input.staffId);
           if (!person) throw new StaffError(404, "Staff member not found.");
+          if (!mayManageLoginOf(actor, person.role)) throw new StaffError(403, "Only the Super Admin can change this login.");
           await accountStore().remove(person.id);
           await unifiedRepository.logStaffEvent(actor, `Reset the personal login of ${person.name}; they use the shared login again`);
           return send(200, { ok: true });
         }
         if (action === "account/set-password") {
           // Super Admin sets a (temporary) password for a staff member's personal login.
-          requireActor(actor, "admin");
+          requireActor(actor, "logins");
           const input = await readBody(req);
           const roster = await unifiedRepository.staffRoster();
           const person = roster.staff.find((entry) => entry.id === input.staffId);
           if (!person) throw new StaffError(404, "Staff member not found.");
+          if (!mayManageLoginOf(actor, person.role)) throw new StaffError(403, "Only the Super Admin can change this login.");
           const accounts = accountStore();
           const existing = await accounts.byStaffId(person.id);
           const username = existing?.username || normalizeUsername(input.username);
@@ -283,10 +310,12 @@ export function staffMiddleware(
       if (req.method === "GET" && action === "roster") {
         requireActor(actor);
         if (await hasUnifiedWorkbook()) {
-          // Staff with a personal login sign in with it, so the shared login can't pick their name.
+          // Names for your role only; staff with a personal login sign in with it instead.
           const roster = await unifiedRepository.staffRoster();
           const personal = new Set((await accountStore().load()).accounts.map((account) => account.staffId));
-          return send(200, { ...roster, staff: roster.staff.filter((person) => !personal.has(person.id) || person.id === actor.staffId) });
+          const own = roster.staff.filter((person) => person.id === actor.staffId);
+          const names = actor.role === "superadmin" ? own : (await unifiedRepository.namesForRole(actor.role)).filter((person) => !personal.has(person.id) || person.id === actor.staffId);
+          return send(200, { ...roster, staff: [...own, ...names.filter((person) => person.id !== actor.staffId)] });
         }
         return send(200, { staff: [], etag: null });
       }
@@ -302,8 +331,9 @@ export function staffMiddleware(
         const accounts = (await accountStore().load()).accounts.map(({ staffId, username, updatedAt }) => ({ staffId, username, updatedAt }));
         const byStaff = new Map(accounts.map((account) => [account.staffId, account]));
         const roster = await unifiedRepository.staffRoster();
-        const shared = await accountStore().sharedTutor();
-        return send(200, { accounts, sharedTutor: { custom: Boolean(shared), updatedAt: shared?.updatedAt || "" }, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
+        const { sharedLogins } = await accountStore().load();
+        const shared = Object.fromEntries(SHARED_LOGINS.filter((login) => mayManageLoginOf(actor, login)).map((login) => [login, { custom: Boolean(sharedLogins[login]), updatedAt: sharedLogins[login]?.updatedAt || "", fromEnvironment: Boolean(sharedCode(environmentCode[login])) }]));
+        return send(200, { accounts, sharedLogins: shared, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, manageable: mayManageLoginOf(actor, person.role), username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
       }
       if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {

@@ -4,7 +4,7 @@ import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
 import { CONTENT_KINDS } from "../../shared/contentKinds.js";
-import { StaffError } from "./auth.js";
+import { ROLE_RANK, rankOf, StaffError } from "./auth.js";
 import { shiftSummary } from "../excel/masterExcel.js";
 import { exportStudentsForDay } from "../excel/studentExport.js";
 import { safeLink } from "../../shared/content.js";
@@ -256,9 +256,9 @@ export function createUnifiedRepository(store) {
     return { version: 1, semesterLabel: data.semesterLabel, students: data.students, programTutors, shifts: data.shifts, checkins: data.checkins, handover: data.handover, audit: data.audit, lastImported: data.lastImported };
   }
   return {
-    async workspace(actor = { role: "admin" }) {
+    async workspace(actor = { role: "superadmin" }) {
       const file = await current();
-      const admin = actor.role === "admin";
+      const admin = rankOf(actor.role) >= ROLE_RANK.coordinator;
       const shiftLog = file.parsed.data.activity.filter((item) => item.type === "Shift Update").sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 30);
       return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, schedule: file.parsed.data.schedule, tutors: file.parsed.data.tutors, shiftLog: admin ? shiftLog : [], unified: true, ...(admin ? {} : { data: { ...workspaceData(file.parsed.data), audit: [] } }) };
     },
@@ -425,14 +425,54 @@ export function createUnifiedRepository(store) {
       const file = await current();
       return { staff: file.parsed.data.staff.filter((person) => person.isActive), etag: file.etag };
     },
+    // Names offered after a shared login: tutors come from the Tutors list (a staff entry is
+    // created on first pick, id "new:<name>"); coordinators and admins from the staff list.
+    async namesForRole(role) {
+      const file = await current();
+      const staff = file.parsed.data.staff;
+      if (role === "tutor" && (file.parsed.data.tutors || []).length) {
+        return file.parsed.data.tutors.map((name) => {
+          const person = staff.find((entry) => entry.name.toLocaleLowerCase("en") === name.toLocaleLowerCase("en"));
+          return person ? { id: person.id, name: person.name, program: person.program || "" } : { id: `new:${name}`, name, program: "" };
+        });
+      }
+      return staff.filter((person) => person.isActive && person.role === role).map(({ id, name, program }) => ({ id, name, program: program || "" }));
+    },
+    async ensureTutorStaff(name) {
+      let id = "";
+      await mutate({ name, role: "tutor" }, {}, "tutor identity", (data) => {
+        if (!(data.tutors || []).some((entry) => entry.toLocaleLowerCase("en") === name.toLocaleLowerCase("en"))) throw new StaffError(400, "Choose a name from the tutor list.");
+        const person = data.staff.find((entry) => entry.name.toLocaleLowerCase("en") === name.toLocaleLowerCase("en"));
+        if (person?.isActive) { id = person.id; return false; }
+        if (person) { person.isActive = true; id = person.id; }
+        else { id = idFor("staff"); data.staff.push({ id, name, role: "tutor", program: "", email: "", phone: "", telegram: "", isActive: true }); }
+        appendActivity(data, { name }, "Other", { note: `${name} signed in for the first time as a tutor` });
+      }, { safeRetry: true, allowUnassigned: true });
+      return id;
+    },
+    // There is exactly one Super Admin; signing in as "superadmin" uses that staff entry (created if missing).
+    async superAdminIdentity() {
+      let identity = null;
+      await mutate({ name: "Super Admin", role: "superadmin" }, {}, "super admin identity", (data) => {
+        const person = data.staff.find((entry) => entry.role === "superadmin");
+        if (person?.isActive) { identity = { id: person.id, name: person.name }; return false; }
+        if (person) { person.isActive = true; identity = { id: person.id, name: person.name }; }
+        else { identity = { id: idFor("staff"), name: "Super Admin" }; data.staff.push({ ...identity, role: "superadmin", program: "", email: "", phone: "", telegram: "", isActive: true }); }
+        appendActivity(data, identity, "Other", { note: "Super Admin staff entry created" });
+      }, { safeRetry: true, allowUnassigned: true });
+      return identity;
+    },
     async saveStaff(actor, input) {
       const item = input.staff || {};
       const name = text(item.name || "", 200).trim();
       if (!name) throw new StaffError(400, "Enter a staff member name.");
-      if (!new Set(["tutor", "admin"]).has(item.role)) throw new StaffError(400, "Choose Tutor or Admin.");
+      if (!Object.hasOwn(ROLE_RANK, item.role)) throw new StaffError(400, "Choose Tutor, Coordinator, Admin or Super Admin.");
+      if (actor.role !== "superadmin" && rankOf(item.role) > rankOf(actor.role)) throw new StaffError(403, "You can't give someone a role above your own.");
       return mutate(actor, input, "staff list updated", (data) => {
         const currentStaff = item.id ? data.staff.find((person) => person.id === item.id) : null;
         if (item.id && !currentStaff) throw new StaffError(404, "Staff member not found.");
+        if (currentStaff && actor.role !== "superadmin" && rankOf(currentStaff.role) > rankOf(actor.role)) throw new StaffError(403, "You can't change someone whose role is above your own.");
+        if (item.role === "superadmin" && data.staff.some((person) => person.role === "superadmin" && person.id !== currentStaff?.id)) throw new StaffError(409, "There can only be one Super Admin.");
         const next = { id: currentStaff?.id || idFor("staff"), name, role: item.role, program: text(item.program || "", 300), email: text(item.email || "", 254), phone: text(item.phone || "", 100), telegram: text(item.telegram || "", 200), isActive: item.active === true };
         if (currentStaff) Object.assign(currentStaff, next); else data.staff.push(next);
         data.programTutors = data.staff.filter((person) => person.program).map(({ program, name: tutor, email, phone, telegram }) => ({ program, tutor, email, phone, telegram }));

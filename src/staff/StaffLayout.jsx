@@ -2,6 +2,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { staffRequest } from "./service";
 import { PasswordInput } from "./PasswordInput";
+import { canManage, roleLabel } from "./roles";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
     [loading, setLoading] = useState(true),
@@ -103,9 +104,9 @@ export default function StaffLayout() {
         </Link>
         <a className="staff-student-site" href="/" target="_blank" rel="noreferrer">Student site ↗</a>
         {session && <div className="staff-header-account">
-          <Link to="/staff/account" className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role === "admin" ? "Super Admin" : "Tutor"}. My account`}>
+          <Link to="/staff/account" className="staff-identity" aria-label={`Signed in as ${session.name}, ${roleLabel(session.role)}. My account`}>
             <strong>{session.name}</strong>
-            <small>{session.role === "admin" ? "Super Admin" : "Tutor"} · My account</small>
+            <small>{roleLabel(session.role)} · My account</small>
           </Link>
           <button className="staff-signout" onClick={logout}>Sign out</button>
         </div>}
@@ -139,14 +140,14 @@ export default function StaffLayout() {
             <main id="staff-main" className="staff-main staff-login-main">
               <section className="staff-login-panel" aria-labelledby="staff-actor-title">
                 <h1 id="staff-actor-title">Who is working?</h1>
-                <p>Your name will appear on updates and handovers.</p>
+                <p>Choose your name from the {session.role === "tutor" ? "tutor" : roleLabel(session.role).toLowerCase()} list. It will appear on your updates and handovers.</p>
                 <label>Your name<select value="" disabled={actorBusy} onChange={chooseStaff}>
-                  <option value="">Choose a staff member</option>
+                  <option value="">{session.role === "tutor" ? "Choose your name" : `Choose a ${roleLabel(session.role).toLowerCase()}`}</option>
                   {roster.staff.map((person) => <option value={person.id} key={person.id}>{person.name}{person.program ? ` · ${person.program}` : ""}</option>)}
                 </select></label>
               </section>
             </main>
-          ) : roster?.etag && roster.staff.length === 0 && (session.role === "admin" || !session.staffId) ? (
+          ) : roster?.etag && roster.staff.length === 0 && (canManage(session) || !session.staffId) ? (
             <main id="staff-main" className={`staff-main${location.pathname === "/staff/content" ? "" : " staff-login-main"}`}>
               {location.pathname === "/staff/content" ? (
                 <>
@@ -158,9 +159,9 @@ export default function StaffLayout() {
                 </>
               ) : (
                 <section className="staff-login-panel" aria-labelledby="staff-setup-title">
-                  <h1 id="staff-setup-title">Add the staff list</h1>
-                  <p>Add your team in Content to start recording staff updates.</p>
-                  {session.role === "admin" ? <Link to="/staff/content">Open Content setup</Link> : <p>Ask a coordinator to add the team.</p>}
+                  <h1 id="staff-setup-title">{session.role === "tutor" ? "No tutors yet" : "Add the staff list"}</h1>
+                  <p>{session.role === "tutor" ? "The tutor list is empty. Ask the Super Admin or a coordinator to add your name on the Tutors page." : `No ${roleLabel(session.role).toLowerCase()} is in the staff list yet. Add them in Content → Staff.`}</p>
+                  {canManage(session) ? <Link to="/staff/content">Open Content setup</Link> : <p>Ask a coordinator to add the team.</p>}
                 </section>
               )}
             </main>
@@ -175,8 +176,8 @@ export default function StaffLayout() {
               ["handover", "Handover"],
               ["events", "Events"],
             ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
-            {session.role === "admin" && <>
-              <p className="staff-sidebar-label">Super Admin</p>
+            {canManage(session) && <>
+              <p className="staff-sidebar-label">{roleLabel(session.role)}</p>
               {[
                 ["tutor-list", "Tutors"],
                 ["statistics", "Statistics"],

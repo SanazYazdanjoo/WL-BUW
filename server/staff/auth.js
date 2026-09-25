@@ -4,12 +4,18 @@
   timingSafeEqual,
   randomUUID,
 } from "node:crypto";
+// Staff roles from least to most access. Nobody may grant or edit a role above their own.
+export const ROLE_RANK = { tutor: 0, coordinator: 1, admin: 2, superadmin: 3 };
+export const rankOf = (role) => ROLE_RANK[role] ?? -1;
 export class StaffError extends Error {
   constructor(status, message) {
     super(message);
     this.status = status;
   }
 }
+// Starting passwords from the server settings. Admin and Coordinator have none by default:
+// the Super Admin sets them in the app. STAFF_ADMIN_CODE is the Super Admin's starting password.
+export const sharedEnvironmentCodes = (env) => ({ tutor: env.STAFF_ACCESS_CODE, coordinator: env.STAFF_COORDINATOR_CODE, admin: env.STAFF_MANAGER_CODE, superadmin: env.STAFF_ADMIN_CODE });
 // Spaces around a pasted environment value are never part of the password.
 export const sharedCode = (value) => (typeof value === "string" ? value.trim() : "");
 export const verifyShared = (a, b) => same(a, sharedCode(b));
@@ -51,7 +57,7 @@ export function decodeSession(token, env, now = Date.now()) {
       return null;
     const a = JSON.parse(Buffer.from(payload, "base64url").toString());
     if (
-      !["admin", "tutor"].includes(a.role) ||
+      !Object.hasOwn(ROLE_RANK, a.role) ||
       typeof a.id !== "string" ||
       typeof a.name !== "string" ||
       typeof a.csrf !== "string" ||
@@ -78,8 +84,13 @@ export function cookie(token, env) {
 }
 export function requireActor(actor, permission = "read") {
   if (!actor) throw new StaffError(401, "Sign in to the staff area.");
-  if (permission === "admin" && actor.role !== "admin")
+  // "admin" = manage the workspace (Coordinator and up); "logins" = Admin and up; "superadmin" = Super Admin only.
+  if (permission === "admin" && rankOf(actor.role) < ROLE_RANK.coordinator)
     throw new StaffError(403, "This action requires coordinator access.");
+  if (permission === "logins" && rankOf(actor.role) < ROLE_RANK.admin)
+    throw new StaffError(403, "Only the Super Admin or an Admin can manage logins.");
+  if (permission === "superadmin" && actor.role !== "superadmin")
+    throw new StaffError(403, "Only the Super Admin can do this.");
   return actor;
 }
 export function checkOrigin(req) {
@@ -103,9 +114,9 @@ export function checkMutation(req, actor) {
 const attempts = new Map();
 // Personal logins are checked first (findAccount); otherwise the shared access
 // codes apply, followed by choosing a name from the staff list.
-// checkSharedTutor(password) returns true/false when the Super Admin has set a
-// shared tutor password in the app, or null to fall back to the environment value.
-export async function login(req, body, env, findAccount = async () => null, checkSharedTutor = async () => null) {
+// checkShared(login, password) returns true/false when the Super Admin has set that
+// shared login's password in the app, or null to fall back to the environment value.
+export async function login(req, body, env, findAccount = async () => null, checkShared = async () => null) {
   if (!staffConfigured(env))
     throw new StaffError(
       503,
@@ -133,14 +144,15 @@ export async function login(req, body, env, findAccount = async () => null, chec
     attempts.delete(key);
     return encodeSession({ id: randomUUID(), name: personal.name, role: personal.role, staffId: personal.staffId, personal: true }, env);
   }
-  // Shared logins: username "tutor" with the tutor password, "admin" with the admin password.
+  // Shared logins: "tutor", "coordinator", "admin" and "superadmin", each with its own password.
   const sharedUser = name.toLowerCase();
-  const tutorOk = async () => (await checkSharedTutor(password)) ?? same(password, sharedCode(env.STAFF_ACCESS_CODE));
-  const role = sharedUser === "admin" && same(password, sharedCode(env.STAFF_ADMIN_CODE))
-    ? "admin"
-    : sharedUser === "tutor" && await tutorOk()
-      ? "tutor"
-      : null;
+  const environmentCode = sharedEnvironmentCodes(env)[sharedUser];
+  let role = null;
+  if (Object.hasOwn(ROLE_RANK, sharedUser)) {
+    const fallback = sharedCode(environmentCode);
+    const ok = (await checkShared(sharedUser, password)) ?? (Boolean(fallback) && same(password, fallback));
+    if (ok) role = sharedUser;
+  }
   if (!role) throw new StaffError(401, "The username or password was not accepted.");
   attempts.delete(key);
   return encodeSession({ id: randomUUID(), name, role }, env);

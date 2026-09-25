@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAccountStore, hashPassword, verifyPassword } from "../server/staff/accounts.js";
-import { decodeSession, login } from "../server/staff/auth.js";
+import { decodeSession, login, requireActor } from "../server/staff/auth.js";
 
 const env = { STAFF_PILOT_ENABLED: "true", STAFF_ACCESS_CODE: "shared-tutor-password-123", STAFF_ADMIN_CODE: "shared-admin-password-456", STAFF_SESSION_SECRET: "synthetic-session-secret-32-characters-long" };
 const request = () => ({ headers: { origin: "https://wl.example", host: "wl.example" }, socket: { remoteAddress: `10.0.0.${Math.floor(Math.random() * 250)}` } });
@@ -54,26 +54,46 @@ test("sign-in accepts a personal login or the shared password, never a mix", asy
   await assert.rejects(login(request(), { username: "tutor", password: "wrong-password" }, env, findAccount), /not accepted/);
   await assert.rejects(login(request(), { username: "someone", password: env.STAFF_ACCESS_CODE }, env, findAccount), /not accepted/);
   await assert.rejects(login(request(), { username: "tutor", password: env.STAFF_ADMIN_CODE }, env, findAccount), /not accepted/);
-  assert.equal(decodeSession(await login(request(), { username: "Admin", password: env.STAFF_ADMIN_CODE }, env, findAccount), env).role, "admin");
+  assert.equal(decodeSession(await login(request(), { username: "SuperAdmin", password: env.STAFF_ADMIN_CODE }, env, findAccount), env).role, "superadmin");
+  await assert.rejects(login(request(), { username: "admin", password: env.STAFF_ADMIN_CODE }, env, findAccount), /not accepted/);
   // A value pasted into Vercel with stray whitespace still works.
   const shortEnv = { ...env, STAFF_ACCESS_CODE: " tutor1234\n" };
   assert.equal(decodeSession(await login(request(), { username: "tutor", password: "tutor1234" }, shortEnv, findAccount), shortEnv).role, "tutor");
 });
 
-test("the Super Admin's shared tutor password replaces the server value and keeps personal logins", async () => {
+test("the Super Admin sets shared tutor, coordinator and admin passwords; coordinators cannot manage logins", async () => {
   const store = memoryStore();
   const accounts = createAccountStore(store);
   await accounts.save("staff_a", "sanaz", "password-one");
-  await accounts.setSharedTutor("tutor1234");
+  await accounts.setShared("tutor", "tutor1234");
+  await accounts.setShared("superadmin", "admin@WL@BUW");
+  await accounts.setShared("admin", "Admin-password-1");
+  await accounts.setShared("coordinator", "Coordinator123!@#");
   assert.equal((await accounts.load()).accounts.length, 1);
-  assert.ok(!JSON.stringify(store.files.get("staff-data/accounts.json").value).includes("tutor1234"));
-  const checkSharedTutor = async (password) => { const stored = await accounts.sharedTutor(); return stored ? verifyPassword(password, stored) : null; };
-  assert.equal(decodeSession(await login(request(), { username: "tutor", password: "tutor1234" }, env, undefined, checkSharedTutor), env).role, "tutor");
-  await assert.rejects(login(request(), { username: "tutor", password: env.STAFF_ACCESS_CODE }, env, undefined, checkSharedTutor), /not accepted/);
+  const raw = JSON.stringify(store.files.get("staff-data/accounts.json").value);
+  assert.ok(!["tutor1234", "admin@WL@BUW", "Coordinator123!@#"].some((password) => raw.includes(password)));
+  const checkShared = async (login, password) => { const stored = await accounts.shared(login); return stored ? verifyPassword(password, stored) : null; };
+  const signIn = async (username, password) => decodeSession(await login(request(), { username, password }, env, undefined, checkShared), env);
+  assert.equal((await signIn("tutor", "tutor1234")).role, "tutor");
+  assert.equal((await signIn("superadmin", "admin@WL@BUW")).role, "superadmin");
+  assert.equal((await signIn("admin", "Admin-password-1")).role, "admin");
+  await assert.rejects(signIn("admin", "admin@WL@BUW"), /not accepted/);
+  assert.equal((await signIn("coordinator", "Coordinator123!@#")).role, "coordinator");
+  await assert.rejects(signIn("tutor", env.STAFF_ACCESS_CODE), /not accepted/);
+  await assert.rejects(signIn("admin", env.STAFF_ADMIN_CODE), /not accepted/);
+  await assert.rejects(signIn("coordinator", "tutor1234"), /not accepted/);
   await accounts.save("staff_b", "ali", "password-two");
-  assert.ok(await accounts.sharedTutor(), "adding a personal login keeps the shared password");
-  await accounts.clearSharedTutor();
-  assert.equal(await accounts.sharedTutor(), null);
-  assert.equal(decodeSession(await login(request(), { username: "tutor", password: env.STAFF_ACCESS_CODE }, env, undefined, checkSharedTutor), env).role, "tutor");
-  await assert.rejects(accounts.setSharedTutor("short"), /at least 8/);
+  assert.ok(await accounts.shared("tutor"), "adding a personal login keeps shared passwords");
+  await accounts.clearShared("tutor");
+  assert.equal((await signIn("tutor", env.STAFF_ACCESS_CODE)).role, "tutor");
+  await assert.rejects(accounts.setShared("tutor", "short"), /at least 8/);
+  await assert.rejects(accounts.setShared("guest", "long-enough"), /shared login/);
+
+  const coordinator = { role: "coordinator" }, admin = { role: "admin" }, superadmin = { role: "superadmin" };
+  assert.equal(requireActor(coordinator, "admin"), coordinator);
+  assert.throws(() => requireActor(coordinator, "logins"), /manage logins/);
+  assert.equal(requireActor(admin, "logins"), admin);
+  assert.throws(() => requireActor(admin, "superadmin"), /Only the Super Admin/);
+  assert.equal(requireActor(superadmin, "superadmin"), superadmin);
+  assert.throws(() => requireActor({ role: "tutor" }, "admin"), /coordinator access/);
 });

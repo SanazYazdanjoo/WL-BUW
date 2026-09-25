@@ -304,3 +304,48 @@ test("a quick-add row creates a student with every column filled in", async () =
   await assert.rejects(repo.addStudent(actor, { name: "Second", enrolled: "maybe" }), /Yes, No or Unknown/);
   assert.equal([...store.files.keys()].some((path) => path.startsWith("backups/manual/")), false);
 });
+
+test("nobody can give or edit a staff role above their own", async () => {
+  const coordId = "staff_12345678-1234-4234-8234-123456789abc", adminId = "staff_22345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    staff: [{ id: coordId, name: "Coordinator Example", role: "coordinator", isActive: true }, { id: adminId, name: "Admin Example", role: "admin", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const coordinator = { name: "Coordinator Example", role: "coordinator", staffId: coordId };
+  let { etag } = await repo.workspace();
+  await assert.rejects(repo.saveStaff(coordinator, { etag, staff: { id: coordId, name: "Coordinator Example", role: "superadmin", active: true } }), /above your own/);
+  await assert.rejects(repo.saveStaff(coordinator, { etag, staff: { id: adminId, name: "Admin Example", role: "tutor", active: true } }), /above your own/);
+  await repo.saveStaff(coordinator, { etag, staff: { name: "New Tutor", role: "tutor", active: true } });
+  ({ etag } = await repo.workspace());
+  await repo.saveStaff({ name: "Owner", role: "superadmin" }, { etag, staff: { id: adminId, name: "Admin Example", role: "superadmin", active: true } });
+  const parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.deepEqual(parsed.data.staff.map((person) => [person.name, person.role]), [["Coordinator Example", "coordinator"], ["Admin Example", "superadmin"], ["New Tutor", "tutor"]]);
+});
+
+test("'Who is working?' offers only names for the signed-in role; one Super Admin", async () => {
+  const coordId = "staff_12345678-1234-4234-8234-123456789abc", adminId = "staff_22345678-1234-4234-8234-123456789abc", aliId = "staff_32345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    tutors: ["Sanaz", "Ali"],
+    staff: [
+      { id: coordId, name: "Cora", role: "coordinator", isActive: true },
+      { id: adminId, name: "Adam", role: "admin", isActive: true },
+      { id: aliId, name: "Ali", role: "tutor", isActive: true },
+    ],
+  }));
+  const repo = createUnifiedRepository(store);
+  assert.deepEqual((await repo.namesForRole("tutor")).map(({ id, name }) => [id, name]), [["new:Sanaz", "Sanaz"], [aliId, "Ali"]]);
+  assert.deepEqual((await repo.namesForRole("coordinator")).map(({ name }) => name), ["Cora"]);
+  assert.deepEqual((await repo.namesForRole("admin")).map(({ name }) => name), ["Adam"]);
+  const sanazId = await repo.ensureTutorStaff("Sanaz");
+  assert.equal(await repo.ensureTutorStaff("sanaz"), sanazId);
+  await assert.rejects(repo.ensureTutorStaff("Stranger"), /tutor list/);
+  assert.deepEqual((await repo.namesForRole("tutor")).map(({ id }) => id), [sanazId, aliId]);
+
+  const owner = await repo.superAdminIdentity();
+  assert.equal(owner.name, "Super Admin");
+  assert.equal((await repo.superAdminIdentity()).id, owner.id);
+  const { etag } = await repo.workspace();
+  await assert.rejects(repo.saveStaff({ name: "Owner", role: "superadmin" }, { etag, staff: { id: adminId, name: "Adam", role: "superadmin", active: true } }), /only be one Super Admin/);
+});

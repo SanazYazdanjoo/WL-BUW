@@ -5,7 +5,9 @@ import { StaffError } from "./auth.js";
 // switch to their own username and password. Passwords are stored salted and
 // hashed (scrypt) in a private JSON file, never in the Excel workbook.
 const KEY_LENGTH = 64;
-const RESERVED = new Set(["admin", "tutor", "staff", "superadmin"]);
+const RESERVED = new Set(["admin", "tutor", "coordinator", "staff", "superadmin"]);
+// Shared logins everyone in a role can use; the Super Admin can set their passwords in the app.
+export const SHARED_LOGINS = ["tutor", "coordinator", "admin", "superadmin"];
 
 export const normalizeUsername = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
@@ -35,16 +37,18 @@ export function createAccountStore(store) {
   async function load() {
     const file = await store.readJson(path);
     const accounts = Array.isArray(file.value?.accounts) ? file.value.accounts : [];
-    const sharedTutor = file.value?.sharedTutor?.hash ? file.value.sharedTutor : null;
-    return { accounts, sharedTutor, etag: file.etag };
+    // Older files kept only the tutor password as "sharedTutor".
+    const stored = { ...(file.value?.sharedTutor ? { tutor: file.value.sharedTutor } : {}), ...(file.value?.sharedLogins || {}) };
+    const sharedLogins = Object.fromEntries(SHARED_LOGINS.filter((login) => stored[login]?.hash).map((login) => [login, stored[login]]));
+    return { accounts, sharedLogins, etag: file.etag };
   }
   // Conditional write with a couple of retries so two people saving at once can't lose an account.
   async function write(update) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { accounts, sharedTutor, etag } = await load();
-      const next = update(structuredClone({ accounts, sharedTutor }));
+      const { accounts, sharedLogins, etag } = await load();
+      const next = update(structuredClone({ accounts, sharedLogins }));
       try {
-        await store.writeJson(path, { version: 1, accounts: next.accounts, ...(next.sharedTutor ? { sharedTutor: next.sharedTutor } : {}) }, etag);
+        await store.writeJson(path, { version: 1, accounts: next.accounts, sharedLogins: next.sharedLogins }, etag);
         return next;
       } catch (error) {
         if (error.status !== 409 || attempt === 2) throw error;
@@ -73,16 +77,18 @@ export function createAccountStore(store) {
     async remove(staffId) {
       await write((data) => ({ ...data, accounts: data.accounts.filter((account) => account.staffId !== staffId) }));
     },
-    // The shared "tutor" password set by the Super Admin; without it the environment value applies.
-    async sharedTutor() {
-      return (await load()).sharedTutor;
+    // A shared login's password set by the Super Admin; without it the environment value applies.
+    async shared(login) {
+      return (await load()).sharedLogins[login] || null;
     },
-    async setSharedTutor(password) {
+    async setShared(login, password) {
+      if (!SHARED_LOGINS.includes(login)) throw new StaffError(400, "Choose a shared login.");
       checkPassword(password);
-      await write((data) => ({ ...data, sharedTutor: { ...hashPassword(password), updatedAt: new Date().toISOString() } }));
+      await write((data) => ({ ...data, sharedLogins: { ...data.sharedLogins, [login]: { ...hashPassword(password), updatedAt: new Date().toISOString() } } }));
     },
-    async clearSharedTutor() {
-      await write((data) => ({ ...data, sharedTutor: null }));
+    async clearShared(login) {
+      if (!SHARED_LOGINS.includes(login)) throw new StaffError(400, "Choose a shared login.");
+      await write((data) => ({ ...data, sharedLogins: Object.fromEntries(Object.entries(data.sharedLogins).filter(([key]) => key !== login)) }));
     },
   };
 }

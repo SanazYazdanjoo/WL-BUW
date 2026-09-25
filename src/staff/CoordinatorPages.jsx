@@ -2,6 +2,7 @@
 import { Link, useOutletContext } from "react-router-dom";
 import { InformationSections } from "../pages/InformationPage";
 import { staffRequest } from "./service";
+import { canManage } from "./roles";
 import { whatsappLink } from "../../shared/content";
 function statusDate(value) {
   if (!value) return "Not recorded";
@@ -171,7 +172,7 @@ export function ImportPage({ editorial = false }) {
     [resetProgress, setResetProgress] = useState(false),
     [semesterLabel, setSemesterLabel] = useState(""),
     [newSemester, setNewSemester] = useState(false);
-  if (session.role !== "admin") return <p>Coordinator access is required.</p>;
+  if (!canManage(session)) return <p>Coordinator access is required.</p>;
   async function request(publish) {
     setBusy(true);
     setError("");
@@ -432,7 +433,7 @@ export function PrintCenter() {
     [error, setError] = useState(""),
     [selected, setSelected] = useState("all");
   useEffect(() => {
-    if (session.role !== "admin") return;
+    if (!canManage(session)) return;
     let active = true;
     staffRequest("content")
       .then((r) => {
@@ -444,8 +445,8 @@ export function PrintCenter() {
     return () => {
       active = false;
     };
-  }, [session.role]);
-  if (session.role !== "admin") return <p>Coordinator access is required.</p>;
+  }, [session]);
+  if (!canManage(session)) return <p>Coordinator access is required.</p>;
   return (
     <>
       <div className="print-controls">
