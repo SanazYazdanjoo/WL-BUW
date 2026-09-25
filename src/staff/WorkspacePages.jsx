@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useOutletContext, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
 import { staffRequest } from "./service";
@@ -42,8 +42,6 @@ const STUDENT_COLUMNS = [
   { field: "matriculationNumber", label: "Matriculation no.", short: "Matric. no.", max: 100, share: 8 },
   { field: "country", label: "Country", max: 200, list: "staff-country-options", share: 8 },
   { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 11 },
-  { field: "phone", label: "Phone", max: 100, share: 9 },
-  { field: "email", label: "Email", max: 254, type: "email", share: 11 },
   { field: "address", label: "Address", max: 12000, optional: true, share: 11 },
   { field: "enrolled", label: "Enrolled", check: true, share: 7 },
   { field: "accommodation", label: "Accommodation", short: "Accomm.", check: true, share: 8 },
@@ -57,7 +55,7 @@ const studentRowDraft = (student) => ({
   // Keep stored values (null = unknown) so the server sees the right base on first change.
   ...Object.fromEntries(STUDENT_COLUMNS.filter((column) => column.check).map(({ field }) => [field, student[field] ?? null])),
 });
-const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "");
+const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : "");
 
 function StudentCells({ columns, draft, set, who, nameRef }) {
   return columns.map(({ field, label, max, list, type, check, contact }) => check
@@ -191,19 +189,47 @@ function HandoverEntries({ entries, today, limit }) {
 
 function AttentionList({ students }) {
   return students.length ? (
-    <ul className="staff-attention-list">
-      {students.map((student) => {
-        return (
-          <li key={student.id}>
-            <Link to={`/staff/students/${student.id}`}>
-              {student.name || "Name not supplied"}
-            </Link>
-            <small>{student.enrolled === false ? "Not enrolled" : "Enrollment unknown"}</small>
-          </li>
-        );
-      })}
+    <ul className="staff-dash-list">
+      {students.map((student) => (
+        <li key={student.id}>
+          <Link to={`/staff/students?q=${encodeURIComponent(student.name)}`}>{student.name || "Name not supplied"}</Link>
+          <span className="staff-muted">{student.studyProgram || "No programme"}</span>
+          <span className={`staff-pill ${student.enrolled === false ? "is-warning" : "is-neutral"}`}>{student.enrolled === false ? "Not enrolled" : "Enrollment unknown"}</span>
+        </li>
+      ))}
     </ul>
   ) : <p className="staff-empty-state">No follow-up needed.</p>;
+}
+
+function UpcomingEvents({ today }) {
+  const [events, setEvents] = useState(null);
+  useEffect(() => {
+    let active = true;
+    staffRequest("events").then((result) => { if (active) setEvents(result.events || []); }).catch(() => { if (active) setEvents([]); });
+    return () => { active = false; };
+  }, []);
+  if (!events) return <p className="staff-muted">Loading…</p>;
+  const upcoming = events.filter((event) => event.active && event.date >= today).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)).slice(0, 4);
+  return upcoming.length ? (
+    <ul className="staff-dash-events">
+      {upcoming.map((event) => (
+        <li key={event.id}>
+          <span className="staff-dash-date"><strong>{new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`))}</strong>{new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`))}</span>
+          <span><strong>{event.title}</strong><span className="staff-muted">{[event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime), event.location].filter(Boolean).join(" · ") || "Details to follow"}</span></span>
+        </li>
+      ))}
+    </ul>
+  ) : <p className="staff-empty-state">No upcoming events.</p>;
+}
+
+function SummaryCard({ label, value, to, hint }) {
+  return (
+    <Link className="staff-kpi" to={to}>
+      <span className="staff-kpi-label">{label}</span>
+      <strong className="staff-kpi-value">{value}</strong>
+      {hint && <span className="staff-kpi-hint">{hint}</span>}
+    </Link>
+  );
 }
 
 export function Dashboard() {
@@ -212,55 +238,71 @@ export function Dashboard() {
   if (!workspace) return <State error={error} />;
   const { data, today } = workspace;
   const todayShift = data.shifts.find((s) => s.date === today);
-  const attentionStudents = data.students.filter((student) => student.enrolled !== true);
-  const dayLabel = new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "full",
-    timeZone: "Europe/Berlin",
-  }).format(new Date(`${today}T12:00:00Z`));
+  const attentionStudents = data.students.filter(STUDENT_FILTERS.attention.test);
+  const withoutHousing = data.students.filter(STUDENT_FILTERS.housing.test);
+  const addedToday = data.students.filter((student) => STUDENT_FILTERS.today.test(student, today));
+  const dayLabel = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone: "Europe/Berlin" }).format(new Date(`${today}T12:00:00Z`));
   const setupItems = [
-    !data.semesterLabel && {
-      title: "Set the semester",
-      to: session?.role === "admin" ? "/staff/content" : null,
-    },
-    data.shifts.length === 0 && session?.role === "admin" && {
-      title: "Add shifts",
-      to: "/staff/shifts",
-    },
+    !data.semesterLabel && { title: "Set the semester", to: session?.role === "admin" ? "/staff/content" : null },
+    data.shifts.length === 0 && session?.role === "admin" && { title: "Add shifts", to: "/staff/shifts" },
   ].filter(Boolean);
+  const percent = (count) => (data.students.length ? `${Math.round((count / data.students.length) * 100)}% of all students` : "");
   return (
     <div className="staff-page staff-dashboard">
-      <header className="staff-page-heading staff-dashboard-heading">
+      <header className="staff-page-heading staff-dash-header">
         <div><h1>Today</h1><p className="staff-page-meta">{dayLabel}</p></div>
-        <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
+        <nav className="staff-dash-actions" aria-label="Quick actions">
+          <Link className="staff-button-link is-primary" to="/staff/students">+ Add student</Link>
+          <Link className="staff-button-link" to="/staff/handover">Add handover</Link>
+        </nav>
       </header>
-          <nav className="staff-quick-actions" aria-label="Today’s actions">
-            <Link to="/staff/students">Students <span aria-hidden="true">→</span></Link>
-            <Link to="/staff/handover">Add handover <span aria-hidden="true">→</span></Link>
-          </nav>
-          {setupItems.length > 0 && <aside className="staff-setup-inline" aria-label="Workspace setup">
-            <strong>Setup</strong>
-            {setupItems.map((item) => item.to
-              ? <Link key={item.title} to={item.to}>{item.title} <span aria-hidden="true">→</span></Link>
-              : <span key={item.title}>Semester not set · Contact a coordinator</span>)}
-          </aside>}
-          <div className="staff-dashboard-grid">
-            <section className="staff-dashboard-section" aria-labelledby="attention-heading">
-              <div className="staff-section-header"><h2 id="attention-heading">Needs attention <span className="staff-count">{attentionStudents.length}</span></h2>{attentionStudents.length > 0 && <Link to="/staff/students?filter=attention">View all</Link>}</div>
-              <AttentionList students={attentionStudents.slice(0, 5)} />
-            </section>
-            <section className="staff-dashboard-section" aria-labelledby="handover-heading">
-              <div className="staff-section-header"><h2 id="handover-heading">Latest handover</h2>{data.handover.length > 0 && <Link to="/staff/handover">View all</Link>}</div>
-              <HandoverEntries entries={data.handover} today={today} limit={3} />
-            </section>
-          </div>
+      {setupItems.length > 0 && <aside className="staff-setup-inline" aria-label="Workspace setup">
+        <strong>Setup</strong>
+        {setupItems.map((item) => item.to
+          ? <Link key={item.title} to={item.to}>{item.title} <span aria-hidden="true">→</span></Link>
+          : <span key={item.title}>Semester not set · Contact the Super Admin</span>)}
+      </aside>}
+      <section className="staff-kpis" aria-label="Summary">
+        <SummaryCard label="Students" value={data.students.length} to="/staff/students" hint={data.semesterLabel} />
+        <SummaryCard label="Needs attention" value={attentionStudents.length} to="/staff/students?filter=attention" hint={percent(attentionStudents.length) || "Enrollment not confirmed"} />
+        <SummaryCard label="Without accommodation" value={withoutHousing.length} to="/staff/students?filter=housing" hint={percent(withoutHousing.length)} />
+        <SummaryCard label="Added today" value={addedToday.length} to="/staff/students?filter=today" hint="New students registered today" />
+      </section>
+      <div className="staff-dash-grid">
+        <div className="staff-dash-main">
+          <section className="staff-card" aria-labelledby="attention-heading">
+            <div className="staff-section-header"><h2 id="attention-heading">Needs attention <span className="staff-count">{attentionStudents.length}</span></h2>{attentionStudents.length > 0 && <Link to="/staff/students?filter=attention">View all</Link>}</div>
+            <AttentionList students={attentionStudents.slice(0, 6)} />
+          </section>
+          <section className="staff-card" aria-labelledby="handover-heading">
+            <div className="staff-section-header"><h2 id="handover-heading">Latest handover</h2>{data.handover.length > 0 ? <Link to="/staff/handover">View all</Link> : <Link to="/staff/handover">Add note</Link>}</div>
+            <HandoverEntries entries={data.handover} today={today} limit={3} />
+          </section>
+        </div>
+        <div className="staff-dash-side">
+          <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
+          <section className="staff-card" aria-labelledby="events-heading">
+            <div className="staff-section-header"><h2 id="events-heading">Upcoming events</h2><Link to="/staff/events">All events</Link></div>
+            <UpcomingEvents today={today} />
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
+
+// Student list filters, shared with the summary cards on the Today page.
+const STUDENT_FILTERS = {
+  attention: { label: "Needs attention", test: (student) => student.enrolled !== true },
+  housing: { label: "Without accommodation", test: (student) => student.accommodation !== true },
+  today: { label: "Added today", test: (student, today) => student.legacyDate === today },
+};
+
 export function Students() {
   const { session } = useOutletContext();
   const { workspace, error, autosave, reload } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [showAddress, setShowAddress] = useState(() => { try { return localStorage.getItem("wl-staff-show-address") === "1"; } catch { return false; } });
   const toggleAddress = (value) => { setShowAddress(value); try { localStorage.setItem("wl-staff-show-address", value ? "1" : "0"); } catch { /* storage unavailable */ } };
   if (!workspace) return <State error={error} />;
@@ -273,10 +315,11 @@ export function Students() {
       return { ok: false, error: e.message };
     }
   }
-  const attentionOnly = searchParams.get("filter") === "attention";
+  const filter = STUDENT_FILTERS[searchParams.get("filter")] ? searchParams.get("filter") : "";
+  const attentionOnly = filter === "attention";
   const students = workspace.data.students.filter(
     (s) =>
-      (!attentionOnly || s.enrolled !== true) && `${s.name} ${s.matriculationNumber} ${s.country} ${s.studyProgram}`
+      (!filter || STUDENT_FILTERS[filter].test(s, workspace.today)) && `${s.name} ${s.matriculationNumber} ${s.country} ${s.studyProgram}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
@@ -297,6 +340,7 @@ export function Students() {
         }} />Needs attention</label>
         <label className="staff-filter"><input type="checkbox" checked={showAddress} onChange={(e) => toggleAddress(e.target.checked)} />Show address</label>
       </div>
+      {filter && filter !== "attention" && <p className="staff-filter-chip">Showing: {STUDENT_FILTERS[filter].label} <button type="button" onClick={() => setSearchParams({})}>Clear</button></p>}
       <StudentTable
         students={students}
         programOptions={studyProgramOptions(workspace)}
@@ -320,9 +364,7 @@ function StudentEditor({ student, save, programOptions }) {
     country: student.country,
     studyProgram: student.studyProgram,
     notes: student.notes,
-    phone: student.phone || "",
-    email: student.email || "",
-  }, save, { validate: (draft) => !draft.name.trim() ? "Enter the student's full name." : draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "" });
+  }, save, { validate: (draft) => (!draft.name.trim() ? "Enter the student's full name." : "") });
   const { draft, setField } = autosave;
   return (
     <div className="staff-form staff-student-editor">
@@ -334,8 +376,6 @@ function StudentEditor({ student, save, programOptions }) {
           <label>Matriculation number<input maxLength={100} value={draft.matriculationNumber} onChange={(e) => setField("matriculationNumber", e.target.value)} /></label>
           <SuggestedInput label="Country" name="country" value={draft.country} options={COUNTRY_OPTIONS} onChange={(value) => setField("country", value)} maxLength={200} />
           <SuggestedInput label="Study programme" name="study-program" value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} />
-          <label>Phone number<input type="tel" maxLength={100} value={draft.phone} onChange={(e) => setField("phone", e.target.value)} /></label>
-          <label>Email<input type="email" maxLength={254} value={draft.email} onChange={(e) => setField("email", e.target.value)} /></label>
           <label className="staff-field-wide">Address<textarea rows={2} maxLength={12000} value={draft.address || ""} onChange={(e) => setField("address", e.target.value)} /></label>
         </div>
       </fieldset>
@@ -390,8 +430,6 @@ export function StudentDetail() {
     address: "Address",
     country: "Country",
     studyProgram: "Study programme",
-    phone: "Phone number",
-    email: "Email",
   };
   return (
     <div className="staff-page staff-student-detail">
@@ -494,6 +532,50 @@ function ScheduleSetup({ workspace, busy, act }) {
   );
 }
 
+// Super Admin: who uses the shared login or a personal one; reset a password when someone forgets it.
+function StaffLogins({ session }) {
+  const [staff, setStaff] = useState(null), [editing, setEditing] = useState(null), [form, setForm] = useState({ username: "", newPassword: "" });
+  const [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  const load = useCallback(() => staffRequest("accounts").then((result) => setStaff(result.staff)).catch((e) => setError(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  async function run(action, body, done) {
+    setBusy(true); setError(""); setMessage("");
+    try { await staffRequest(action, { csrf: session.csrf, body }); setMessage(done); setEditing(null); setForm({ username: "", newPassword: "" }); await load(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  if (!staff) return <section className="staff-panel"><h2>Logins</h2><p role="status">{error || "Loading…"}</p></section>;
+  return (
+    <section className="staff-panel staff-logins" aria-labelledby="logins-heading">
+      <h2 id="logins-heading">Logins</h2>
+      <p className="staff-muted">Everyone can use the shared login (username “tutor”). If someone with a personal login forgets their password, set a temporary one here and tell them; they can change it on My account.</p>
+      {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
+      <ul className="staff-staff-list">
+        {staff.map((person) => (
+          <li className="staff-staff-row" key={person.id}>
+            <div>
+              <strong>{person.name}</strong>
+              <p className="staff-muted">{person.role === "admin" ? "Super Admin" : "Tutor"} · {person.username ? `personal login “${person.username}”${person.updatedAt ? ` · changed ${staffDateTime(person.updatedAt)}` : ""}` : "shared login"}</p>
+              {editing === person.id && (
+                <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/set-password", { staffId: person.id, username: form.username, newPassword: form.newPassword }, `${person.name} can now sign in with “${person.username || form.username.trim().toLowerCase()}” and the new password.`); }}>
+                  {!person.username && <label>Username<input required autoCapitalize="none" spellCheck={false} minLength={3} maxLength={40} pattern="[A-Za-z0-9._\-]{3,40}" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>}
+                  <label>New password<input required type="text" autoComplete="off" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
+                  <div className="button-row"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
+                </form>
+              )}
+            </div>
+            {editing !== person.id && <div className="button-row">
+              <button type="button" disabled={busy} onClick={() => { setEditing(person.id); setForm({ username: "", newPassword: "" }); }}>{person.username ? "Reset password" : "Set up login"}</button>
+              {person.username && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Remove ${person.name}'s personal login? They will use the shared login again.`)) run("account/reset", { staffId: person.id }, `${person.name} uses the shared login again.`); }}>Back to shared login</button>}
+            </div>}
+          </li>
+        ))}
+      </ul>
+      {staff.length === 0 && <p className="staff-muted">No staff members yet. Add them in Content → Staff.</p>}
+    </section>
+  );
+}
+
 // Super Admin: the semester's tutor list (Tutors tab in the workbook).
 export function TutorListPage() {
   const { session } = useOutletContext();
@@ -530,6 +612,7 @@ export function TutorListPage() {
         </div>
         <p className="staff-muted">Removing a tutor doesn't change shifts already in the schedule; their hours stay in Statistics under their name.</p>
       </form>
+      <StaffLogins session={session} />
     </div>
   );
 }
@@ -617,7 +700,6 @@ export function ChangeLogPage() {
 export function ShiftPage() {
   const { session } = useOutletContext();
   const { workspace, error, busy, act, autosave } = useWorkspace();
-  const [extraWeeks, setExtraWeeks] = useState(0);
   if (!workspace) return <State error={error} />;
   const times = workspace.shiftTimes || DEFAULT_SHIFT_TIMES;
   const days = new Map(workspace.data.shifts.map((day) => [day.date, day]));
@@ -627,7 +709,7 @@ export function ShiftPage() {
   const monday = addDays(workspace.today, -((weekday(workspace.today) + 6) % 7));
   const lastSaved = saved.at(-1) || "";
   const first = period.start || (saved[0] && saved[0] < monday ? saved[0] : monday);
-  const last = period.end || addDays(lastSaved > addDays(first, 13) ? lastSaved : addDays(first, 13), extraWeeks * 7);
+  const last = period.end || (lastSaved > addDays(first, 13) ? lastSaved : addDays(first, 13));
   const dates = [];
   // Cap at a year so a mistyped date can't render thousands of rows.
   for (let date = first; date <= last && dates.length < 366; date = addDays(date, 1)) dates.push(date);
@@ -656,7 +738,6 @@ export function ShiftPage() {
             </tbody>
           </table>
         </div>
-        {!period.end && <button type="button" onClick={() => setExtraWeeks((weeks) => weeks + 1)}>Show one more week</button>}
       </>}
     </div>
   );

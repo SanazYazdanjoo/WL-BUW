@@ -263,7 +263,7 @@ test("students added on a chosen day can be exported to Excel", async () => {
   await book.xlsx.load(await repo.exportStudents({ date: "2026-09-30" }));
   const [header, ana, ...rest] = book.getWorksheet("Students").getSheetValues().slice(2).map((row) => row.slice(1));
   assert.equal(header[0], "Full name");
-  assert.deepEqual([ana[0], ana[1], ana[6], ana[7], ana[8], ana.at(-1)], ["Ana Example", "00123", "Yes", "No", "+49 1", "2026-09-30"]);
+  assert.deepEqual([ana[0], ana[1], ana[4], ana[5], ana[6], ana.at(-1)], ["Ana Example", "00123", "Yes", "No", "+49 1", "2026-09-30"]);
   assert.equal(rest.length, 0);
   await assert.rejects(repo.exportStudents({ date: "2026-02-31" }), /valid date/);
 });

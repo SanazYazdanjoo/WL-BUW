@@ -170,6 +170,20 @@ export function staffMiddleware(
           await unifiedRepository.logStaffEvent(actor, `Reset the personal login of ${person.name}; they use the shared login again`);
           return send(200, { ok: true });
         }
+        if (action === "account/set-password") {
+          // Super Admin sets a (temporary) password for a staff member's personal login.
+          requireActor(actor, "admin");
+          const input = await readBody(req);
+          const roster = await unifiedRepository.staffRoster();
+          const person = roster.staff.find((entry) => entry.id === input.staffId);
+          if (!person) throw new StaffError(404, "Staff member not found.");
+          const accounts = accountStore();
+          const existing = await accounts.byStaffId(person.id);
+          const username = existing?.username || normalizeUsername(input.username);
+          await accounts.save(person.id, username, input.newPassword);
+          await unifiedRepository.logStaffEvent(actor, `${existing ? "Reset the password" : "Set up a personal login"} of ${person.name} (username: ${username})`);
+          return send(200, { ok: true, username });
+        }
         const route = writes[action];
         if (!route) throw new StaffError(404, "Staff action not found.");
         requireActor(actor, route[0]);
@@ -266,7 +280,12 @@ export function staffMiddleware(
         const account = actor.staffId ? await accountStore().byStaffId(actor.staffId) : null;
         return send(200, { personal: Boolean(account), username: account?.username || "", updatedAt: account?.updatedAt || "" });
       }
-      if (action === "accounts") return send(200, { accounts: (await accountStore().load()).accounts.map(({ staffId, username, updatedAt }) => ({ staffId, username, updatedAt })) });
+      if (action === "accounts") {
+        const accounts = (await accountStore().load()).accounts.map(({ staffId, username, updatedAt }) => ({ staffId, username, updatedAt }));
+        const byStaff = new Map(accounts.map((account) => [account.staffId, account]));
+        const roster = await unifiedRepository.staffRoster();
+        return send(200, { accounts, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
+      }
       if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {
         const result = action === "workspace" ? await unifiedRepository.workspace(actor) : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
