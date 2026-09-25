@@ -71,7 +71,10 @@ export default function StaffLayout() {
     setError("");
     try {
       await staffRequest("actor/select", { csrf: session.csrf, body: { staffId } });
-      setSession(await staffRequest("session"));
+      // Reload the names too: a tutor's first pick creates their staff entry with a new id.
+      const [nextSession] = await Promise.all([staffRequest("session"), loadRoster()]);
+      setSession(nextSession);
+      navigate("/staff/dashboard");
     } catch (e) { setError(e.message); }
     finally { setActorBusy(false); }
   }
@@ -138,7 +141,7 @@ export default function StaffLayout() {
         <>
           {roster?.etag && roster.staff.length > 0 && !roster.staff.some((person) => person.id === session.staffId) ? (
             <main id="staff-main" className="staff-main staff-login-main">
-              <section className="staff-login-panel" aria-labelledby="staff-actor-title">
+              <section className="staff-login-panel staff-enter" aria-labelledby="staff-actor-title">
                 <h1 id="staff-actor-title">Who is working?</h1>
                 <p>Choose your name from the {session.role === "tutor" ? "tutor" : roleLabel(session.role).toLowerCase()} list. It will appear on your updates and handovers.</p>
                 <label>Your name<select value="" disabled={actorBusy} onChange={chooseStaff}>
@@ -167,7 +170,7 @@ export default function StaffLayout() {
             </main>
           ) : (
           <>
-          <div className="staff-dashboard-shell">
+          <div className="staff-dashboard-shell staff-enter">
           <nav className="staff-nav staff-sidebar" aria-label="Staff navigation">
             {[
               ["dashboard", "Today"],
