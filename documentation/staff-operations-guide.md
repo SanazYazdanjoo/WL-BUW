@@ -5,7 +5,7 @@
 Use the existing Vercel project's Environment Variables, or `.env.local` for local development. Never use `VITE_` for credentials.
 
 - `STAFF_PILOT_ENABLED=true` (default false)
-- `STAFF_ACCESS_CODE`: independently generated random tutor code, at least 20 characters
+- `STAFF_ACCESS_CODE`: shared tutor password used with the username `tutor`, at least 8 characters (tutors should then set a personal login)
 - `STAFF_ADMIN_CODE`: different random coordinator code, at least 20 characters
 - `STAFF_SESSION_SECRET`: independently generated random secret, at least 32 characters
 - Existing NEXTCLOUD_USERNAME, NEXTCLOUD_APP_PASSWORD, NEXTCLOUD_ROOT_FOLDER

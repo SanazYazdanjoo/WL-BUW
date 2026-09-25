@@ -91,7 +91,7 @@ test("staff endpoints authenticate and authorize before repository access, and r
 test("staff login accepts Vercel's parsed JSON body without reading the stream", async () => {
   const api = staffMiddleware(env, fetch, () => ({}));
   const server = createServer((req, res) => {
-    req.body = { name: "Vercel test tutor", code: env.STAFF_ACCESS_CODE };
+    req.body = { username: "tutor", password: env.STAFF_ACCESS_CODE };
     return api(req, res, () => res.writeHead(404).end());
   });
   server.listen(0, "127.0.0.1");

@@ -20,7 +20,8 @@ export function staffConfigured(env) {
   return (
     env.STAFF_PILOT_ENABLED === "true" &&
     (env.STAFF_SESSION_SECRET || "").length >= 32 &&
-    (env.STAFF_ACCESS_CODE || "").length >= 20 &&
+    // The shared tutor password may be short (tutors are encouraged to set a personal login); the admin one may not.
+    (env.STAFF_ACCESS_CODE || "").length >= 8 &&
     (env.STAFF_ADMIN_CODE || "").length >= 20 &&
     env.STAFF_ACCESS_CODE !== env.STAFF_ADMIN_CODE
   );
@@ -128,9 +129,11 @@ export async function login(req, body, env, findAccount = async () => null) {
     attempts.delete(key);
     return encodeSession({ id: randomUUID(), name: personal.name, role: personal.role, staffId: personal.staffId, personal: true }, env);
   }
-  const role = same(password, env.STAFF_ADMIN_CODE)
+  // Shared logins: username "tutor" with the tutor password, "admin" with the admin password.
+  const sharedUser = name.toLowerCase();
+  const role = sharedUser === "admin" && same(password, env.STAFF_ADMIN_CODE)
     ? "admin"
-    : same(password, env.STAFF_ACCESS_CODE)
+    : sharedUser === "tutor" && same(password, env.STAFF_ACCESS_CODE)
       ? "tutor"
       : null;
   if (!role) throw new StaffError(401, "The username or password was not accepted.");
