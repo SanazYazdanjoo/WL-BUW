@@ -3045,7 +3045,8 @@ main:focus {
   --staff-chrome-raised: #232329;
   --staff-chrome-text: #f4f4f0;
   --staff-chrome-muted: #b8b8bf;
-  --staff-accent: var(--buw-yellow);
+  --staff-accent: #b71a49; /* BUW primary magenta */
+  --staff-on-accent: #ffffff;
   background: #eeeeea;
 }
 
@@ -3074,7 +3075,7 @@ main:focus {
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
   background: var(--staff-accent);
-  color: #000;
+  color: var(--staff-on-accent);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -3200,7 +3201,7 @@ main:focus {
 
 .staff .staff-header-account a.staff-identity:hover small,
 .staff .staff-header-account a.staff-identity:focus-visible small {
-  color: var(--staff-accent);
+  color: var(--staff-chrome-text);
 }
 
 .staff-account-page form {
@@ -3814,7 +3815,7 @@ body:has(.staff)::before {
   margin: 0 0 0.75rem;
   padding: 0.3rem 0.4rem 0.3rem 0.8rem;
   border-radius: 999px;
-  background: #fff4b8;
+  background: #f6dde5;
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -4172,7 +4173,7 @@ body:has(.staff)::before {
   height: 2.25rem;
   border-radius: 50%;
   background: var(--staff-accent);
-  color: #000;
+  color: var(--staff-on-accent);
   font-size: 0.85rem;
   font-weight: 700;
   place-items: center;
@@ -4368,4 +4369,35 @@ body:has(.staff)::before {
 
 .staff-dash-events a {
   color: var(--color-text);
+}
+
+/* Offline banner: shown while Nextcloud can't be reached or edits wait to be saved. */
+.staff-offline {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem clamp(1rem, 2.5vw, 2rem);
+  border-bottom: 1px solid #e0c35a;
+  background: #fff6cc;
+  color: #3d3200;
+  font-size: 0.9rem;
+}
+
+.staff-offline p {
+  margin: 0;
+}
+
+.staff-offline button {
+  min-height: 30px;
+  margin-left: 0.25rem;
+  padding: 0 0.7rem;
+  border: 1px solid #b89a2a;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.staff-offline-conflict {
+  color: #6b1a1a;
 }

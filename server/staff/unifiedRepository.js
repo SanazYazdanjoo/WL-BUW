@@ -312,7 +312,7 @@ export function createUnifiedRepository(store) {
         const studentId = input.studentId || "";
         if (studentId && !data.students.some((student) => student.id === studentId)) throw new StaffError(404, "Student not found.");
         appendActivity(data, actor, "Handover", { studentId, note });
-      });
+      }, { safeRetry: true });
     },
     async contentStatus() {
       const file = await current();

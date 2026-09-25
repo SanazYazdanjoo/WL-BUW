@@ -20,8 +20,12 @@ export function useWorkspace() {
       }
     };
     load(0);
+    // Once queued offline edits are saved, show the real data again.
+    const refresh = () => staffRequest("workspace").then((result) => { if (active) setWorkspace(result); }).catch(() => {});
+    window.addEventListener("staff-queue-flushed", refresh);
     return () => {
       active = false;
+      window.removeEventListener("staff-queue-flushed", refresh);
     };
   }, []);
   async function act(action, body) {

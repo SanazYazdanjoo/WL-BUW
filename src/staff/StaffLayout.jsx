@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { staffRequest } from "./service";
+import { clearOfflineData, staffRequest } from "./service";
+import { OfflineBanner } from "./OfflineBanner";
 import { PasswordInput } from "./PasswordInput";
 import { canManage, roleLabel } from "./roles";
 import { FeedbackButton } from "./FeedbackButton";
@@ -80,13 +81,13 @@ export default function StaffLayout() {
     finally { setActorBusy(false); }
   }
   async function logout() {
+    // Always remove this tab's offline copy and queued edits, even if the server can't be reached.
+    clearOfflineData();
     try {
       await staffRequest("logout", { csrf: session.csrf, body: {} });
-      setSession(null);
-      navigate("/staff");
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch { /* the session cookie still expires; the local copy is already gone */ }
+    setSession(null);
+    navigate("/staff");
   }
   useEffect(() => {
     const previous = document.title;
@@ -121,6 +122,7 @@ export default function StaffLayout() {
         </div>}
       </header>
       {error && <p className="staff-shell-message" role="alert">{error}</p>}
+      {session && <OfflineBanner csrf={session.csrf} />}
       {loading ? (
         <main id="staff-main" className="staff-main"><p role="status">Checking access…</p></main>
       ) : !session ? (
