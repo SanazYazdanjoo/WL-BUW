@@ -383,3 +383,15 @@ test("'Added by' records who added a student, and older rows are filled from the
   const students = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
   assert.deepEqual(students.map(({ name, addedBy }) => [name, addedBy]), [["Older Student", "Ali"], ["New Student", "Zarina"]]);
 });
+
+test("feedback from the workspace is saved as an attributed Feedback activity", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false }, staff: [{ id: staffId, name: "Zarina", role: "tutor", isActive: true }] }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Zarina", role: "tutor", staffId };
+  await repo.submitFeedback(actor, { kind: "problem", message: "The export button does nothing", page: "/staff/students" });
+  await assert.rejects(repo.submitFeedback(actor, { kind: "problem", message: "   " }), /short message/);
+  await assert.rejects(repo.submitFeedback(actor, { kind: "spam", message: "hi" }), /what the feedback is about/);
+  const log = (await repo.activityLog()).entries.filter((entry) => entry.type === "Feedback");
+  assert.deepEqual(log.map(({ actor: who, note }) => [who, note]), [["Zarina", "[Problem] The export button does nothing (page: /staff/students)"]]);
+});

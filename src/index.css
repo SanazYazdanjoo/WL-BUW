@@ -4218,3 +4218,120 @@ body:has(.staff)::before {
     padding: 0.6rem 0.75rem;
   }
 }
+
+/* Feedback: fixed bottom-right button and a small panel above it. */
+.staff-feedback {
+  position: fixed;
+  right: calc(1.25rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: grid;
+  justify-items: end;
+  gap: 0.75rem;
+}
+
+.staff-feedback-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1.15rem;
+  border: 2px solid var(--staff-accent);
+  border-radius: 999px;
+  background: var(--staff-chrome);
+  color: var(--staff-chrome-text);
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 22%);
+  cursor: pointer;
+}
+
+.staff-feedback-button:hover,
+.staff-feedback-button[aria-expanded="true"] {
+  background: #000;
+}
+
+.staff-feedback-panel {
+  width: min(22rem, calc(100vw - 2.5rem));
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--staff-accent);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 20%);
+}
+
+.staff-feedback-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.staff-feedback-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.staff-feedback-close {
+  min-width: 36px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.staff-feedback-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.staff-feedback-kinds legend {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.staff-feedback-kinds label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.staff-feedback-kinds label.is-selected {
+  border-color: var(--color-text);
+  background: #f4f4f0;
+  font-weight: 600;
+}
+
+.staff-feedback-kinds input {
+  width: auto;
+  margin: 0;
+}
+
+.staff-feedback-thanks {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+/* Keep page content clear of the button. */
+.staff-dashboard-shell > .staff-main {
+  padding-bottom: 6rem;
+}
+
+.staff-feedback-panel .staff-feedback-kinds label {
+  min-height: 0;
+  margin: 0;
+  padding: 0.25rem 0.65rem;
+  line-height: 1.3;
+}

@@ -239,7 +239,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const timestamp = cellText(valueAt(row, tables.Activity, "Timestamp"));
     if (!Number.isFinite(Date.parse(timestamp))) throw new WorkbookError(`Activity row ${row.number}: Timestamp is invalid.`);
     const type = cellText(valueAt(row, tables.Activity, "Type"));
-    if (!new Set(["Check-in", "Handover", "Student Update", "Content Update", "Shift Update", "Other"]).has(type)) throw new WorkbookError(`Activity row ${row.number}: Type is not supported.`);
+    if (!new Set(["Check-in", "Handover", "Student Update", "Content Update", "Shift Update", "Feedback", "Other"]).has(type)) throw new WorkbookError(`Activity row ${row.number}: Type is not supported.`);
     const id = cellText(valueAt(row, tables.Activity, "ID"));
     if (!/^act_[0-9a-f-]{36}$/i.test(id)) throw new WorkbookError(`Activity row ${row.number}: enter an app-generated ID.`);
     if (activityIds.has(id)) throw new WorkbookError(`Activity row ${row.number}: duplicate ID.`);

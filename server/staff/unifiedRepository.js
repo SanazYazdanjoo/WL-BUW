@@ -506,6 +506,17 @@ export function createUnifiedRepository(store) {
         appendActivity(data, actor, "Other", { note: `Tutor list updated${added.length ? ` · added: ${added.join(", ")}` : ""}${removed.length ? ` · removed: ${removed.join(", ")}` : ""}${!added.length && !removed.length ? " · reordered" : ""}` });
       }, { major: true });
     },
+    // Feedback from the workspace button: stored as an attributed "Feedback" activity row.
+    async submitFeedback(actor, input) {
+      const kinds = { suggestion: "Suggestion", problem: "Problem", other: "Other" };
+      if (!Object.hasOwn(kinds, input.kind)) throw new StaffError(400, "Choose what the feedback is about.");
+      const message = text(input.message || "", 2000).trim();
+      if (!message) throw new StaffError(400, "Write a short message first.");
+      const page = text(input.page || "", 200).replace(/[^\w/-]/g, "");
+      return mutate(actor, {}, "feedback", (data) => {
+        appendActivity(data, actor, "Feedback", { note: `[${kinds[input.kind]}] ${message}${page ? ` (page: ${page})` : ""}` });
+      }, { safeRetry: true, allowUnassigned: true });
+    },
     async logStaffEvent(actor, note) {
       return mutate(actor, {}, "staff account", (data) => { appendActivity(data, actor, "Other", { note }); }, { safeRetry: true, allowUnassigned: true });
     },

@@ -154,6 +154,7 @@ export function staffMiddleware(
         "shifts/day": ["read", "updateShiftDay", true],
         "schedule/setup": ["admin", "saveScheduleSetup", true],
         "tutors/save": ["admin", "saveTutors", true],
+        "feedback/send": ["read", "submitFeedback", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
         "workbook/backup": ["admin", "createBackup", true],

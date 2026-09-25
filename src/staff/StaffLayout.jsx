@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { staffRequest } from "./service";
 import { PasswordInput } from "./PasswordInput";
 import { canManage, roleLabel } from "./roles";
+import { FeedbackButton } from "./FeedbackButton";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
     [loading, setLoading] = useState(true),
@@ -208,6 +209,7 @@ export default function StaffLayout() {
             <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>
           </div>
+          <FeedbackButton session={session} />
           </>
           )}
         </>

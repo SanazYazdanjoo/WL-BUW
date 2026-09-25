@@ -716,7 +716,7 @@ export function AccountPage() {
   );
 }
 
-const ACTIVITY_TYPES = ["Shift Update", "Student Update", "Content Update", "Handover", "Other"];
+const ACTIVITY_TYPES = ["Feedback", "Shift Update", "Student Update", "Content Update", "Handover", "Other"];
 // Super Admin: everything that changed, newest first, with who did it.
 export function ChangeLogPage() {
   const { session } = useOutletContext();
