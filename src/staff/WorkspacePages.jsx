@@ -535,9 +535,9 @@ function ScheduleSetup({ workspace, busy, act }) {
 
 // Super Admin: who uses the shared login or a personal one; reset a password when someone forgets it.
 function StaffLogins({ session }) {
-  const [staff, setStaff] = useState(null), [editing, setEditing] = useState(null), [form, setForm] = useState({ username: "", newPassword: "" });
+  const [staff, setStaff] = useState(null), [shared, setShared] = useState(null), [editing, setEditing] = useState(null), [form, setForm] = useState({ username: "", newPassword: "" });
   const [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
-  const load = useCallback(() => staffRequest("accounts").then((result) => setStaff(result.staff)).catch((e) => setError(e.message)), []);
+  const load = useCallback(() => staffRequest("accounts").then((result) => { setStaff(result.staff); setShared(result.sharedTutor || { custom: false }); }).catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
   async function run(action, body, done) {
     setBusy(true); setError(""); setMessage("");
@@ -549,9 +549,26 @@ function StaffLogins({ session }) {
   return (
     <section className="staff-panel staff-logins" aria-labelledby="logins-heading">
       <h2 id="logins-heading">Logins</h2>
-      <p className="staff-muted">Everyone can use the shared login (username “tutor”). If someone with a personal login forgets their password, set a temporary one here and tell them; they can change it on My account.</p>
+      <p className="staff-muted">Everyone can use the shared login (username “tutor”); change its password here. If someone with a personal login forgets their password, set a temporary one and tell them; they can change it on My account.</p>
       {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
       <ul className="staff-staff-list">
+        <li className="staff-staff-row staff-shared-login">
+          <div>
+            <strong>Shared tutor login</strong>
+            <p className="staff-muted">Username “tutor” · {shared?.custom ? `password set here${shared.updatedAt ? ` · changed ${staffDateTime(shared.updatedAt)}` : ""}` : "password from the server settings (Vercel)"}</p>
+            {editing === "shared" && (
+              <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/shared-tutor", { newPassword: form.newPassword }, "Shared tutor password changed. Tell the tutors the new password."); }}>
+                <label>New shared password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
+                <p className="staff-muted">From now on only this password works for “tutor”. Personal logins are not affected.</p>
+                <div className="button-row"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
+              </form>
+            )}
+          </div>
+          {editing !== "shared" && <div className="button-row">
+            <button type="button" disabled={busy} onClick={() => { setEditing("shared"); setForm({ username: "", newPassword: "" }); }}>Change shared password</button>
+            {shared?.custom && <button type="button" disabled={busy} onClick={() => { if (window.confirm("Use the password from the server settings (Vercel) for “tutor” again?")) run("account/shared-tutor", { useEnvironment: true }, "The shared tutor login uses the server setting again."); }}>Use Vercel value again</button>}
+          </div>}
+        </li>
         {staff.map((person) => (
           <li className="staff-staff-row" key={person.id}>
             <div>

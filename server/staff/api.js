@@ -61,6 +61,11 @@ export function staffMiddleware(
     const path = new URL(req.url, "http://localhost").pathname;
     if (!path.startsWith("/api/staff/")) return next();
     const accountStore = () => createAccountStore(createPrivateStore(env, fetchImpl));
+    const checkSharedTutor = async (password) => {
+      if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) return null;
+      const stored = await accountStore().sharedTutor();
+      return stored ? verifyPassword(password, stored) : null;
+    };
     // A personal login needs a matching account and an active staff record; its role comes from the staff list.
     const findPersonalAccount = async (username, password) => {
       if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) return null;
@@ -82,7 +87,7 @@ export function staffMiddleware(
     };
     try {
       if (action === "login" && req.method === "POST") {
-        const token = await login(req, await readBody(req), env, findPersonalAccount);
+        const token = await login(req, await readBody(req), env, findPersonalAccount, checkSharedTutor);
         return send(200, { ok: true }, { "Set-Cookie": cookie(token, env) });
       }
       const actor = requireActor(sessionFromRequest(req, env));
@@ -152,13 +157,26 @@ export function staffMiddleware(
           const accounts = accountStore();
           const existing = await accounts.byStaffId(actor.staffId);
           const current = typeof input.currentPassword === "string" ? input.currentPassword : "";
-          const allowed = existing ? verifyPassword(current, existing) : [env.STAFF_ACCESS_CODE, env.STAFF_ADMIN_CODE].some((code) => code && verifyShared(current, code));
+          const allowed = existing ? verifyPassword(current, existing) : Boolean((await checkSharedTutor(current)) ?? verifyShared(current, env.STAFF_ACCESS_CODE)) || verifyShared(current, env.STAFF_ADMIN_CODE);
           if (!allowed) throw new StaffError(401, "Your current password was not accepted.");
           if (input.newPassword !== input.confirmPassword) throw new StaffError(400, "The new passwords don't match.");
           const username = normalizeUsername(input.username);
           await accounts.save(actor.staffId, username, input.newPassword);
           await unifiedRepository.logStaffEvent(actor, `${actor.name} ${existing ? "changed their personal login" : "set up a personal login"} (username: ${username})`);
           return send(200, { ok: true, username });
+        }
+        if (action === "account/shared-tutor") {
+          // Super Admin changes the shared "tutor" password (or returns to the environment value).
+          requireActor(actor, "admin");
+          const input = await readBody(req);
+          if (input.useEnvironment === true) {
+            await accountStore().clearSharedTutor();
+            await unifiedRepository.logStaffEvent(actor, "Shared tutor password reset to the server setting");
+          } else {
+            await accountStore().setSharedTutor(input.newPassword);
+            await unifiedRepository.logStaffEvent(actor, "Changed the shared tutor password");
+          }
+          return send(200, { ok: true });
         }
         if (action === "account/reset") {
           requireActor(actor, "admin");
@@ -284,7 +302,8 @@ export function staffMiddleware(
         const accounts = (await accountStore().load()).accounts.map(({ staffId, username, updatedAt }) => ({ staffId, username, updatedAt }));
         const byStaff = new Map(accounts.map((account) => [account.staffId, account]));
         const roster = await unifiedRepository.staffRoster();
-        return send(200, { accounts, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
+        const shared = await accountStore().sharedTutor();
+        return send(200, { accounts, sharedTutor: { custom: Boolean(shared), updatedAt: shared?.updatedAt || "" }, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
       }
       if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {

@@ -103,7 +103,9 @@ export function checkMutation(req, actor) {
 const attempts = new Map();
 // Personal logins are checked first (findAccount); otherwise the shared access
 // codes apply, followed by choosing a name from the staff list.
-export async function login(req, body, env, findAccount = async () => null) {
+// checkSharedTutor(password) returns true/false when the Super Admin has set a
+// shared tutor password in the app, or null to fall back to the environment value.
+export async function login(req, body, env, findAccount = async () => null, checkSharedTutor = async () => null) {
   if (!staffConfigured(env))
     throw new StaffError(
       503,
@@ -133,9 +135,10 @@ export async function login(req, body, env, findAccount = async () => null) {
   }
   // Shared logins: username "tutor" with the tutor password, "admin" with the admin password.
   const sharedUser = name.toLowerCase();
+  const tutorOk = async () => (await checkSharedTutor(password)) ?? same(password, sharedCode(env.STAFF_ACCESS_CODE));
   const role = sharedUser === "admin" && same(password, sharedCode(env.STAFF_ADMIN_CODE))
     ? "admin"
-    : sharedUser === "tutor" && same(password, sharedCode(env.STAFF_ACCESS_CODE))
+    : sharedUser === "tutor" && await tutorOk()
       ? "tutor"
       : null;
   if (!role) throw new StaffError(401, "The username or password was not accepted.");

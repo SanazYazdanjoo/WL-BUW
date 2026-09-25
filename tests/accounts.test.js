@@ -59,3 +59,21 @@ test("sign-in accepts a personal login or the shared password, never a mix", asy
   const shortEnv = { ...env, STAFF_ACCESS_CODE: " tutor1234\n" };
   assert.equal(decodeSession(await login(request(), { username: "tutor", password: "tutor1234" }, shortEnv, findAccount), shortEnv).role, "tutor");
 });
+
+test("the Super Admin's shared tutor password replaces the server value and keeps personal logins", async () => {
+  const store = memoryStore();
+  const accounts = createAccountStore(store);
+  await accounts.save("staff_a", "sanaz", "password-one");
+  await accounts.setSharedTutor("tutor1234");
+  assert.equal((await accounts.load()).accounts.length, 1);
+  assert.ok(!JSON.stringify(store.files.get("staff-data/accounts.json").value).includes("tutor1234"));
+  const checkSharedTutor = async (password) => { const stored = await accounts.sharedTutor(); return stored ? verifyPassword(password, stored) : null; };
+  assert.equal(decodeSession(await login(request(), { username: "tutor", password: "tutor1234" }, env, undefined, checkSharedTutor), env).role, "tutor");
+  await assert.rejects(login(request(), { username: "tutor", password: env.STAFF_ACCESS_CODE }, env, undefined, checkSharedTutor), /not accepted/);
+  await accounts.save("staff_b", "ali", "password-two");
+  assert.ok(await accounts.sharedTutor(), "adding a personal login keeps the shared password");
+  await accounts.clearSharedTutor();
+  assert.equal(await accounts.sharedTutor(), null);
+  assert.equal(decodeSession(await login(request(), { username: "tutor", password: env.STAFF_ACCESS_CODE }, env, undefined, checkSharedTutor), env).role, "tutor");
+  await assert.rejects(accounts.setSharedTutor("short"), /at least 8/);
+});

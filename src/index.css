@@ -3886,3 +3886,7 @@ body:has(.staff)::before {
 .staff-password-toggle[aria-pressed="true"] {
   color: var(--color-text);
 }
+
+.staff-shared-login {
+  border-bottom: 2px solid var(--color-border);
+}

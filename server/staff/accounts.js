@@ -35,15 +35,16 @@ export function createAccountStore(store) {
   async function load() {
     const file = await store.readJson(path);
     const accounts = Array.isArray(file.value?.accounts) ? file.value.accounts : [];
-    return { accounts, etag: file.etag };
+    const sharedTutor = file.value?.sharedTutor?.hash ? file.value.sharedTutor : null;
+    return { accounts, sharedTutor, etag: file.etag };
   }
+  // Conditional write with a couple of retries so two people saving at once can't lose an account.
   async function write(update) {
-    // Conditional write with a couple of retries so two people saving at once can't lose an account.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { accounts, etag } = await load();
-      const next = update(structuredClone(accounts));
+      const { accounts, sharedTutor, etag } = await load();
+      const next = update(structuredClone({ accounts, sharedTutor }));
       try {
-        await store.writeJson(path, { version: 1, accounts: next }, etag);
+        await store.writeJson(path, { version: 1, accounts: next.accounts, ...(next.sharedTutor ? { sharedTutor: next.sharedTutor } : {}) }, etag);
         return next;
       } catch (error) {
         if (error.status !== 409 || attempt === 2) throw error;
@@ -64,13 +65,24 @@ export function createAccountStore(store) {
       checkUsername(username);
       checkPassword(password);
       const { salt, hash } = hashPassword(password);
-      await write((accounts) => {
-        if (accounts.some((account) => account.username === username && account.staffId !== staffId)) throw new StaffError(409, "This username is already taken.");
-        return [...accounts.filter((account) => account.staffId !== staffId), { staffId, username, salt, hash, updatedAt: new Date().toISOString() }];
+      await write((data) => {
+        if (data.accounts.some((account) => account.username === username && account.staffId !== staffId)) throw new StaffError(409, "This username is already taken.");
+        return { ...data, accounts: [...data.accounts.filter((account) => account.staffId !== staffId), { staffId, username, salt, hash, updatedAt: new Date().toISOString() }] };
       });
     },
     async remove(staffId) {
-      await write((accounts) => accounts.filter((account) => account.staffId !== staffId));
+      await write((data) => ({ ...data, accounts: data.accounts.filter((account) => account.staffId !== staffId) }));
+    },
+    // The shared "tutor" password set by the Super Admin; without it the environment value applies.
+    async sharedTutor() {
+      return (await load()).sharedTutor;
+    },
+    async setSharedTutor(password) {
+      checkPassword(password);
+      await write((data) => ({ ...data, sharedTutor: { ...hashPassword(password), updatedAt: new Date().toISOString() } }));
+    },
+    async clearSharedTutor() {
+      await write((data) => ({ ...data, sharedTutor: null }));
     },
   };
 }
