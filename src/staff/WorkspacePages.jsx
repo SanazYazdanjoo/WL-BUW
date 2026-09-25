@@ -743,9 +743,33 @@ export function ChangeLogPage() {
   );
 }
 
+// Red notice on Shifts: the fair number of hours/shifts per tutor, and where you stand.
+function FairShareNotice({ workspace, times, me }) {
+  const fair = fairShare({ shifts: workspace.data.shifts, shiftTimes: times, tutors: workspace.tutors, schedule: workspace.schedule });
+  if (!fair || !fair.perTutor) return null;
+  const hoursPerShift = fair.totalHours / (fair.openDays * 2 * fair.perShift);
+  const round = (value) => Math.round(value * 10) / 10;
+  const shifts = round(fair.perTutor / hoursPerShift);
+  const mine = tutorStatistics({ shifts: workspace.data.shifts, shiftTimes: times, tutors: workspace.tutors, schedule: workspace.schedule, today: workspace.today })
+    .find((row) => row.name.toLocaleLowerCase("en") === (me || "").trim().toLocaleLowerCase("en"));
+  return (
+    <aside className="staff-fair-notice" role="note" aria-label="Fair share of shifts">
+      <p><strong>Fair share: {formatHours(round(fair.perTutor))} per tutor</strong> — about {shifts} {shifts === 1 ? "shift" : "shifts"} each, so everyone takes the same amount.</p>
+      <p className="staff-fair-notice-detail">{fair.openDays} open days × 2 shifts × {fair.perShift} tutors ÷ {fair.tutorCount} tutors.{mine ? ` You are scheduled for ${formatHours(round(mine.total))} (${mine.first + mine.second} ${mine.first + mine.second === 1 ? "shift" : "shifts"}).` : ""}</p>
+    </aside>
+  );
+}
+
 export function ShiftPage() {
   const { session } = useOutletContext();
-  const { workspace, error, busy, act, autosave } = useWorkspace();
+  const { workspace, error, busy, act, autosave, reload } = useWorkspace();
+  // See other tutors' choices without reloading: refresh every 20 s and when the tab regains focus.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") reload().catch(() => {}); };
+    const timer = setInterval(refresh, 20000);
+    window.addEventListener("focus", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [reload]);
   if (!workspace) return <State error={error} />;
   const times = workspace.shiftTimes || DEFAULT_SHIFT_TIMES;
   const days = new Map(workspace.data.shifts.map((day) => [day.date, day]));
@@ -767,6 +791,7 @@ export function ShiftPage() {
       {error && <p role="alert">{error}</p>}
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
         {canManage(session) && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
+        <FairShareNotice workspace={workspace} times={times} me={session.name} />
         <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}{canManage(session) ? "Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note." : "Use “+ Add me” to take a shift and × to leave it; changes save automatically."}</p>
         <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
         <div className="table-scroll">
@@ -780,7 +805,7 @@ export function ShiftPage() {
               </tr>
             </thead>
             <tbody>
-              {dates.map((date) => <ShiftDayRow key={date} date={date} day={days.get(date)} me={session.name} editAll={canManage(session)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
+              {dates.map((date) => <ShiftDayRow key={canManage(session) ? date : `${date}:${JSON.stringify(days.get(date) || null)}`} date={date} day={days.get(date)} me={session.name} editAll={canManage(session)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
             </tbody>
           </table>
         </div>

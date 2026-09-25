@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
 export function useWorkspace() {
@@ -45,8 +45,8 @@ export function useWorkspace() {
     setWorkspace(latest);
     return latest;
   }
-  async function reload() {
+  const reload = useCallback(async () => {
     setWorkspace(await staffRequest("workspace"));
-  }
+  }, []);
   return { workspace, error, busy, act, autosave, reload };
 }

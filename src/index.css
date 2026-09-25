@@ -3980,3 +3980,33 @@ body:has(.staff)::before {
 .staff-student-table .staff-cell-date.is-pending {
   opacity: 0.6;
 }
+
+/* Shifts: fair-share notice in a red box. */
+.staff-fair-notice {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid #d4454f;
+  border-left: 6px solid #c1121f;
+  border-radius: 8px;
+  background: #fdecee;
+  color: #5c0a12;
+}
+
+.staff-fair-notice p {
+  margin: 0;
+}
+
+.staff-fair-notice-detail {
+  font-size: 0.88rem;
+}
+
+/* Full shift grid: keep names readable in narrow cells; the note column takes less room. */
+.staff-shift-table .staff-cell-input {
+  padding-inline: 0.15rem;
+}
+
+.staff-shift-table th:nth-last-child(2) {
+  width: 10%;
+}
