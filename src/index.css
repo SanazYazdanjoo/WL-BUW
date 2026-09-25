@@ -4106,3 +4106,115 @@ body:has(.staff)::before {
 .staff-students-page > .staff-student-export {
   margin-top: auto;
 }
+
+/* ---- Sidebar with the account at the bottom (standard dashboard pattern) ---- */
+.staff {
+  --staff-header-height: 5.75rem;
+}
+
+@media (min-width: 901px) {
+  .staff .staff-header {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 30;
+    height: var(--staff-header-height);
+    min-height: 0;
+  }
+
+  .staff-sidebar-wrap {
+    position: sticky;
+    top: var(--staff-header-height);
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--staff-header-height));
+    overflow-y: auto;
+    background: #000;
+  }
+}
+
+.staff-sidebar-wrap {
+  background: #000;
+}
+
+.staff-sidebar-wrap > .staff-sidebar {
+  flex: 0 0 auto;
+}
+
+.staff-sidebar-footer {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: 0.9rem 0.75rem 1.1rem;
+  border-top: 1px solid #26262c;
+}
+
+.staff .staff-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  color: var(--staff-chrome-text);
+  text-decoration: none;
+}
+
+.staff .staff-sidebar-user:hover,
+.staff .staff-sidebar-user[aria-current] {
+  background: #1d1d22;
+}
+
+.staff-avatar {
+  display: grid;
+  flex: 0 0 2.25rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--staff-accent);
+  color: #000;
+  font-size: 0.85rem;
+  font-weight: 700;
+  place-items: center;
+}
+
+.staff-sidebar-user-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.staff-sidebar-user-text strong,
+.staff-sidebar-user-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-sidebar-user-text small {
+  color: var(--staff-chrome-muted);
+  font-size: 0.75rem;
+}
+
+.staff .staff-sidebar-signout {
+  min-height: 38px;
+  border: 1px solid #3a3a42;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--staff-chrome-text);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.staff .staff-sidebar-signout:hover {
+  border-color: var(--staff-chrome-muted);
+}
+
+/* Phones: the account row sits under the wrapped menu. */
+@media (max-width: 900px) {
+  .staff-sidebar-footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+  }
+}

@@ -92,6 +92,11 @@ export default function StaffLayout() {
     document.title = "Staff workspace · Welcome Lounge";
     return () => { document.title = previous; };
   }, []);
+  // In the workspace the account lives at the bottom of the sidebar; on the name/setup screens it stays in the header.
+  const pickingName = Boolean(session && roster?.etag && roster.staff.length > 0 && !roster.staff.some((person) => person.id === session.staffId));
+  const needsSetup = Boolean(session && roster?.etag && roster.staff.length === 0 && (canManage(session) || !session.staffId));
+  const inWorkspace = Boolean(session && !loading && !pickingName && !needsSetup);
+  const initials = (session?.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("");
   return (
     <div className="app-container staff">
       <a className="skip-link" href="#staff-main">
@@ -106,7 +111,7 @@ export default function StaffLayout() {
           </span>
         </Link>
         <a className="staff-student-site" href="/" target="_blank" rel="noreferrer">Student site ↗</a>
-        {session && <div className="staff-header-account">
+        {session && !inWorkspace && <div className="staff-header-account">
           <Link to="/staff/account" className="staff-identity" aria-label={`Signed in as ${session.name}, ${roleLabel(session.role)}. My account`}>
             <strong>{session.name}</strong>
             <small>{roleLabel(session.role)} · My account</small>
@@ -171,6 +176,7 @@ export default function StaffLayout() {
           ) : (
           <>
           <div className="staff-dashboard-shell staff-enter">
+          <aside className="staff-sidebar-wrap">
           <nav className="staff-nav staff-sidebar" aria-label="Staff navigation">
             {[
               ["dashboard", "Today"],
@@ -190,6 +196,14 @@ export default function StaffLayout() {
               ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
             </>}
           </nav>
+          <div className="staff-sidebar-footer">
+            <NavLink to="/staff/account" className="staff-sidebar-user" aria-label={`${session.name}, ${roleLabel(session.role)}. My account`}>
+              <span className="staff-avatar" aria-hidden="true">{initials}</span>
+              <span className="staff-sidebar-user-text" title={`${session.name} · ${roleLabel(session.role)}`}><strong>{session.name}</strong><small>{roleLabel(session.role)} · My account</small></span>
+            </NavLink>
+            <button type="button" className="staff-sidebar-signout" onClick={logout}>Sign out</button>
+          </div>
+          </aside>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>

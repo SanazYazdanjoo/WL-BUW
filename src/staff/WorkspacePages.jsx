@@ -275,12 +275,12 @@ export function Dashboard() {
           ? <Link key={item.title} to={item.to}>{item.title} <span aria-hidden="true">→</span></Link>
           : <span key={item.title}>Semester not set · Contact the Super Admin</span>)}
       </aside>}
-      <section className="staff-kpis" aria-label="Summary">
+      {canManage(session) && <section className="staff-kpis" aria-label="Summary">
         <SummaryCard label="Students" value={data.students.length} to="/staff/students" hint={data.semesterLabel} />
         <SummaryCard label="Needs attention" value={attentionStudents.length} to="/staff/students?filter=attention" hint={percent(attentionStudents.length) || "Enrollment not confirmed"} />
         <SummaryCard label="Without accommodation" value={withoutHousing.length} to="/staff/students?filter=housing" hint={percent(withoutHousing.length)} />
         <SummaryCard label="Added today" value={addedToday.length} to="/staff/students?filter=today" hint="New students registered today" />
-      </section>
+      </section>}
       <div className="staff-dash-grid">
         <div className="staff-dash-main">
           <section className="staff-card" aria-labelledby="attention-heading">
