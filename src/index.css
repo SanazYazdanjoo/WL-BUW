@@ -3925,3 +3925,47 @@ body:has(.staff)::before {
     transform: none;
   }
 }
+
+/* Shifts for tutors: add/remove only themselves. */
+.staff-shift-text {
+  display: block;
+  text-align: center;
+}
+
+.staff-shift-me {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-weight: 700;
+}
+
+.staff-shift-me button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 8%);
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.staff-shift-add {
+  width: 100%;
+  min-height: 32px;
+  border: 1px dashed rgb(0 0 0 / 35%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 65%);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.staff-shift-add:hover,
+.staff-shift-me button:hover {
+  background: white;
+}

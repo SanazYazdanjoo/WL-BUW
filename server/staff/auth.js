@@ -28,9 +28,9 @@ export function staffConfigured(env) {
   return (
     env.STAFF_PILOT_ENABLED === "true" &&
     (env.STAFF_SESSION_SECRET || "").length >= 32 &&
-    // The shared tutor password may be short (tutors are encouraged to set a personal login); the admin one may not.
+    // Starting passwords need 8+ characters, the same rule as passwords set in the app.
     sharedCode(env.STAFF_ACCESS_CODE).length >= 8 &&
-    sharedCode(env.STAFF_ADMIN_CODE).length >= 20 &&
+    sharedCode(env.STAFF_ADMIN_CODE).length >= 8 &&
     sharedCode(env.STAFF_ACCESS_CODE) !== sharedCode(env.STAFF_ADMIN_CODE)
   );
 }

@@ -6,7 +6,7 @@ Use the existing Vercel project's Environment Variables, or `.env.local` for loc
 
 - `STAFF_PILOT_ENABLED=true` (default false)
 - `STAFF_ACCESS_CODE`: shared tutor password used with the username `tutor`, at least 8 characters (tutors should then set a personal login)
-- `STAFF_ADMIN_CODE`: different random coordinator code, at least 20 characters
+- `STAFF_ADMIN_CODE`: starting password for the Super Admin login `superadmin`, at least 8 characters and different from the tutor password (can then be changed on Tutors → Logins)
 - `STAFF_SESSION_SECRET`: independently generated random secret, at least 32 characters
 - Existing NEXTCLOUD_USERNAME, NEXTCLOUD_APP_PASSWORD, NEXTCLOUD_ROOT_FOLDER
 - Optional STAFF_DATA_DIR, CONTENT_SOURCE_DIR, CONTENT_BACKUP_DIR (three distinct single folder names, defaults staff-data/content-source/content-backups)

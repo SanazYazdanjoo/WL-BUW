@@ -530,6 +530,19 @@ export function createUnifiedRepository(store) {
           error.code = "EDIT_CONFLICT"; error.fields = conflicts; error.latest = Object.fromEntries(conflicts.map((field) => [field, shiftValue(day, field)]));
           throw error;
         }
+        // Tutors can only add their own name to an empty cell or take it out again.
+        if (actor.role === "tutor") {
+          const me = actor.name.trim().toLocaleLowerCase("en");
+          const isMe = (value) => value.trim().toLocaleLowerCase("en") === me;
+          for (const [field, value] of Object.entries(patch)) {
+            const before = shiftValue(day, field);
+            if (field === "note") throw new StaffError(403, "Only coordinators can change the day note.");
+            const adding = !before && isMe(value), removing = isMe(before) && !value.trim();
+            if (!adding && !removing && before.trim() !== value.trim()) throw new StaffError(403, "You can only add or remove your own name.");
+            const [slot, index] = shiftCell(field);
+            if (adding && day[slot].some((name, i) => i !== index && isMe(name))) throw new StaffError(409, `You're already in S${field[1]} on this day.`);
+          }
+        }
         const changes = [];
         for (const [field, value] of Object.entries(patch)) {
           const before = shiftValue(day, field), after = value.trim();

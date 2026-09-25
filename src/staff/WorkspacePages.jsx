@@ -492,14 +492,29 @@ function TodayShifts({ day, times }) {
 }
 
 // One day of the schedule; each cell autosaves and the server logs who changed what.
-function ShiftDayRow({ date, day, save }) {
+function ShiftDayRow({ date, day, save, me, editAll }) {
   const autosave = useAutosave(shiftDraft(day), save);
   const { draft, setField } = autosave;
+  const isMe = (value) => Boolean(me) && value.trim().toLocaleLowerCase("en") === me.trim().toLocaleLowerCase("en");
   const weekend = [0, 6].includes(weekday(date));
   const people = SLOT_KEYS.flatMap(([, n]) => [1, 2, 3, 4].map((p) => `s${n}p${p}`));
   // Use saved values so the layout doesn't switch (and steal focus) while someone is typing.
   const closed = Boolean(day?.event) && ![...day.first, ...day.second].some(Boolean);
-  const cell = (field, label) => <input className="staff-cell-input" list="staff-shift-names" aria-label={`${label} · ${date}`} maxLength={200} value={draft[field]} onChange={(e) => setField(field, e.target.value)} />;
+  // Tutors don't type: one "+ Add me" per shift (in its first empty cell), and "×" next to their own name.
+  const tutorCell = (field, label) => {
+    const value = draft[field];
+    if (field === "note") return value ? <span className="staff-shift-text">{value}</span> : null;
+    if (isMe(value)) return <span className="staff-shift-me">{value}<button type="button" aria-label={`Remove me from ${label} · ${date}`} onClick={() => setField(field, "", AUTOSAVE_TOGGLE_DELAY)}>×</button></span>;
+    if (value) return <span className="staff-shift-text">{value}</span>;
+    const n = field[1];
+    const slotFields = [1, 2, 3, 4].map((p) => `s${n}p${p}`);
+    const alreadyIn = slotFields.some((other) => isMe(draft[other]));
+    const firstEmpty = slotFields.find((other) => !draft[other]);
+    return !alreadyIn && firstEmpty === field ? <button type="button" className="staff-shift-add" aria-label={`Add me to S${n} · ${date}`} onClick={() => setField(field, me, AUTOSAVE_TOGGLE_DELAY)}>+ Add me</button> : null;
+  };
+  const cell = (field, label) => editAll
+    ? <input className="staff-cell-input" list="staff-shift-names" aria-label={`${label} · ${date}`} maxLength={200} value={draft[field]} onChange={(e) => setField(field, e.target.value)} />
+    : tutorCell(field, label);
   return (
     <tr className={closed ? "is-closed" : weekend ? "is-weekend" : undefined}>
       <th scope="row" className="staff-shift-date">{dayLabel(date)}</th>
@@ -745,7 +760,7 @@ export function ShiftPage() {
       {error && <p role="alert">{error}</p>}
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
         {canManage(session) && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
-        <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note.</p>
+        <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}{canManage(session) ? "Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note." : "Use “+ Add me” to take a shift and × to leave it; changes save automatically."}</p>
         <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
         <div className="table-scroll">
           <table className="staff-shift-table" aria-label="Shift schedule">
@@ -758,7 +773,7 @@ export function ShiftPage() {
               </tr>
             </thead>
             <tbody>
-              {dates.map((date) => <ShiftDayRow key={date} date={date} day={days.get(date)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
+              {dates.map((date) => <ShiftDayRow key={date} date={date} day={days.get(date)} me={session.name} editAll={canManage(session)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
             </tbody>
           </table>
         </div>

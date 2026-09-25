@@ -224,15 +224,15 @@ test("student list checkboxes and accommodation contact round-trip, and old text
   await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { cityRegistration: "maybe" }, base: { cityRegistration: true } }), /Yes, No or Unknown/);
 });
 
-test("any staff member can edit the shift grid and every change is logged", async () => {
+test("coordinators edit the whole shift grid and every change is logged", async () => {
   const staffId = "staff_12345678-1234-4234-8234-123456789abc";
   const store = memoryStore(await serializeUnifiedWorkbook({
     settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
     shifts: [{ date: "2026-10-01", first: ["Sanaz", "Ali"], second: ["Daniel"], event: "" }],
-    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "coordinator", isActive: true }],
   }));
   const repo = createUnifiedRepository(store);
-  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  const actor = { name: "Tutor Example", role: "coordinator", staffId };
   await repo.updateShiftDay(actor, { id: "2026-10-01", patch: { s1p3: "Zarina", s2p1: "Nayeem" }, base: { s1p3: "", s2p1: "Daniel" } });
   await repo.updateShiftDay(actor, { id: "2026-10-03", patch: { note: "Bank Holiday" }, base: { note: "" } });
   const workspace = await repo.workspace();
@@ -348,4 +348,24 @@ test("'Who is working?' offers only names for the signed-in role; one Super Admi
   assert.equal((await repo.superAdminIdentity()).id, owner.id);
   const { etag } = await repo.workspace();
   await assert.rejects(repo.saveStaff({ name: "Owner", role: "superadmin" }, { etag, staff: { id: adminId, name: "Adam", role: "superadmin", active: true } }), /only be one Super Admin/);
+});
+
+test("tutors can only add or remove their own name in the shift grid", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    shifts: [{ date: "2026-10-01", first: ["Ali", "", "", ""], second: ["", "", "", ""], event: "" }],
+    staff: [{ id: staffId, name: "Zarina", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const tutor = { name: "Zarina", role: "tutor", staffId };
+  await repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p2: "Zarina" }, base: { s1p2: "" } });
+  await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p3: "Zarina" }, base: { s1p3: "" } }), /already in S1/);
+  await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p1: "" }, base: { s1p1: "Ali" } }), /own name/);
+  await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s2p1: "Daniel" }, base: { s2p1: "" } }), /own name/);
+  await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { note: "Closed" }, base: { note: "" } }), /day note/);
+  await repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s2p1: "zarina" }, base: { s2p1: "" } });
+  await repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p2: "" }, base: { s1p2: "Zarina" } });
+  const day = (await repo.workspace()).data.shifts.find((entry) => entry.date === "2026-10-01");
+  assert.deepEqual([day.first, day.second], [["Ali", "", "", ""], ["zarina", "", "", ""]]);
 });
