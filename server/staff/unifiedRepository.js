@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES } from "../excel/unifiedWorkbook.js";
+import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES, DEFAULT_TUTORS_PER_SHIFT } from "../excel/unifiedWorkbook.js";
 import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
@@ -297,11 +297,13 @@ export function createUnifiedRepository(store) {
         }
         const email = text(input.email || "", 254).trim();
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new StaffError(400, "Enter a valid email address.");
-        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: "", address: "", receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
+        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: text(input.accommodationContact || "", 1000), address: text(input.address || "", 12000), receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
+        // Quick-add rows in the table can already carry the Yes/No columns.
+        for (const field of STUDENT_YES_NO_FIELDS) if (input[field] !== undefined) { checkStudentField(field, input[field], student, data); student[field] = input[field]; }
         data.students.push(student);
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: "Student created" });
         return student.id;
-      }, { major: true, safeRetry: true });
+      }, { safeRetry: true });
     },
     async checkIn(actor, input) {
       return mutate(actor, input, "daily operations", (data) => {
@@ -449,10 +451,12 @@ export function createUnifiedRepository(store) {
       if ((start && !isDate(start)) || (end && !isDate(end))) throw new StaffError(400, "Enter valid start and end dates.");
       if (start && end && end < start) throw new StaffError(400, "The end date must be on or after the start date.");
       const times = [input.shift1Time, input.shift2Time].map((value) => text(value || "", 40).trim());
+      const perShift = Number(input.perShift ?? DEFAULT_TUTORS_PER_SHIFT);
+      if (!Number.isInteger(perShift) || perShift < 1 || perShift > 4) throw new StaffError(400, "Tutors per shift must be between 1 and 4.");
       return mutate(actor, input, "schedule setup", (data) => {
-        data.schedule = { start, end };
+        data.schedule = { start, end, perShift };
         data.shiftTimes = { first: times[0] || DEFAULT_SHIFT_TIMES.first, second: times[1] || DEFAULT_SHIFT_TIMES.second };
-        appendActivity(data, actor, "Shift Update", { note: `Semester setup: ${start || "no start"} – ${end || "no end"} · S1 ${data.shiftTimes.first} · S2 ${data.shiftTimes.second}` });
+        appendActivity(data, actor, "Shift Update", { note: `Semester setup: ${start || "no start"} – ${end || "no end"} · S1 ${data.shiftTimes.first} · S2 ${data.shiftTimes.second} · ${perShift} tutors per shift` });
       }, { major: true });
     },
     async saveTutors(actor, input) {

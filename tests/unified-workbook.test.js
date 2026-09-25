@@ -160,7 +160,7 @@ test("Tutors tab is a numbered list and Settings holds the schedule period", asy
   tutorsSheet.addRow(["Tutor 9", "ali"]);
   const parsed = await parseUnifiedWorkbook(Buffer.from(await book.xlsx.writeBuffer()));
   assert.deepEqual(parsed.data.tutors, ["Sanaz", "Ali", "Zarina"]);
-  assert.deepEqual(parsed.data.schedule, { start: "2026-09-28", end: "2026-10-23" });
+  assert.deepEqual(parsed.data.schedule, { start: "2026-09-28", end: "2026-10-23", perShift: 3 });
 
   const withoutTab = await loadWorkbook(await workbookBytes());
   withoutTab.removeWorksheet(withoutTab.getWorksheet("Tutors").id);

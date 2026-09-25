@@ -28,3 +28,26 @@ export function tutorStatistics({ shifts, shiftTimes, tutors = [], schedule = {}
   }
   return [...rows.values()].map((row) => ({ ...row, total: row.done + row.planned })).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 }
+
+const addDay = (iso) => { const date = new Date(`${iso}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
+
+// Fair share = hours that need covering in the semester period ÷ number of tutors.
+// Open days: Mon–Fri, plus weekend days with someone scheduled; closed days
+// (a note and nobody scheduled, e.g. "Bank Holiday") don't count.
+export function fairShare({ shifts, shiftTimes, tutors = [], schedule = {} }) {
+  const tutorCount = tutors.filter((name) => name?.trim()).length;
+  if (!schedule.start || !schedule.end || !tutorCount) return null;
+  const perShift = schedule.perShift || 3;
+  const dayHours = ((shiftHours(shiftTimes.first) ?? 0) + (shiftHours(shiftTimes.second) ?? 0)) * perShift;
+  const days = new Map(shifts.map((day) => [day.date, day]));
+  let openDays = 0;
+  for (let date = schedule.start, guard = 0; date <= schedule.end && guard < 366; date = addDay(date), guard += 1) {
+    const day = days.get(date);
+    const staffed = Boolean(day && [...day.first, ...day.second].some((name) => name.trim()));
+    const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+    if (staffed || (!weekend && !day?.event)) openDays += 1;
+  }
+  const totalHours = openDays * dayHours;
+  return { openDays, perShift, tutorCount, totalHours, perTutor: totalHours / tutorCount };
+}
+

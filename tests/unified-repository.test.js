@@ -285,7 +285,7 @@ test("the Super Admin saves the semester period and manages the tutor list; tuto
   ({ etag } = await repo.workspace());
   await repo.saveTutors(admin, { etag, tutors: ["Sanaz", "Zarina", "Nayeem"] });
   const workspace = await repo.workspace(admin);
-  assert.deepEqual(workspace.schedule, { start: "2026-09-28", end: "2026-10-23" });
+  assert.deepEqual(workspace.schedule, { start: "2026-09-28", end: "2026-10-23", perShift: 3 });
   assert.deepEqual(workspace.shiftTimes, { first: "09:30–12:30", second: "12:00–15:00" });
   assert.deepEqual(workspace.tutors, ["Sanaz", "Zarina", "Nayeem"]);
   const log = (await repo.activityLog()).entries.map((entry) => entry.note);
@@ -294,4 +294,16 @@ test("the Super Admin saves the semester period and manages the tutor list; tuto
   const tutorView = await repo.workspace({ name: "Tutor Example", role: "tutor", staffId: tutorId });
   assert.deepEqual([tutorView.shiftLog, tutorView.data.audit], [[], []]);
   assert.deepEqual(tutorView.tutors, ["Sanaz", "Zarina", "Nayeem"]);
+});
+
+test("a quick-add row creates a student with every column filled in", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false }, staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }] }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  await repo.addStudent(actor, { name: "New Student", matriculationNumber: "00789", address: "Marienstraße 1", enrolled: true, receivedBackpack: false, accommodation: false, accommodationContact: "+49 2", cityRegistration: true, notes: "Arrived late" });
+  const [student] = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
+  assert.deepEqual([student.name, student.matriculationNumber, student.address, student.enrolled, student.receivedBackpack, student.accommodation, student.accommodationContact, student.cityRegistration, student.notes], ["New Student", "00789", "Marienstraße 1", true, false, false, "+49 2", true, "Arrived late"]);
+  await assert.rejects(repo.addStudent(actor, { name: "Second", enrolled: "maybe" }), /Yes, No or Unknown/);
+  assert.equal([...store.files.keys()].some((path) => path.startsWith("backups/manual/")), false);
 });

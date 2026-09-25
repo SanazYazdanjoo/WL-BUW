@@ -2927,30 +2927,6 @@ main:focus {
   --stat-planned: #86b6ef;
 }
 
-.staff-stat-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.staff-stat-tiles div {
-  display: grid;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: white;
-}
-
-.staff-stat-tiles strong {
-  font-size: 1.6rem;
-}
-
-.staff-stat-tiles span {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-}
-
 .staff-hours-chart ul {
   display: grid;
   gap: 0.55rem;
@@ -3182,5 +3158,38 @@ main:focus {
 .staff .staff-nav-admin {
   padding-left: 1.25rem;
   border-left: 1px solid #4a4a52;
+}
+
+.staff-student-table .staff-new-student-row td {
+  border-top: 2px dashed var(--color-border);
+  background: #fafaf7;
+}
+
+.staff-student-table .staff-new-student-row .staff-cell-input {
+  border-color: var(--color-border);
+  background: white;
+}
+
+.staff-fair-share {
+  margin: 0 0 1rem;
+}
+
+.staff-bar-track {
+  position: relative;
+}
+
+/* Fair-share marker: a dark dashed line across each bar track. */
+.staff-bar-fair {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 0;
+  border-left: 2px dashed var(--color-text);
+}
+
+.staff-chart-legend .is-fair {
+  width: 0;
+  border-left: 2px dashed var(--color-text);
+  border-radius: 0;
 }
 

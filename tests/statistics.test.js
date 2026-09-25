@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatHours, shiftHours, tutorStatistics } from "../src/staff/statistics.js";
+import { fairShare, formatHours, shiftHours, tutorStatistics } from "../src/staff/statistics.js";
 
 test("tutor hours add up worked and planned shifts within the semester period", () => {
   assert.equal(shiftHours("10:00–13:00"), 3);
@@ -24,4 +24,18 @@ test("tutor hours add up worked and planned shifts within the semester period", 
     ["Daniel", 0, 1, 0, 3, 3],
     ["Zarina", 0, 0, 0, 0, 0],
   ]);
+});
+
+test("fair share divides the hours of open days between the tutors", () => {
+  const shiftTimes = { first: "10:00–13:00", second: "12:00–15:00" };
+  const tutors = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+  // Two weeks Mon 2026-09-28 – Fri 2026-10-09: 10 weekdays, Fri 2026-10-02 closed, Sat 2026-10-03 staffed.
+  const shifts = [
+    { date: "2026-10-02", first: ["", "", "", ""], second: ["", "", "", ""], event: "Bank Holiday" },
+    { date: "2026-10-03", first: ["A", "", "", ""], second: ["", "", "", ""], event: "" },
+  ];
+  const fair = fairShare({ shifts, shiftTimes, tutors, schedule: { start: "2026-09-28", end: "2026-10-09", perShift: 3 } });
+  assert.deepEqual(fair, { openDays: 10, perShift: 3, tutorCount: 10, totalHours: 180, perTutor: 18 });
+  assert.equal(fairShare({ shifts, shiftTimes, tutors, schedule: {} }), null);
+  assert.equal(fairShare({ shifts, shiftTimes, tutors: [], schedule: { start: "2026-09-28", end: "2026-10-09" } }), null);
 });

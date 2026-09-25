@@ -45,5 +45,8 @@ export function useWorkspace() {
     setWorkspace(latest);
     return latest;
   }
-  return { workspace, error, busy, act, autosave };
+  async function reload() {
+    setWorkspace(await staffRequest("workspace"));
+  }
+  return { workspace, error, busy, act, autosave, reload };
 }

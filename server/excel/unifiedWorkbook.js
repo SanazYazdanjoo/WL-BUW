@@ -5,6 +5,7 @@ import { inferLinkLabel, safeLink, whatsappLink } from "../../shared/content.js"
 export const UNIFIED_WORKBOOK = "Welcome-Lounge.xlsx";
 export const SHIFT_SLOTS = ["S1", "S2"];
 export const DEFAULT_SHIFT_TIMES = { first: "10:00–13:00", second: "12:00–15:00" };
+export const DEFAULT_TUTORS_PER_SHIFT = 3;
 const LEGACY_SHIFT_HEADERS = ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"];
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
@@ -140,7 +141,9 @@ export async function parseUnifiedWorkbook(bytes) {
   const whatsappEnabled = bool(settingMap.get("whatsappenabled"), "WhatsApp Enabled", false);
   const shiftTimes = { first: cellText(settingMap.get("shift1time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.first, second: cellText(settingMap.get("shift2time")).slice(0, 40) || DEFAULT_SHIFT_TIMES.second };
   const whatsappGroupUrl = safeUrl(settingMap.get("whatsappgroupurl"), "WhatsApp Group URL");
-  const schedule = { start: dateCell(settingMap.get("schedulestart"), "Schedule Start"), end: dateCell(settingMap.get("scheduleend"), "Schedule End") };
+  const perShiftText = cellText(settingMap.get("tutorspershift"));
+  if (perShiftText && !/^[1-4]$/.test(perShiftText)) throw new WorkbookError("Tutors per Shift must be a whole number from 1 to 4.");
+  const schedule = { start: dateCell(settingMap.get("schedulestart"), "Schedule Start"), end: dateCell(settingMap.get("scheduleend"), "Schedule End"), perShift: Number(perShiftText || DEFAULT_TUTORS_PER_SHIFT) };
   if (schedule.start && schedule.end && schedule.end < schedule.start) throw new WorkbookError("Schedule End must be on or after Schedule Start.");
   const config = { version: 1, semesterLabel, contactLabel: "Welcome Lounge tutors", helpText: "For individual questions, contact the Welcome Lounge.", whatsappEnabled, whatsappGroupUrl: whatsappEnabled ? whatsappGroupUrl : "", contentReviewedDate: dateCell(settingMap.get("lastreviewed"), "Last Reviewed") };
   if (whatsappEnabled && !whatsappLink(config)) throw new WorkbookError("When WhatsApp is enabled, enter a valid chat.whatsapp.com invitation link.");
@@ -294,7 +297,7 @@ export function createUnifiedWorkbook(data = {}) {
   workbook.creator = "Welcome Lounge";
   const settings = data.settings || {};
   const shiftTimes = data.shiftTimes || DEFAULT_SHIFT_TIMES;
-  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Schedule Start", data.schedule?.start || ""], ["Schedule End", data.schedule?.end || ""], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
+  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Schedule Start", data.schedule?.start || ""], ["Schedule End", data.schedule?.end || ""], ["Tutors per Shift", String(data.schedule?.perShift || DEFAULT_TUTORS_PER_SHIFT)], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
   const sheetSettings = addSheet(workbook, "Settings", settingsRows);
   sheetSettings.getColumn(1).width = 28;
   sheetSettings.getColumn(2).width = 60;
