@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
-import { assignableRoles, roleLabel } from "./roles";
+import { assignableRoles, canManageLogins, roleLabel } from "./roles";
 
 const sections = ["First Step", "Useful Info", "Student Support", "Community", "Help"];
 const emptyItem = () => ({ section: "First Step", order: 1, title: "", text: "", link: "", active: true });
@@ -39,7 +39,8 @@ export function ContentManagementPage() {
   const [data, setData] = useState(null), [status, setStatus] = useState(null), [form, setForm] = useState(null), [staffForm, setStaffForm] = useState(null), [settingsForm, setSettingsForm] = useState(null), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
   const [selectedSection, setSelectedSection] = useState("First Step");
   const [logins, setLogins] = useState({});
-  const loadLogins = useCallback(() => staffRequest("accounts").then((result) => setLogins(Object.fromEntries(result.accounts.map((account) => [account.staffId, account.username])))).catch(() => setLogins({})), []);
+  // Only Admins and the Super Admin may see logins; don't ask the server otherwise.
+  const loadLogins = useCallback(() => !canManageLogins(session) ? Promise.resolve() : staffRequest("accounts").then((result) => setLogins(Object.fromEntries(result.accounts.map((account) => [account.staffId, account.username])))).catch(() => setLogins({})), [session]);
   useEffect(() => { loadLogins(); }, [loadLogins]);
   const reload = useCallback(async () => {
     try {

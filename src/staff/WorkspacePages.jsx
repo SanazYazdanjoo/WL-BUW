@@ -15,7 +15,11 @@ function SuggestedInput({ label, name, value, onChange, options, maxLength = 300
 }
 function State({ error }) {
   return error ? (
-    <p role="alert">{error}</p>
+    <div className="staff-load-error" role="alert">
+      <p><strong>{error}</strong></p>
+      <p className="staff-muted">The staff data lives in the university's Nextcloud, which sometimes doesn't respond for a moment. This is usually temporary.</p>
+      <button type="button" className="primary" onClick={() => window.location.reload()}>Try again</button>
+    </div>
   ) : (
     <p role="status">Loading staff records…</p>
   );
@@ -214,25 +218,52 @@ function AttentionList({ students }) {
   ) : <p className="staff-empty-state">No follow-up needed.</p>;
 }
 
-function UpcomingEvents({ today }) {
+// Events for the Today page: workbook events plus the university's official welcome events.
+// "Today" includes multi-day events that are running today.
+function useDashboardEvents() {
   const [events, setEvents] = useState(null);
   useEffect(() => {
     let active = true;
-    staffRequest("events").then((result) => { if (active) setEvents(result.events || []); }).catch(() => { if (active) setEvents([]); });
+    const own = staffRequest("events").then((result) => (result.events || []).filter((event) => event.active).map((event) => ({ ...event, official: false }))).catch(() => []);
+    const official = fetch("/api/content").then((response) => (response.ok ? response.json() : {})).then((bundle) => (bundle.officialSources?.welcomeEvents?.data?.events || [])
+      .filter((event) => event.date && event.sourceStatus === "current")
+      .map((event) => ({ id: `official-${event.id}`, title: event.title, date: event.date, endDate: event.endDate || "", startTime: event.startTime || "", endTime: event.endTime || "", location: event.location || "", link: event.detailUrl || "", official: true }))).catch(() => []);
+    Promise.all([own, official]).then(([a, b]) => { if (active) setEvents([...a, ...b]); });
     return () => { active = false; };
   }, []);
-  if (!events) return <p className="staff-muted">Loading…</p>;
-  const upcoming = events.filter((event) => event.active && event.date >= today).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime)).slice(0, 4);
-  return upcoming.length ? (
+  return events;
+}
+
+function EventList({ events, showDate = true }) {
+  const day = (iso, part) => new Intl.DateTimeFormat("en-GB", { [part]: part === "day" ? "numeric" : "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+  return (
     <ul className="staff-dash-events">
-      {upcoming.map((event) => (
-        <li key={event.id}>
-          <span className="staff-dash-date"><strong>{new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`))}</strong>{new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`))}</span>
-          <span><strong>{event.title}</strong><span className="staff-muted">{[event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime), event.location].filter(Boolean).join(" · ") || "Details to follow"}</span></span>
+      {events.map((event) => (
+        <li key={event.id} className={showDate ? undefined : "is-today"}>
+          {showDate && <span className="staff-dash-date"><strong>{day(event.date, "day")}</strong>{day(event.date, "month")}</span>}
+          <span>
+            <strong>{event.link ? <a href={event.link} target="_blank" rel="noreferrer">{event.title}</a> : event.title}</strong>
+            <span className="staff-muted">{[event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime), event.location, event.official ? "University programme" : ""].filter(Boolean).join(" · ") || "Details to follow"}</span>
+          </span>
         </li>
       ))}
     </ul>
-  ) : <p className="staff-empty-state">No upcoming events.</p>;
+  );
+}
+
+function DashboardEvents({ today }) {
+  const events = useDashboardEvents();
+  if (!events) return <p className="staff-muted">Loading…</p>;
+  const byTime = (a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime);
+  const todays = events.filter((event) => event.date <= today && (event.endDate || event.date) >= today).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const coming = events.filter((event) => event.date > today).sort(byTime).slice(0, 3);
+  return (
+    <>
+      <h3 className="staff-dash-subhead">Today</h3>
+      {todays.length ? <EventList events={todays} showDate={false} /> : <p className="staff-empty-state">No events today.</p>}
+      {coming.length > 0 && <><h3 className="staff-dash-subhead">Coming up</h3><EventList events={coming} /></>}
+    </>
+  );
 }
 
 function SummaryCard({ label, value, to, hint }) {
@@ -295,8 +326,8 @@ export function Dashboard() {
         <div className="staff-dash-side">
           <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
           <section className="staff-card" aria-labelledby="events-heading">
-            <div className="staff-section-header"><h2 id="events-heading">Upcoming events</h2><Link to="/staff/events">All events</Link></div>
-            <UpcomingEvents today={today} />
+            <div className="staff-section-header"><h2 id="events-heading">Events</h2><Link to="/staff/events">All events</Link></div>
+            <DashboardEvents today={today} />
           </section>
         </div>
       </div>
@@ -519,6 +550,7 @@ function ShiftDayRow({ date, day, save, me, editAll }) {
     if (field === "note") return value ? <span className="staff-shift-text">{value}</span> : null;
     if (isMe(value)) return <span className="staff-shift-me">{value}<button type="button" aria-label={`Remove me from ${label} · ${date}`} onClick={() => setField(field, "", AUTOSAVE_TOGGLE_DELAY)}>×</button></span>;
     if (value) return <span className="staff-shift-text">{value}</span>;
+    if (weekend) return null; // No shifts at weekends.
     const n = field[1];
     const slotFields = [1, 2, 3, 4].map((p) => `s${n}p${p}`);
     // Hidden only where you already work that same shift that day (hours would count twice).
@@ -831,7 +863,6 @@ export function ShiftPage() {
       {!workspace.unified ? <p>The shift schedule needs the Welcome Lounge workbook.</p> : <>
         {canManage(session) && <ScheduleSetup key={workspace.etag} workspace={workspace} busy={busy} act={act} />}
         <FairShareNotice workspace={workspace} times={times} me={session.name} />
-        <p className="staff-muted">{period.start && period.end ? `${period.start} to ${period.end}. ` : ""}{canManage(session) ? "Type a name in any cell; changes save automatically. For a closed day, clear the names and write the reason in Note." : "Use “+ Add me” to take a shift and × to leave it; changes save automatically."}</p>
         <datalist id="staff-shift-names">{names.map((name) => <option key={name} value={name} />)}</datalist>
         <div className="table-scroll">
           <table className="staff-shift-table" aria-label="Shift schedule">

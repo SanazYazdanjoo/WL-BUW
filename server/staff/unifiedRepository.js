@@ -552,6 +552,7 @@ export function createUnifiedRepository(store) {
             if (!adding && !removing && before.trim() !== value.trim()) throw new StaffError(403, "You can only add or remove your own name.");
             const [slot, index] = shiftCell(field);
             if (adding && day[slot].some((name, i) => i !== index && isMe(name))) throw new StaffError(409, `You're already in S${field[1]} on this day.`);
+            if (adding && [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay())) throw new StaffError(403, "There are no shifts on Saturdays and Sundays.");
           }
         }
         const changes = [];

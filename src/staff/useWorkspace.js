@@ -8,13 +8,18 @@ export function useWorkspace() {
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    staffRequest("workspace")
-      .then((r) => {
-        if (active) setWorkspace(r);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
+    // Nextcloud sometimes fails for a moment: retry server-side failures twice before showing an error.
+    const load = async (attempt) => {
+      try {
+        const result = await staffRequest("workspace");
+        if (active) setWorkspace(result);
+      } catch (e) {
+        const temporary = !e.status || e.status >= 500;
+        if (active && temporary && attempt < 2) setTimeout(() => { if (active) load(attempt + 1); }, attempt === 0 ? 1000 : 3000);
+        else if (active) setError(e.message);
+      }
+    };
+    load(0);
     return () => {
       active = false;
     };

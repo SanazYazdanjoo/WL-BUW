@@ -364,6 +364,7 @@ test("tutors can only add or remove their own name in the shift grid", async () 
   await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p1: "" }, base: { s1p1: "Ali" } }), /own name/);
   await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s2p1: "Daniel" }, base: { s2p1: "" } }), /own name/);
   await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { note: "Closed" }, base: { note: "" } }), /day note/);
+  await assert.rejects(repo.updateShiftDay(tutor, { id: "2026-10-03", patch: { s1p1: "Zarina" }, base: { s1p1: "" } }), /Saturdays and Sundays/);
   await repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s2p1: "zarina" }, base: { s2p1: "" } });
   await repo.updateShiftDay(tutor, { id: "2026-10-01", patch: { s1p2: "" }, base: { s1p2: "Zarina" } });
   const day = (await repo.workspace()).data.shifts.find((entry) => entry.date === "2026-10-01");
