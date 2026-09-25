@@ -3969,3 +3969,14 @@ body:has(.staff)::before {
 .staff-shift-me button:hover {
   background: white;
 }
+
+.staff-student-table .staff-cell-date {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.staff-student-table .staff-cell-date.is-pending {
+  opacity: 0.6;
+}

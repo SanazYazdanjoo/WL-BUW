@@ -51,6 +51,9 @@ const STUDENT_COLUMNS = [
   { field: "cityRegistration", label: "City registration appointment", short: "City reg.", check: true, share: 7 },
   { field: "notes", label: "Note", max: 4000, share: 9 },
 ];
+// "Date added" is set by the server when a student is created and is read-only here.
+const DATE_ADDED_SHARE = 8;
+const formatDay = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`)) : "—");
 const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
   ...Object.fromEntries(STUDENT_COLUMNS.filter((column) => !column.check).map(({ field }) => [field, String(student[field] ?? "")])),
@@ -84,6 +87,7 @@ function StudentRow({ student, save, columns }) {
   return (
     <tr>
       <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
+      <td data-label="Date added" className="staff-cell-date">{formatDay(student.legacyDate)}</td>
       <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
     </tr>
   );
@@ -91,7 +95,7 @@ function StudentRow({ student, save, columns }) {
 
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
-function NewStudentRow({ onCreate, columns }) {
+function NewStudentRow({ onCreate, columns, today }) {
   const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
@@ -117,6 +121,7 @@ function NewStudentRow({ onCreate, columns }) {
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
     >
       <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
+      <td data-label="Date added" className="staff-cell-date is-pending">{formatDay(today)}</td>
       <td className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
           {state.saving ? <span>Adding…</span> : state.error ? <span className="staff-autosave-error" role="alert">{state.error}</span> : touched ? <span>Press Enter to add</span> : null}
@@ -126,7 +131,7 @@ function NewStudentRow({ onCreate, columns }) {
   );
 }
 
-function StudentTable({ students, save, programOptions, onCreate, showAddress }) {
+function StudentTable({ students, save, programOptions, onCreate, showAddress, today }) {
   const columns = visibleStudentColumns(showAddress);
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
@@ -137,13 +142,14 @@ function StudentTable({ students, save, programOptions, onCreate, showAddress })
         <thead>
           <tr>
             {/* Column widths are proportional shares, so a row always fits on one line. */}
-            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / columns.reduce((sum, column) => sum + column.share, 0)) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
+            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / (columns.reduce((sum, column) => sum + column.share, 0) + DATE_ADDED_SHARE)) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
+            <th style={{ width: `${(DATE_ADDED_SHARE / (columns.reduce((sum, column) => sum + column.share, 0) + DATE_ADDED_SHARE)) * 94}%` }}>Date added</th>
             <th className="staff-col-status"><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
           {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} save={(patch, base) => save(s.id, patch, base)} />)}
-          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} />}
+          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} today={today} />}
         </tbody>
       </table>
     </div>
@@ -349,6 +355,7 @@ export function Students() {
         save={(id, patch, base) => autosave("students/update", id, patch, base)}
         onCreate={workspace.unified ? createStudent : null}
         showAddress={showAddress}
+        today={workspace.today}
       />
       {workspace.unified && <StudentExport workspace={workspace} />}
     </div>
@@ -500,7 +507,7 @@ function ShiftDayRow({ date, day, save, me, editAll }) {
   const people = SLOT_KEYS.flatMap(([, n]) => [1, 2, 3, 4].map((p) => `s${n}p${p}`));
   // Use saved values so the layout doesn't switch (and steal focus) while someone is typing.
   const closed = Boolean(day?.event) && ![...day.first, ...day.second].some(Boolean);
-  // Tutors don't type: one "+ Add me" per shift (in its first empty cell), and "×" next to their own name.
+  // Tutors don't type: "+ Add me" in any empty cell, and "×" next to their own name.
   const tutorCell = (field, label) => {
     const value = draft[field];
     if (field === "note") return value ? <span className="staff-shift-text">{value}</span> : null;
@@ -508,9 +515,9 @@ function ShiftDayRow({ date, day, save, me, editAll }) {
     if (value) return <span className="staff-shift-text">{value}</span>;
     const n = field[1];
     const slotFields = [1, 2, 3, 4].map((p) => `s${n}p${p}`);
+    // Hidden only where you already work that same shift that day (hours would count twice).
     const alreadyIn = slotFields.some((other) => isMe(draft[other]));
-    const firstEmpty = slotFields.find((other) => !draft[other]);
-    return !alreadyIn && firstEmpty === field ? <button type="button" className="staff-shift-add" aria-label={`Add me to S${n} · ${date}`} onClick={() => setField(field, me, AUTOSAVE_TOGGLE_DELAY)}>+ Add me</button> : null;
+    return !alreadyIn ? <button type="button" className="staff-shift-add" aria-label={`Add me to ${label} · ${date}`} onClick={() => setField(field, me, AUTOSAVE_TOGGLE_DELAY)}>+ Add me</button> : null;
   };
   const cell = (field, label) => editAll
     ? <input className="staff-cell-input" list="staff-shift-names" aria-label={`${label} · ${date}`} maxLength={200} value={draft[field]} onChange={(e) => setField(field, e.target.value)} />
