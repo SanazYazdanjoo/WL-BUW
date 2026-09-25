@@ -297,7 +297,7 @@ export function createUnifiedRepository(store) {
         }
         const email = text(input.email || "", 254).trim();
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new StaffError(400, "Enter a valid email address.");
-        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: text(input.accommodationContact || "", 1000), address: text(input.address || "", 12000), receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name };
+        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: text(input.accommodationContact || "", 1000), address: text(input.address || "", 12000), receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name, addedBy: actor.name };
         // Quick-add rows in the table can already carry the Yes/No columns.
         for (const field of STUDENT_YES_NO_FIELDS) if (input[field] !== undefined) { checkStudentField(field, input[field], student, data); student[field] = input[field]; }
         data.students.push(student);

@@ -3981,17 +3981,17 @@ body:has(.staff)::before {
   opacity: 0.6;
 }
 
-/* Shifts: fair-share notice in a red box. */
+/* Shifts: fair-share note — informational blue (red read as an error), matching the shift bars. */
 .staff-fair-notice {
   display: grid;
   gap: 0.25rem;
   margin: 0 0 1rem;
   padding: 0.85rem 1.1rem;
-  border: 1px solid #d4454f;
-  border-left: 6px solid #c1121f;
+  border: 1px solid #b7d3f6;
+  border-left: 6px solid #1c5cab;
   border-radius: 8px;
-  background: #fdecee;
-  color: #5c0a12;
+  background: #eef5fe;
+  color: #0d366b;
 }
 
 .staff-fair-notice p {
@@ -4009,4 +4009,100 @@ body:has(.staff)::before {
 
 .staff-shift-table th:nth-last-child(2) {
   width: 10%;
+}
+
+/* Shifts per tutor: minimal vertical bars (blue ramp step 550), dashed fair-share line. */
+.staff-shift-bars {
+  margin-top: 1.25rem;
+}
+
+.staff-vbars-plot {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  height: 11rem;
+  margin-top: 1.9rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.staff-vbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+}
+
+.staff-vbar-fill {
+  position: relative;
+  display: block;
+  width: min(100%, 2.75rem);
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: #1c5cab;
+}
+
+.staff-vbar.is-me .staff-vbar-fill {
+  background: #0d366b;
+}
+
+.staff-vbar-value {
+  position: absolute;
+  bottom: calc(100% + 0.2rem);
+  left: 50%;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+
+.staff-vbars-fair {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  border-top: 2px dashed var(--color-text);
+  pointer-events: none;
+}
+
+.staff-vbars-names {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.staff-vbars-names span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-vbars-names .is-me {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+@media (min-width: 1101px) {
+  .staff-student-table .staff-cell-by {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Students: the day export sits at the very bottom, even when the list is short. */
+.staff-students-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 11rem);
+}
+
+.staff-students-page > .table-scroll {
+  margin-bottom: 2rem;
+}
+
+.staff-students-page > .staff-student-export {
+  margin-top: auto;
 }

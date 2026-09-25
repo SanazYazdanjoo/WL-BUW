@@ -16,7 +16,7 @@ export const STAFF_ROLE_LABELS = { tutor: "Tutor", coordinator: "Coordinator", a
 export const HEADERS = {
   Settings: ["Setting", "Value"],
   Content: ["Section", "Order", "Title", "Text", "Link", "Active", "ID"],
-  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes", "Phone", "Email", "Contact (if no accommodation)"],
+  Students: ["ID", "Date Added", "Full Name", "Matriculation Number", "Country", "Study Program", "Enrolled", "Accommodation", "Address", "Backpack Received", "City Registration", "Notes", "Phone", "Email", "Contact (if no accommodation)", "Added By"],
   Activity: ["ID", "Timestamp", "Type", "Student ID", "Actor", "Note"],
   Staff: ["ID", "Name", "Role", "Program", "Email", "Phone", "Telegram", "Active"],
   // One row per day: two shifts with up to four people each, plus a day note (e.g. "Bank Holiday").
@@ -53,7 +53,7 @@ const dateCell = (value, context, optional = true) => {
   if (!cellText(value)) return optional ? "" : (() => { throw new WorkbookError(`${context} is required.`); })();
   try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or YYYY-MM-DD.`); }
 };
-const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email", "Contact (if no accommodation)"]) };
+const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email", "Contact (if no accommodation)", "Added By"]) };
 // Accommodation and City Registration used to be free text; any old non-empty text counts as ticked.
 const checkbox = (value) => booleanValue(value) ?? (cellText(value) ? true : null);
 // Excel may store a time as text ("14:00"), a day fraction (0.5833) or a Date on 1899-12-30.
@@ -217,7 +217,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const receivedBackpack = bool(valueAt(row, tables.Students, "Backpack Received"), `Students row ${row.number} Backpack Received`);
     const accommodation = checkbox(valueAt(row, tables.Students, "Accommodation"));
     const cityRegistration = checkbox(valueAt(row, tables.Students, "City Registration"));
-    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation, accommodationContact: cellText(valueAt(row, tables.Students, "Contact (if no accommodation)")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration, notes: cellText(valueAt(row, tables.Students, "Notes")), phone: cellText(valueAt(row, tables.Students, "Phone")), email: cellText(valueAt(row, tables.Students, "Email")), updatedAt: "", updatedBy: "" });
+    students.push({ id, legacyDate: dateCell(valueAt(row, tables.Students, "Date Added"), `Students row ${row.number} Date Added`), name, matriculationNumber: cellText(valueAt(row, tables.Students, "Matriculation Number")), country: cellText(valueAt(row, tables.Students, "Country")), studyProgram: cellText(valueAt(row, tables.Students, "Study Program")), enrolled, accommodation, accommodationContact: cellText(valueAt(row, tables.Students, "Contact (if no accommodation)")), addedBy: cellText(valueAt(row, tables.Students, "Added By")), address: cellText(valueAt(row, tables.Students, "Address")), receivedBackpack, cityRegistration, notes: cellText(valueAt(row, tables.Students, "Notes")), phone: cellText(valueAt(row, tables.Students, "Phone")), email: cellText(valueAt(row, tables.Students, "Email")), updatedAt: "", updatedBy: "" });
   }
   const staff = [], staffIds = new Set();
   for (const row of tables.Staff.dataRows) {
@@ -257,6 +257,8 @@ export async function parseUnifiedWorkbook(bytes) {
   }
   for (const item of content) if (item.active && item.section === "First Step" && !item.text.trim()) throw new WorkbookError(`First Step ${item.title} needs a short Text description.`);
   for (const item of activity) if (item.studentId && !studentIds.has(item.studentId)) throw new WorkbookError(`Activity entry ${item.id} refers to a missing student ID.`);
+  // Older rows have no "Added By": take it from the "Student created" entry in the activity history.
+  for (const student of students) if (!student.addedBy) student.addedBy = activity.find((item) => item.studentId === student.id && item.note === "Student created")?.actor || "";
   const handover = activity.filter((item) => item.type === "Handover").map((item) => ({ id: item.id, date: item.timestamp.slice(0, 10), timestamp: item.timestamp, author: item.actor, note: item.note }));
   const checkins = activity.filter((item) => item.type === "Check-in").map((item) => ({ id: item.id, studentId: item.studentId, date: item.timestamp.slice(0, 10), timestamp: item.timestamp, actor: { id: "", name: item.actor }, status: item.note }));
   const audit = activity.filter((item) => ["Student Update", "Content Update"].includes(item.type)).map((item) => ({ id: item.id, actor: { id: "", name: item.actor, role: "tutor" }, action: item.type === "Student Update" ? "student.fields" : "content.update", recordId: item.studentId, changedFields: item.note.split(",").filter(Boolean), timestamp: item.timestamp }));
@@ -315,7 +317,7 @@ export function createUnifiedWorkbook(data = {}) {
   eventsSheet.getColumn(3).numFmt = "@";
   eventsSheet.getColumn(4).numFmt = "@";
   for (let row = 4; row <= 1003; row++) eventsSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
-  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email, s.accommodationContact || ""]));
+  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email, s.accommodationContact || "", s.addedBy || ""]));
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
   addSheet(workbook, "Activity", (data.activity || []).map((a) => [a.id, a.timestamp, a.type, a.studentId, a.actor, a.note]));

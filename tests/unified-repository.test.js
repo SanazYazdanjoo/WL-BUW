@@ -369,3 +369,17 @@ test("tutors can only add or remove their own name in the shift grid", async () 
   const day = (await repo.workspace()).data.shifts.find((entry) => entry.date === "2026-10-01");
   assert.deepEqual([day.first, day.second], [["Ali", "", "", ""], ["zarina", "", "", ""]]);
 });
+
+test("'Added by' records who added a student, and older rows are filled from the activity history", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc", oldId = "stu_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: oldId, name: "Older Student" }],
+    activity: [{ id: "act_12345678-1234-4234-8234-123456789abc", timestamp: "2026-09-20T09:00:00.000Z", type: "Student Update", studentId: oldId, actor: "Ali", note: "Student created" }],
+    staff: [{ id: staffId, name: "Zarina", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  await repo.addStudent({ name: "Zarina", role: "tutor", staffId }, { name: "New Student" });
+  const students = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
+  assert.deepEqual(students.map(({ name, addedBy }) => [name, addedBy]), [["Older Student", "Ali"], ["New Student", "Zarina"]]);
+});

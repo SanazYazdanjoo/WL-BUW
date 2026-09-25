@@ -53,6 +53,7 @@ const STUDENT_COLUMNS = [
 ];
 // "Date added" is set by the server when a student is created and is read-only here.
 const DATE_ADDED_SHARE = 8;
+const ADDED_BY_SHARE = 8;
 const formatDay = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`)) : "—");
 const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
@@ -87,6 +88,7 @@ function StudentRow({ student, save, columns }) {
   return (
     <tr>
       <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
+      <td data-label="Added by" className="staff-cell-date staff-cell-by" title={student.addedBy || undefined}>{student.addedBy || "—"}</td>
       <td data-label="Date added" className="staff-cell-date">{formatDay(student.legacyDate)}</td>
       <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
     </tr>
@@ -95,7 +97,7 @@ function StudentRow({ student, save, columns }) {
 
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
-function NewStudentRow({ onCreate, columns, today }) {
+function NewStudentRow({ onCreate, columns, today, me }) {
   const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
@@ -121,6 +123,7 @@ function NewStudentRow({ onCreate, columns, today }) {
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
     >
       <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
+      <td data-label="Added by" className="staff-cell-date staff-cell-by is-pending">{me || "—"}</td>
       <td data-label="Date added" className="staff-cell-date is-pending">{formatDay(today)}</td>
       <td className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
@@ -131,8 +134,9 @@ function NewStudentRow({ onCreate, columns, today }) {
   );
 }
 
-function StudentTable({ students, save, programOptions, onCreate, showAddress, today }) {
+function StudentTable({ students, save, programOptions, onCreate, showAddress, today, me }) {
   const columns = visibleStudentColumns(showAddress);
+  const totalShare = columns.reduce((sum, column) => sum + column.share, 0) + ADDED_BY_SHARE + DATE_ADDED_SHARE;
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
@@ -142,14 +146,15 @@ function StudentTable({ students, save, programOptions, onCreate, showAddress, t
         <thead>
           <tr>
             {/* Column widths are proportional shares, so a row always fits on one line. */}
-            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / (columns.reduce((sum, column) => sum + column.share, 0) + DATE_ADDED_SHARE)) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
-            <th style={{ width: `${(DATE_ADDED_SHARE / (columns.reduce((sum, column) => sum + column.share, 0) + DATE_ADDED_SHARE)) * 94}%` }}>Date added</th>
+            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / totalShare) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
+            <th style={{ width: `${(ADDED_BY_SHARE / totalShare) * 94}%` }}>Added by</th>
+            <th style={{ width: `${(DATE_ADDED_SHARE / totalShare) * 94}%` }}>Date added</th>
             <th className="staff-col-status"><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
           {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} save={(patch, base) => save(s.id, patch, base)} />)}
-          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} today={today} />}
+          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} today={today} me={me} />}
         </tbody>
       </table>
     </div>
@@ -356,6 +361,7 @@ export function Students() {
         onCreate={workspace.unified ? createStudent : null}
         showAddress={showAddress}
         today={workspace.today}
+        me={session.name}
       />
       {workspace.unified && <StudentExport workspace={workspace} />}
     </div>
@@ -743,6 +749,39 @@ export function ChangeLogPage() {
   );
 }
 
+// Minimal vertical bars: shifts per tutor, with the fair share as a dashed line.
+function ShiftBars({ workspace, times, me }) {
+  const rows = tutorStatistics({ shifts: workspace.data.shifts, shiftTimes: times, tutors: workspace.tutors, schedule: workspace.schedule, today: workspace.today })
+    .map((row) => ({ name: row.name, shifts: row.first + row.second }))
+    .sort((a, b) => b.shifts - a.shifts || a.name.localeCompare(b.name));
+  if (!rows.length) return null;
+  const fair = fairShare({ shifts: workspace.data.shifts, shiftTimes: times, tutors: workspace.tutors, schedule: workspace.schedule });
+  // Fair share in shifts: all seats in the period divided by the number of tutors.
+  const target = fair?.tutorCount ? Math.round(((fair.openDays * 2 * fair.perShift) / fair.tutorCount) * 10) / 10 : 0;
+  const max = Math.max(1, target, ...rows.map((row) => row.shifts));
+  const isMe = (name) => name.toLocaleLowerCase("en") === (me || "").trim().toLocaleLowerCase("en");
+  const columns = { gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` };
+  return (
+    <section className="staff-card staff-shift-bars" aria-labelledby="shift-bars-heading">
+      <div className="staff-section-header">
+        <h2 id="shift-bars-heading">Shifts per tutor</h2>
+        {target > 0 && <p className="staff-chart-legend"><span className="is-fair" aria-hidden="true" />Fair share: {target} shifts</p>}
+      </div>
+      <div className="staff-vbars-plot" style={columns} role="list">
+        {target > 0 && <span className="staff-vbars-fair" style={{ bottom: `${(target / max) * 100}%` }} aria-hidden="true" />}
+        {rows.map((row) => (
+          <div key={row.name} className={`staff-vbar${isMe(row.name) ? " is-me" : ""}`} role="listitem" aria-label={`${row.name}: ${row.shifts} ${row.shifts === 1 ? "shift" : "shifts"}`} title={`${row.name}: ${row.shifts} ${row.shifts === 1 ? "shift" : "shifts"}`}>
+            <span className="staff-vbar-fill" style={{ height: `${(row.shifts / max) * 100}%` }}><span className="staff-vbar-value">{row.shifts}</span></span>
+          </div>
+        ))}
+      </div>
+      <div className="staff-vbars-names" style={columns} aria-hidden="true">
+        {rows.map((row) => <span key={row.name} className={isMe(row.name) ? "is-me" : undefined}>{row.name}</span>)}
+      </div>
+    </section>
+  );
+}
+
 // Red notice on Shifts: the fair number of hours/shifts per tutor, and where you stand.
 function FairShareNotice({ workspace, times, me }) {
   const fair = fairShare({ shifts: workspace.data.shifts, shiftTimes: times, tutors: workspace.tutors, schedule: workspace.schedule });
@@ -809,6 +848,7 @@ export function ShiftPage() {
             </tbody>
           </table>
         </div>
+        <ShiftBars workspace={workspace} times={times} me={session.name} />
       </>}
     </div>
   );
