@@ -110,6 +110,26 @@ test("staff login accepts Vercel's parsed JSON body without reading the stream",
     await new Promise((resolve) => server.close(resolve));
   }
 });
+test("the Super Admin can sign in through the API (username superadmin)", async () => {
+  const api = staffMiddleware(env, fetch, () => ({}));
+  const server = createServer((req, res) => api(req, res, () => res.writeHead(404).end()));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const response = await fetch(`${base}/api/staff/login`, {
+      method: "POST",
+      headers: { origin: base, "content-type": "application/json" },
+      body: JSON.stringify({ username: "superadmin", password: env.STAFF_ADMIN_CODE }),
+    });
+    assert.equal(response.status, 200);
+    const token = response.headers.get("set-cookie").match(/wl_staff=([^;]+)/)[1];
+    assert.equal(decodeSession(token, env).role, "superadmin");
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 test("content workbook template is available only to an authenticated admin", async () => {
   const api = staffMiddleware(env, fetch, () => ({}));
   const server = createServer((req, res) => api(req, res, () => res.writeHead(404).end()));

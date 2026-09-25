@@ -105,9 +105,13 @@ export function staffMiddleware(
         let token = await login(req, await readBody(req), env, findPersonalAccount, checkShared);
         const signedIn = decodeSession(token, env);
         // The Super Admin is never asked "Who is working?": attach the one Super Admin staff entry.
-        if (signedIn?.role === "superadmin" && !signedIn.staffId && await hasUnifiedWorkbook()) {
-          const identity = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).superAdminIdentity();
-          token = encodeSession({ id: identity.id, name: identity.name, role: "superadmin", staffId: identity.id }, env);
+        if (signedIn?.role === "superadmin" && !signedIn.staffId && env.NEXTCLOUD_WORKBOOK_FILE !== "" && env.NEXTCLOUD_USERNAME && env.NEXTCLOUD_APP_PASSWORD) {
+          try {
+            const identity = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).superAdminIdentity();
+            token = encodeSession({ id: identity.id, name: identity.name, role: "superadmin", staffId: identity.id }, env);
+          } catch {
+            // Workbook unavailable: sign in anyway; the staff identity is attached on the next sign-in.
+          }
         }
         return send(200, { ok: true }, { "Set-Cookie": cookie(token, env) });
       }
