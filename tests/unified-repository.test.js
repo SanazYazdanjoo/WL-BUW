@@ -109,7 +109,7 @@ test("autosaves merge independent student fields and report same-field conflicts
   assert.equal([...store.files.keys()].filter((path) => path.startsWith("backups/daily/")).length, 1);
 });
 
-test("a student autosave and check-in racing against one workbook both persist", async () => {
+test("a student autosave and adding a student racing against one workbook both persist", async () => {
   const studentId = "stu_22345678-1234-4234-8234-123456789abc";
   const staffId = "staff_22345678-1234-4234-8234-123456789abc";
   const store = memoryStore(await serializeUnifiedWorkbook({
@@ -121,11 +121,11 @@ test("a student autosave and check-in racing against one workbook both persist",
   const initial = await repo.workspace();
   await Promise.all([
     repo.updateStudent(actor, { id: studentId, etag: initial.etag, patch: { accommodation: true }, base: { accommodation: null } }),
-    repo.checkIn(actor, { id: studentId, etag: initial.etag }),
+    repo.addStudent(actor, { name: "Second Student", etag: initial.etag }),
   ]);
   const parsed = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
   assert.equal(parsed.data.students[0].accommodation, true);
-  assert.equal(parsed.data.activity.filter((item) => item.type === "Check-in" && item.studentId === studentId).length, 1);
+  assert.deepEqual(parsed.data.students.map((student) => student.name), ["Example Student", "Second Student"]);
 });
 
 test("student creation stores phone, email and note/comment in the private workbook", async () => {
@@ -248,27 +248,24 @@ test("any staff member can edit the shift grid and every change is logged", asyn
   assert.equal((await repo.workspace()).data.shifts.some((entry) => entry.date === "2026-10-03"), false);
 });
 
-test("students can be exported for a day by check-in or by date added", async () => {
+test("students added on a chosen day can be exported to Excel", async () => {
   const { ExcelJS } = await import("../server/excel/excelUtils.js");
-  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
   const a = "stu_12345678-1234-4234-8234-123456789abc", b = "stu_22345678-1234-4234-8234-123456789abc";
   const store = memoryStore(await serializeUnifiedWorkbook({
     settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
     students: [
-      { id: a, legacyDate: "2026-09-28", name: "Ana Example", matriculationNumber: "00123", accommodation: false, accommodationContact: "+49 1", enrolled: true },
-      { id: b, legacyDate: "2026-09-30", name: "Ben Example", matriculationNumber: "00456" },
+      { id: a, legacyDate: "2026-09-30", name: "Ana Example", matriculationNumber: "00123", accommodation: false, accommodationContact: "+49 1", enrolled: true },
+      { id: b, legacyDate: "2026-09-28", name: "Ben Example", matriculationNumber: "00456" },
     ],
-    activity: [{ id: "act_12345678-1234-4234-8234-123456789abc", timestamp: "2026-09-30T08:15:00.000Z", type: "Check-in", studentId: a, actor: "Tutor Example", note: "Checked in" }],
-    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
   }));
   const repo = createUnifiedRepository(store);
-  const read = async (bytes) => { const book = new ExcelJS.Workbook(); await book.xlsx.load(bytes); return book.getWorksheet("Students").getSheetValues().slice(2).map((row) => row.slice(1)); };
-  const [header, ana] = await read(await repo.exportStudents({ date: "2026-09-30", by: "checkin" }));
-  assert.deepEqual([header.at(-2), ana[0], ana[1], ana[6], ana[7], ana[8], ana.at(-2), ana.at(-1)], ["Checked in at", "Ana Example", "00123", "Yes", "No", "+49 1", "10:15", "Tutor Example"]);
-  const added = await read(await repo.exportStudents({ date: "2026-09-30", by: "added" }));
-  assert.deepEqual(added.slice(1).map((row) => row[0]), ["Ben Example"]);
-  await assert.rejects(repo.exportStudents({ date: "2026-02-31", by: "checkin" }), /valid date/);
-  await assert.rejects(repo.exportStudents({ date: "2026-09-30", by: "everyone" }), /checked-in or added/);
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(await repo.exportStudents({ date: "2026-09-30" }));
+  const [header, ana, ...rest] = book.getWorksheet("Students").getSheetValues().slice(2).map((row) => row.slice(1));
+  assert.equal(header[0], "Full name");
+  assert.deepEqual([ana[0], ana[1], ana[6], ana[7], ana[8], ana.at(-1)], ["Ana Example", "00123", "Yes", "No", "+49 1", "2026-09-30"]);
+  assert.equal(rest.length, 0);
+  await assert.rejects(repo.exportStudents({ date: "2026-02-31" }), /valid date/);
 });
 
 test("the Super Admin saves the semester period and manages the tutor list; tutors don't get change history", async () => {

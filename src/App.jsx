@@ -7,9 +7,9 @@ import {
   StatisticsPage,
   TutorListPage,
   ChangeLogPage,
+  AccountPage,
   Tutors,
   Handover,
-  Reports,
 } from "./staff/WorkspacePages";
 import { ImportPage, PrintCenter } from "./staff/CoordinatorPages";
 import { BackupPage, ContentManagementPage, EventsManagementPage } from "./staff/UnifiedWorkbookPages";
@@ -41,9 +41,9 @@ export default function App() {
           <Route path="statistics" element={<StatisticsPage />} />
           <Route path="tutor-list" element={<TutorListPage />} />
           <Route path="activity" element={<ChangeLogPage />} />
+          <Route path="account" element={<AccountPage />} />
           <Route path="program-tutors" element={<Tutors />} />
           <Route path="handover" element={<Handover />} />
-          <Route path="reports" element={<Reports />} />
           <Route path="data" element={<ImportPage />} />
           <Route path="content" element={<ContentManagementPage />} />
           <Route path="events" element={<EventsManagementPage />} />

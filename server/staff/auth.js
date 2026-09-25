@@ -10,6 +10,7 @@ export class StaffError extends Error {
     this.status = status;
   }
 }
+export const verifyShared = (a, b) => same(a, b);
 const same = (a, b) =>
   timingSafeEqual(
     createHash("sha256").update(String(a)).digest(),
@@ -97,7 +98,9 @@ export function checkMutation(req, actor) {
     throw new StaffError(403, "Your session changed. Reload and try again.");
 }
 const attempts = new Map();
-export function login(req, body, env) {
+// Personal logins are checked first (findAccount); otherwise the shared access
+// codes apply, followed by choosing a name from the staff list.
+export async function login(req, body, env, findAccount = async () => null) {
   if (!staffConfigured(env))
     throw new StaffError(
       503,
@@ -115,15 +118,22 @@ export function login(req, body, env) {
     throw new StaffError(429, "Too many sign-in attempts. Try again later.");
   entry.count++;
   if (attempts.size < 10000) attempts.set(key, entry);
-  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const name = typeof (body.username ?? body.name) === "string" ? (body.username ?? body.name).trim() : "";
+  const password = typeof (body.password ?? body.code) === "string" ? body.password ?? body.code : "";
   if (!name || name.length > 100 || /[\r\n]/.test(name))
-    throw new StaffError(400, "Enter your tutor name.");
-  const role = same(body.code || "", env.STAFF_ADMIN_CODE)
+    throw new StaffError(400, "Enter your username.");
+  const personal = await findAccount(name, password);
+  if (personal?.rejected) throw new StaffError(401, "The username or password was not accepted.");
+  if (personal) {
+    attempts.delete(key);
+    return encodeSession({ id: randomUUID(), name: personal.name, role: personal.role, staffId: personal.staffId, personal: true }, env);
+  }
+  const role = same(password, env.STAFF_ADMIN_CODE)
     ? "admin"
-    : same(body.code || "", env.STAFF_ACCESS_CODE)
+    : same(password, env.STAFF_ACCESS_CODE)
       ? "tutor"
       : null;
-  if (!role) throw new StaffError(401, "The access code was not accepted.");
+  if (!role) throw new StaffError(401, "The username or password was not accepted.");
   attempts.delete(key);
   return encodeSession({ id: randomUUID(), name, role }, env);
 }

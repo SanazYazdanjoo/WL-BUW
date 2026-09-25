@@ -37,6 +37,9 @@ export function ContentManagementPage() {
   const { session, refreshRoster } = useOutletContext();
   const [data, setData] = useState(null), [status, setStatus] = useState(null), [form, setForm] = useState(null), [staffForm, setStaffForm] = useState(null), [settingsForm, setSettingsForm] = useState(null), [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
   const [selectedSection, setSelectedSection] = useState("First Step");
+  const [logins, setLogins] = useState({});
+  const loadLogins = useCallback(() => staffRequest("accounts").then((result) => setLogins(Object.fromEntries(result.accounts.map((account) => [account.staffId, account.username])))).catch(() => setLogins({})), []);
+  useEffect(() => { loadLogins(); }, [loadLogins]);
   const reload = useCallback(async () => {
     try {
       const [content, workbookStatus] = await Promise.all([staffRequest("content"), staffRequest("workbook/status")]);
@@ -76,6 +79,11 @@ export function ContentManagementPage() {
   function addItem(section) {
     const order = Math.max(0, ...items.filter((item) => item.section === section).map((item) => item.order)) + 1;
     setForm({ ...emptyItem(), section, order });
+  }
+  async function resetLogin(person) {
+    if (!window.confirm(`Reset ${person.name}'s personal login? They will sign in with the shared login again.`)) return;
+    await save("account/reset", { staffId: person.id }, `${person.name} uses the shared login again.`);
+    await loadLogins();
   }
   async function removeItem(item) {
     if (!window.confirm(`Remove “${item.title}” from the workbook?${item.section === "First Step" && item.active ? " Its Journey node and connecting lines will disappear from the student app." : ""}`)) return;
@@ -152,7 +160,7 @@ export function ContentManagementPage() {
           <label className="checkbox-label"><input type="checkbox" checked={staffForm.active} onChange={(e) => setStaffForm({ ...staffForm, active: e.target.checked })} />Active</label>
           <div className="button-row"><button className="primary" disabled={busy || Boolean(form)}>Save staff member</button><button type="button" onClick={() => setStaffForm(null)}>Cancel</button></div>
         </form>}
-        <ul className="staff-staff-list">{data.staff.map((person) => <li className="staff-staff-row" key={person.id}><div><strong>{person.name}</strong><p className="staff-muted">{person.role}{person.program ? ` · ${person.program}` : ""}{!person.isActive ? " · Inactive" : ""}</p></div><button type="button" disabled={Boolean(staffForm)} aria-label={`Edit ${person.name}`} onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button></li>)}</ul>
+        <ul className="staff-staff-list">{data.staff.map((person) => <li className="staff-staff-row" key={person.id}><div><strong>{person.name}</strong><p className="staff-muted">{person.role}{person.program ? ` · ${person.program}` : ""}{!person.isActive ? " · Inactive" : ""} · {logins[person.id] ? `personal login “${logins[person.id]}”` : "shared login"}</p></div>{logins[person.id] && <button type="button" disabled={busy} onClick={() => resetLogin(person)}>Reset login</button>}<button type="button" disabled={Boolean(staffForm)} aria-label={`Edit ${person.name}`} onClick={() => setStaffForm({ id: person.id, name: person.name, role: person.role, program: person.program, email: person.email, phone: person.phone, telegram: person.telegram, active: person.isActive })}>Edit</button></li>)}</ul>
       </details>
       <details className="staff-panel staff-disclosure">
         <summary>Workbook</summary>

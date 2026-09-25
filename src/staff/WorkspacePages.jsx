@@ -18,20 +18,17 @@ function State({ error }) {
     <p role="status">Loading staff records…</p>
   );
 }
-// Excel export of the students checked in (or added) on a chosen day; built on the server.
+// Excel export of the students added on a chosen day; built on the server.
 function StudentExport({ workspace }) {
-  const [date, setDate] = useState(workspace.today), [by, setBy] = useState("checkin");
-  const count = by === "added"
-    ? workspace.data.students.filter((student) => student.legacyDate === date).length
-    : new Set(workspace.data.checkins.filter((checkin) => checkin.date === date).map((checkin) => checkin.studentId)).size;
+  const [date, setDate] = useState(workspace.today);
+  const count = workspace.data.students.filter((student) => student.legacyDate === date).length;
   return (
     <details className="staff-disclosure staff-student-export">
       <summary>Export students for a day</summary>
       <div className="staff-form staff-form-grid">
-        <label>Day<input type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></label>
-        <label>Students<select value={by} onChange={(e) => setBy(e.target.value)}><option value="checkin">Checked in on this day</option><option value="added">Added on this day</option></select></label>
-        <p className="staff-muted staff-field-wide">{count} student{count === 1 ? "" : "s"} · Excel file with all student details{by === "checkin" ? ", check-in time and who checked them in" : ""}.</p>
-        {date ? <a className="staff-export-link" href={`/api/staff/students/export?date=${encodeURIComponent(date)}&by=${by}`} download>Download Excel</a> : <p className="staff-muted">Choose a day.</p>}
+        <label>Students added on<input type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <p className="staff-muted staff-field-wide">{count} student{count === 1 ? "" : "s"} · Excel file with all student details.</p>
+        {date ? <a className="staff-export-link" href={`/api/staff/students/export?date=${encodeURIComponent(date)}`} download>Download Excel</a> : <p className="staff-muted">Choose a day.</p>}
       </div>
     </details>
   );
@@ -60,20 +57,19 @@ const studentRowDraft = (student) => ({
 });
 const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email) ? "Enter a valid email address." : "");
 
-function StudentRow({ student, save, checkedIn, onCheckIn, busy }) {
+function StudentRow({ student, save }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
   const { draft, setField } = autosave;
   const who = draft.name || "student";
-  const text = ([field, label, maxLength, list]) => <td key={field} className={field === "name" ? "staff-cell-sticky" : undefined}><input className="staff-cell-input" aria-label={`${label} · ${who}`} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} value={draft[field]} onChange={(e) => setField(field, e.target.value)} /></td>;
-  const check = ([field, label]) => <td key={field} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => setField(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>;
+  const text = ([field, label, maxLength, list]) => <td key={field} data-label={label} className={field === "name" ? "staff-cell-sticky" : undefined}><input className="staff-cell-input" aria-label={`${label} · ${who}`} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} title={draft[field] || undefined} value={draft[field]} onChange={(e) => setField(field, e.target.value)} /></td>;
+  const check = ([field, label]) => <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => setField(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>;
   return (
     <tr>
       {STUDENT_TEXT_COLUMNS.map(text)}
       {STUDENT_CHECK_COLUMNS.map(check)}
-      <td><input className="staff-cell-input" aria-label={`Contact (if no accommodation) · ${who}`} maxLength={1000} disabled={draft.accommodation === true} placeholder={draft.accommodation === true ? "" : "Phone, email or address"} value={draft.accommodationContact} onChange={(e) => setField("accommodationContact", e.target.value)} /></td>
+      <td data-label="Contact (if no accommodation)"><input className="staff-cell-input" aria-label={`Contact (if no accommodation) · ${who}`} maxLength={1000} disabled={draft.accommodation === true} placeholder={draft.accommodation === true ? "" : "Phone, email or address"} title={draft.accommodationContact || undefined} value={draft.accommodationContact} onChange={(e) => setField("accommodationContact", e.target.value)} /></td>
       {check(["cityRegistration", "City registration appointment"])}
-      <td><input className="staff-cell-input staff-cell-note" aria-label={`Note · ${who}`} maxLength={4000} value={draft.notes} onChange={(e) => setField("notes", e.target.value)} /></td>
-      <td>{checkedIn ? <span className="staff-status is-complete">✓ Today</span> : <button type="button" disabled={busy} onClick={onCheckIn}>Check in</button>}</td>
+      <td data-label="Note"><input className="staff-cell-input staff-cell-note" aria-label={`Note · ${who}`} maxLength={4000} title={draft.notes || undefined} value={draft.notes} onChange={(e) => setField("notes", e.target.value)} /></td>
       <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
     </tr>
   );
@@ -99,8 +95,8 @@ function NewStudentRow({ onCreate, columnCount }) {
     if (result.ok) { setDraft(blank()); setState({ saving: false, error: "" }); nameRef.current?.focus(); }
     else setState({ saving: false, error: result.error || "The student could not be added." });
   }
-  const text = ([field, label, maxLength, list]) => <td key={field} className={field === "name" ? "staff-cell-sticky" : undefined}><input ref={field === "name" ? nameRef : undefined} className="staff-cell-input" aria-label={`New student · ${label}`} placeholder={field === "name" ? "+ New student" : ""} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} value={draft[field]} onChange={(e) => set(field, e.target.value)} /></td>;
-  const check = ([field, label]) => <td key={field} className="staff-cell-check"><input type="checkbox" aria-label={`New student · ${label}`} checked={draft[field]} onChange={(e) => set(field, e.target.checked)} /></td>;
+  const text = ([field, label, maxLength, list]) => <td key={field} data-label={label} className={field === "name" ? "staff-cell-sticky" : undefined}><input ref={field === "name" ? nameRef : undefined} className="staff-cell-input" aria-label={`New student · ${label}`} placeholder={field === "name" ? "+ New student" : ""} list={list} type={field === "email" ? "email" : "text"} maxLength={maxLength} value={draft[field]} onChange={(e) => set(field, e.target.value)} /></td>;
+  const check = ([field, label]) => <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`New student · ${label}`} checked={draft[field]} onChange={(e) => set(field, e.target.checked)} /></td>;
   return (
     <tr
       className="staff-new-student-row"
@@ -109,9 +105,9 @@ function NewStudentRow({ onCreate, columnCount }) {
     >
       {STUDENT_TEXT_COLUMNS.map(text)}
       {STUDENT_CHECK_COLUMNS.map(check)}
-      <td><input className="staff-cell-input" aria-label="New student · Contact (if no accommodation)" maxLength={1000} disabled={draft.accommodation} value={draft.accommodationContact} onChange={(e) => set("accommodationContact", e.target.value)} /></td>
+      <td data-label="Contact (if no accommodation)"><input className="staff-cell-input" aria-label="New student · Contact (if no accommodation)" maxLength={1000} disabled={draft.accommodation} value={draft.accommodationContact} onChange={(e) => set("accommodationContact", e.target.value)} /></td>
       {check(["cityRegistration", "City registration appointment"])}
-      <td><input className="staff-cell-input staff-cell-note" aria-label="New student · Note" maxLength={4000} value={draft.notes} onChange={(e) => set("notes", e.target.value)} /></td>
+      <td data-label="Note"><input className="staff-cell-input staff-cell-note" aria-label="New student · Note" maxLength={4000} value={draft.notes} onChange={(e) => set("notes", e.target.value)} /></td>
       <td colSpan={columnCount - STUDENT_TEXT_COLUMNS.length - STUDENT_CHECK_COLUMNS.length - 3} className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
           {state.saving ? <span>Adding…</span> : state.error ? <span className="staff-autosave-error" role="alert">{state.error}</span> : touched ? <span>Press Enter to add</span> : null}
@@ -120,8 +116,8 @@ function NewStudentRow({ onCreate, columnCount }) {
     </tr>
   );
 }
-function StudentTable({ students, save, checkedInIds, onCheckIn, busy, programOptions, onCreate }) {
-  const columnCount = STUDENT_TEXT_COLUMNS.length + STUDENT_CHECK_COLUMNS.length + 5;
+function StudentTable({ students, save, programOptions, onCreate }) {
+  const columnCount = STUDENT_TEXT_COLUMNS.length + STUDENT_CHECK_COLUMNS.length + 4;
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
@@ -135,12 +131,11 @@ function StudentTable({ students, save, checkedInIds, onCheckIn, busy, programOp
             <th>Contact (if no accommodation)</th>
             <th>City registration appointment</th>
             <th>Note</th>
-            <th>Check-in</th>
             <th><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
-          {students.map((s) => <StudentRow key={s.id} student={s} busy={busy} checkedIn={checkedInIds.has(s.id)} onCheckIn={() => onCheckIn(s.id)} save={(patch, base) => save(s.id, patch, base)} />)}
+          {students.map((s) => <StudentRow key={s.id} student={s} save={(patch, base) => save(s.id, patch, base)} />)}
           {onCreate && <NewStudentRow onCreate={onCreate} columnCount={columnCount} />}
         </tbody>
       </table>
@@ -187,25 +182,6 @@ function HandoverEntries({ entries, today, limit }) {
   ) : <p>No handover notes yet.</p>;
 }
 
-function TodayCheckins({ checkins, students }) {
-  const recent = checkins.slice().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  return recent.length ? (
-    <ul className="staff-activity-list">
-      {recent.slice(0, 8).map((checkin) => {
-        const student = students.find((item) => item.id === checkin.studentId);
-        return (
-          <li key={checkin.id}>
-            <Link to={`/staff/students/${checkin.studentId}`}>
-              {student?.name || "Student record"}
-            </Link>
-            <small>Checked in by {checkin.actor.name} · {staffDateTime(checkin.timestamp)}</small>
-          </li>
-        );
-      })}
-    </ul>
-  ) : <p className="staff-empty-state">No check-ins yet.</p>;
-}
-
 function AttentionList({ students }) {
   return students.length ? (
     <ul className="staff-attention-list">
@@ -229,7 +205,6 @@ export function Dashboard() {
   if (!workspace) return <State error={error} />;
   const { data, today } = workspace;
   const todayShift = data.shifts.find((s) => s.date === today);
-  const checkinsToday = data.checkins.filter((checkin) => checkin.date === today);
   const attentionStudents = data.students.filter((student) => student.enrolled !== true);
   const dayLabel = new Intl.DateTimeFormat("en-GB", {
     dateStyle: "full",
@@ -249,10 +224,9 @@ export function Dashboard() {
     <div className="staff-page staff-dashboard">
       <header className="staff-page-heading staff-dashboard-heading">
         <div><h1>Today</h1><p className="staff-page-meta">{dayLabel}</p></div>
-        <p className="staff-checkin-count"><strong>{checkinsToday.length}</strong> checked in</p>
       </header>
           <nav className="staff-quick-actions" aria-label="Today’s actions">
-            <Link to="/staff/students">Find & check in <span aria-hidden="true">→</span></Link>
+            <Link to="/staff/students">Students <span aria-hidden="true">→</span></Link>
             <Link to="/staff/handover">Add handover <span aria-hidden="true">→</span></Link>
           </nav>
           {setupItems.length > 0 && <aside className="staff-setup-inline" aria-label="Workspace setup">
@@ -265,10 +239,6 @@ export function Dashboard() {
             <section className="staff-dashboard-section" aria-labelledby="today-shifts-heading">
               <div className="staff-section-header"><h2 id="today-shifts-heading">On duty</h2><Link to="/staff/shifts">Schedule</Link></div>
               <TodayShifts day={todayShift} times={workspace.shiftTimes || DEFAULT_SHIFT_TIMES} />
-            </section>
-            <section className="staff-dashboard-section" aria-labelledby="today-checkins-heading">
-              <div className="staff-section-header"><h2 id="today-checkins-heading">Latest check-ins</h2>{checkinsToday.length > 8 && <Link to="/staff/reports">View all</Link>}</div>
-              <TodayCheckins checkins={checkinsToday} students={data.students} />
             </section>
             <section className="staff-dashboard-section" aria-labelledby="attention-heading">
               <div className="staff-section-header"><h2 id="attention-heading">Needs attention <span className="staff-count">{attentionStudents.length}</span></h2>{attentionStudents.length > 0 && <Link to="/staff/students?filter=attention">View all</Link>}</div>
@@ -284,7 +254,7 @@ export function Dashboard() {
 }
 export function Students() {
   const { session } = useOutletContext();
-  const { workspace, error, busy, act, autosave, reload } = useWorkspace();
+  const { workspace, error, autosave, reload } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   if (!workspace) return <State error={error} />;
@@ -322,10 +292,7 @@ export function Students() {
       </div>
       <StudentTable
         students={students}
-        busy={busy}
         programOptions={studyProgramOptions(workspace)}
-        checkedInIds={new Set(workspace.data.checkins.filter((checkin) => checkin.date === workspace.today).map((checkin) => checkin.studentId))}
-        onCheckIn={(id) => act("checkin", { id })}
         save={(id, patch, base) => autosave("students/update", id, patch, base)}
         onCreate={workspace.unified ? createStudent : null}
       />
@@ -391,7 +358,7 @@ function StudentEditor({ student, save, programOptions }) {
 }
 export function StudentDetail() {
   const { studentId } = useParams();
-  const { workspace, error, busy, act, autosave } = useWorkspace();
+  const { workspace, error, autosave } = useWorkspace();
   if (!workspace) return <State error={error} />;
   const s = workspace.data.students.find((s) => s.id === studentId);
   if (!s)
@@ -403,10 +370,6 @@ export function StudentDetail() {
     );
   const recentUpdates = (workspace.data.audit || [])
     .filter((entry) => entry.action === "student.fields" && entry.recordId === s.id)
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-    .slice(0, 5);
-  const recentCheckins = workspace.data.checkins
-    .filter((entry) => entry.studentId === s.id)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .slice(0, 5);
   const fieldNames = {
@@ -424,15 +387,11 @@ export function StudentDetail() {
     phone: "Phone number",
     email: "Email",
   };
-  const checkedInToday = workspace.data.checkins.some((checkin) => checkin.studentId === s.id && checkin.date === workspace.today);
   return (
     <div className="staff-page staff-student-detail">
       <Link className="staff-back-link" to="/staff/students"><span aria-hidden="true">← </span>Students</Link>
       <header className="staff-page-heading staff-record-header">
         <div><h1>{s.name || "Student record"}</h1><p className="staff-page-meta">{[s.studyProgram, s.matriculationNumber ? `No. ${s.matriculationNumber}` : "No matriculation number"].filter(Boolean).join(" · ")}</p></div>
-        <button className={checkedInToday ? "staff-status is-complete" : "primary"} disabled={busy || checkedInToday} onClick={() => act("checkin", { id: s.id })}>
-          {checkedInToday ? "✓ Checked in today" : busy ? "Checking in…" : "Check in today"}
-        </button>
       </header>
       <p className="staff-record-meta">Date added: {s.legacyDate || "Unknown"}</p>
       {error && <p role="alert">{error}</p>}
@@ -449,16 +408,6 @@ export function StudentDetail() {
             <article className="staff-handover-entry" key={entry.id}>
               <p>{entry.changedFields.map((field) => fieldNames[field] || "Student details").join(" · ")}</p>
               <small>Updated by {entry.actor.name} · {staffDateTime(entry.timestamp)}</small>
-            </article>
-          ))}
-        </details>
-      )}
-      {recentCheckins.length > 0 && (
-        <details className="staff-record-history staff-disclosure">
-          <summary>Check-in history</summary>
-          {recentCheckins.map((entry) => (
-            <article className="staff-handover-entry" key={entry.id}>
-              <small>{entry.actor.name} · {staffDateTime(entry.timestamp)}</small>
             </article>
           ))}
         </details>
@@ -501,10 +450,10 @@ function ShiftDayRow({ date, day, save }) {
     <tr className={closed ? "is-closed" : weekend ? "is-weekend" : undefined}>
       <th scope="row" className="staff-shift-date">{dayLabel(date)}</th>
       {closed
-        ? <td colSpan={9} className="staff-shift-closed">{cell("note", "Note")}</td>
+        ? <td colSpan={9} data-label="Note" className="staff-shift-closed">{cell("note", "Note")}</td>
         : <>
-          {people.map((field) => <td key={field} className={field.startsWith("s1") ? "staff-shift-s1" : "staff-shift-s2"}>{cell(field, `S${field[1]} Person ${field[3]}`)}</td>)}
-          <td>{cell("note", "Note")}</td>
+          {people.map((field) => <td key={field} data-label={`S${field[1]} · Person ${field[3]}`} className={field.startsWith("s1") ? "staff-shift-s1" : "staff-shift-s2"}>{cell(field, `S${field[1]} Person ${field[3]}`)}</td>)}
+          <td data-label="Note">{cell("note", "Note")}</td>
         </>}
       <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
     </tr>
@@ -571,7 +520,54 @@ export function TutorListPage() {
   );
 }
 
-const ACTIVITY_TYPES = ["Shift Update", "Student Update", "Content Update", "Check-in", "Handover", "Other"];
+// Everyone starts on the shared login; here they can switch to their own username and password.
+export function AccountPage() {
+  const { session } = useOutletContext();
+  const [account, setAccount] = useState(null), [form, setForm] = useState({ username: "", currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [error, setError] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    staffRequest("account").then((result) => { if (active) { setAccount(result); setForm((current) => ({ ...current, username: result.username })); } }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, []);
+  async function save(event) {
+    event.preventDefault();
+    setError(""); setMessage("");
+    if (form.newPassword !== form.confirmPassword) { setError("The new passwords don't match."); return; }
+    setBusy(true);
+    try {
+      const result = await staffRequest("account/save", { csrf: session.csrf, body: form });
+      setAccount({ personal: true, username: result.username, updatedAt: new Date().toISOString() });
+      setForm({ username: result.username, currentPassword: "", newPassword: "", confirmPassword: "" });
+      setMessage(`Saved. From now on, sign in with the username “${result.username}” and your new password.`);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  const set = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  return (
+    <div className="staff-page staff-account-page">
+      <header className="staff-page-heading"><h1>My account</h1></header>
+      <section className="staff-panel">
+        <p><strong>{session.name}</strong> · {session.role === "admin" ? "Super Admin" : "Tutor"}</p>
+        {!account ? <p role="status">{error || "Loading…"}</p> : <p className="staff-muted">{account.personal ? `You sign in with your personal username “${account.username}”.` : "You are using the shared login. Set your own username and password below if you like; the shared login then can no longer be used for your name."}</p>}
+      </section>
+      {!session.staffId ? <p>Choose your name first, then come back here.</p> : account && (
+        <form className="staff-panel staff-form" onSubmit={save}>
+          <h2>{account.personal ? "Change your login" : "Set up your personal login"}</h2>
+          <label>Username<input required autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={3} maxLength={40} pattern="[A-Za-z0-9._\-]{3,40}" value={form.username} onChange={set("username")} /></label>
+          <label>{account.personal ? "Current password" : "Current password (the shared login password)"}<input required type="password" autoComplete="current-password" value={form.currentPassword} onChange={set("currentPassword")} /></label>
+          <label>New password<input required type="password" autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={set("newPassword")} /></label>
+          <label>Repeat new password<input required type="password" autoComplete="new-password" minLength={8} maxLength={200} value={form.confirmPassword} onChange={set("confirmPassword")} /></label>
+          <p className="staff-muted">At least 8 characters. If you forget it, the Super Admin can reset your login so you can use the shared login again.</p>
+          {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
+          <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save login"}</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITY_TYPES = ["Shift Update", "Student Update", "Content Update", "Handover", "Other"];
 // Super Admin: everything that changed, newest first, with who did it.
 export function ChangeLogPage() {
   const { session } = useOutletContext();
@@ -594,9 +590,9 @@ export function ChangeLogPage() {
         <label>Type<select value={type} onChange={(e) => setType(e.target.value)}><option value="">All changes</option>{ACTIVITY_TYPES.map((value) => <option key={value}>{value}</option>)}</select></label>
       </div>
       {entries.length === 0 ? <p className="staff-empty-state">No changes found.</p> : <div className="table-scroll">
-        <table aria-label="Change log">
+        <table aria-label="Change log" className="staff-mobile-cards">
           <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Student</th><th>Change</th></tr></thead>
-          <tbody>{entries.map((entry) => <tr key={entry.id}><td>{staffDateTime(entry.timestamp)}</td><td>{entry.actor}</td><td>{entry.type}</td><td>{entry.studentName || "—"}</td><td>{entry.note}</td></tr>)}</tbody>
+          <tbody>{entries.map((entry) => <tr key={entry.id}><td data-label="When">{staffDateTime(entry.timestamp)}</td><td data-label="Who">{entry.actor}</td><td data-label="Type">{entry.type}</td><td data-label="Student">{entry.studentName || "—"}</td><td data-label="Change">{entry.note}</td></tr>)}</tbody>
         </table>
       </div>}
       <p className="staff-muted">The latest 500 changes. The full history stays in the workbook's Activity tab.</p>
@@ -689,9 +685,9 @@ export function StatisticsPage() {
           </ul>
         </section>
         <div className="table-scroll">
-          <table aria-label="Hours per tutor">
+          <table aria-label="Hours per tutor" className="staff-mobile-cards">
             <thead><tr><th>Tutor</th><th>S1 shifts</th><th>S2 shifts</th><th>Worked</th><th>Planned</th><th>Total</th>{fair && <th>vs. fair share</th>}</tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{row.first}</td><td>{row.second}</td><td>{formatHours(row.done)}</td><td>{formatHours(row.planned)}</td><td><strong>{formatHours(row.total)}</strong></td>{fair && <td>{difference(row.total)}</td>}</tr>)}</tbody>
+            <tbody>{rows.map((row) => <tr key={row.name}><td data-label="Tutor">{row.name}</td><td data-label="S1 shifts">{row.first}</td><td data-label="S2 shifts">{row.second}</td><td data-label="Worked">{formatHours(row.done)}</td><td data-label="Planned">{formatHours(row.planned)}</td><td data-label="Total"><strong>{formatHours(row.total)}</strong></td>{fair && <td data-label="vs. fair share">{difference(row.total)}</td>}</tr>)}</tbody>
           </table>
         </div>
       </>}
@@ -752,56 +748,6 @@ export function Handover() {
         </div>
       </form>
       <div className="staff-handover-feed"><HandoverEntries entries={workspace.data.handover} today={workspace.today} /></div>
-    </div>
-  );
-}
-export function Reports() {
-  const { workspace, error } = useWorkspace();
-  const [date, setDate] = useState("");
-  if (!workspace) return <State error={error} />;
-  const selected = date || workspace.today,
-    checkins = workspace.data.checkins.filter((c) => c.date === selected),
-    handover = workspace.data.handover.filter((c) => c.date === selected);
-  function download() {
-    const csv = `Date,Check-ins,Handover entries\r\n${selected},${checkins.length},${handover.length}\r\n`;
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `welcome-lounge-${selected}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  return (
-    <div className="staff-page staff-reports-page">
-      <header className="staff-page-heading"><h1>Daily report</h1><button onClick={download}>Download CSV</button></header>
-      <div className="staff-report-summary">
-      <label className="staff-report-date">
-        Report date
-        <input
-          type="date"
-          value={selected}
-          onChange={(e) => setDate(e.target.value)}
-        />
-      </label>
-      <p>
-        {checkins.length} check-ins · {handover.length} handover entries
-      </p>
-      </div>
-      <div className="staff-dashboard-grid">
-      <section className="staff-dashboard-section"><h2>Check-ins</h2>
-      {checkins.length ? <ul className="staff-activity-list">{checkins.map((c) => (
-        <li key={c.id}><Link to={`/staff/students/${c.studentId}`}>{workspace.data.students.find((s) => s.id === c.studentId)?.name || "Student"}</Link><small>{c.actor.name} · {staffDateTime(c.timestamp)}</small></li>
-      ))}</ul> : <p className="staff-empty-state">No check-ins.</p>}
-      </section>
-      <section className="staff-dashboard-section"><h2>Handover</h2>
-      {handover.map((n) => (
-        <article key={n.id} className="staff-handover-entry"><p className="source-text">{n.note}</p><small>{n.author} · {staffDateTime(n.timestamp)}</small></article>
-      ))}
-      {!handover.length && <p className="staff-empty-state">No handover notes.</p>}
-      </section>
-      </div>
     </div>
   );
 }

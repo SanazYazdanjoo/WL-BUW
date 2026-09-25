@@ -51,7 +51,7 @@ export default function StaffLayout() {
     const form = new FormData(event.currentTarget);
     try {
       await staffRequest("login", {
-        body: { name: form.get("name") || "Staff member", code: form.get("code") },
+        body: { username: form.get("username"), password: form.get("password") },
       });
       setSession(await staffRequest("session"));
       await loadRoster();
@@ -102,10 +102,10 @@ export default function StaffLayout() {
         </Link>
         <a className="staff-student-site" href="/" target="_blank" rel="noreferrer">Student site ↗</a>
         {session && <div className="staff-header-account">
-          <span className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role}`}>
+          <Link to="/staff/account" className="staff-identity" aria-label={`Signed in as ${session.name}, ${session.role === "admin" ? "Super Admin" : "Tutor"}. My account`}>
             <strong>{session.name}</strong>
-            <small>{session.role === "admin" ? "Super Admin" : "Tutor"}</small>
-          </span>
+            <small>{session.role === "admin" ? "Super Admin" : "Tutor"} · My account</small>
+          </Link>
           <button className="staff-signout" onClick={logout}>Sign out</button>
         </div>}
       </header>
@@ -117,17 +117,17 @@ export default function StaffLayout() {
           <section className="staff-login-panel" aria-labelledby="staff-login-title">
             <h1 id="staff-login-title">Staff sign-in</h1>
             <p>
-              Use the access code from your coordinator.
+              Use the shared tutor login, or your personal login if you have set one up.
             </p>
           <form onSubmit={login} className="staff-form">
             <label>
-              Your name
-              <input name="name" autoComplete="name" maxLength={100} />
+              Username
+              <input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={100} required />
             </label>
             <label>
-              Access code
+              Password
               <input
-                name="code"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
@@ -170,31 +170,30 @@ export default function StaffLayout() {
             </main>
           ) : (
           <>
-          <nav className="staff-nav" aria-label="Staff navigation">
+          <div className="staff-dashboard-shell">
+          <nav className="staff-nav staff-sidebar" aria-label="Staff navigation">
             {[
               ["dashboard", "Today"],
               ["students", "Students"],
               ["shifts", "Schedule"],
               ["handover", "Handover"],
               ["events", "Events"],
-              ...(session.role === "admin"
-                ? [
-                    ["tutor-list", "Tutors"],
-                    ["statistics", "Statistics"],
-                    ["activity", "Change log"],
-                    ["content", "Content"],
-                    ["backup", "Backup"],
-                  ]
-                : []),
-            ].map(([path, title]) => (
-              <NavLink key={path} to={`/staff/${path}`} className={path === "tutor-list" ? "staff-nav-admin" : undefined}>
-                {title}
-              </NavLink>
-            ))}
+            ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
+            {session.role === "admin" && <>
+              <p className="staff-sidebar-label">Super Admin</p>
+              {[
+                ["tutor-list", "Tutors"],
+                ["statistics", "Statistics"],
+                ["activity", "Change log"],
+                ["content", "Content"],
+                ["backup", "Backup"],
+              ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
+            </>}
           </nav>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
           </main>
+          </div>
           </>
           )}
         </>

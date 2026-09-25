@@ -6,7 +6,7 @@ import { validateContent } from "../../shared/content.js";
 import { CONTENT_KINDS } from "../../shared/contentKinds.js";
 import { StaffError } from "./auth.js";
 import { shiftSummary } from "../excel/masterExcel.js";
-import { EXPORT_MODES, exportStudentsForDay } from "../excel/studentExport.js";
+import { exportStudentsForDay } from "../excel/studentExport.js";
 import { safeLink } from "../../shared/content.js";
 import onboardingSample from "../../content/app-content/onboarding.json" with { type: "json" };
 import eventsSample from "../../content/app-content/events.json" with { type: "json" };
@@ -305,13 +305,6 @@ export function createUnifiedRepository(store) {
         return student.id;
       }, { safeRetry: true });
     },
-    async checkIn(actor, input) {
-      return mutate(actor, input, "daily operations", (data) => {
-        if (!data.students.some((student) => student.id === input.id)) throw new StaffError(404, "Student not found.");
-        if (data.activity.some((item) => item.type === "Check-in" && item.studentId === input.id && item.timestamp.slice(0, 10) === dateToday())) return false;
-        appendActivity(data, actor, "Check-in", { studentId: input.id, note: "Checked in" });
-      }, { safeRetry: true });
-    },
     async addHandover(actor, input) {
       const note = text(input.note || "", 4000).trim();
       if (!note) throw new StaffError(400, "Write a handover note.");
@@ -473,6 +466,9 @@ export function createUnifiedRepository(store) {
         appendActivity(data, actor, "Other", { note: `Tutor list updated${added.length ? ` · added: ${added.join(", ")}` : ""}${removed.length ? ` · removed: ${removed.join(", ")}` : ""}${!added.length && !removed.length ? " · reordered" : ""}` });
       }, { major: true });
     },
+    async logStaffEvent(actor, note) {
+      return mutate(actor, {}, "staff account", (data) => { appendActivity(data, actor, "Other", { note }); }, { safeRetry: true, allowUnassigned: true });
+    },
     async activityLog() {
       const { parsed } = await current();
       const studentNames = new Map(parsed.data.students.map((student) => [student.id, student.name]));
@@ -537,11 +533,10 @@ export function createUnifiedRepository(store) {
       await commit(currentFile, data, actor, "MasterExcel import", { major: true });
       return { ok: true, students: parsed.students.length };
     },
-    async exportStudents({ date, by }) {
+    async exportStudents({ date }) {
       if (!isDate(date)) throw new StaffError(400, "Choose a valid date.");
-      if (!Object.hasOwn(EXPORT_MODES, by)) throw new StaffError(400, "Choose checked-in or added students.");
       const { parsed } = await current();
-      return exportStudentsForDay(parsed.data, date, by);
+      return exportStudentsForDay(parsed.data, date);
     },
     async exportMasterExcel() {
       const { parsed } = await current();

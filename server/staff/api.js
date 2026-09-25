@@ -7,8 +7,10 @@ import {
   requireActor,
   checkMutation,
   StaffError,
+  verifyShared,
 } from "./auth.js";
 import { createPrivateStore } from "./store.js";
+import { createAccountStore, normalizeUsername, verifyPassword } from "./accounts.js";
 import { createStaffRepository } from "./repository.js";
 import { createUnifiedRepository } from "./unifiedRepository.js";
 import { createUnifiedWorkbookTemplate } from "../excel/unifiedWorkbook.js";
@@ -58,6 +60,16 @@ export function staffMiddleware(
   return async (req, res, next) => {
     const path = new URL(req.url, "http://localhost").pathname;
     if (!path.startsWith("/api/staff/")) return next();
+    const accountStore = () => createAccountStore(createPrivateStore(env, fetchImpl));
+    // A personal login needs a matching account and an active staff record; its role comes from the staff list.
+    const findPersonalAccount = async (username, password) => {
+      if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD) return null;
+      const account = await accountStore().byUsername(username);
+      if (!account) return null;
+      if (!verifyPassword(password, account)) return { rejected: true };
+      const person = (await createUnifiedRepository(createPrivateStore(env, fetchImpl)).staffRoster()).staff.find((entry) => entry.id === account.staffId);
+      return person ? { name: person.name, role: person.role, staffId: person.id } : { rejected: true };
+    };
     const action = path.slice("/api/staff/".length);
     const send = (status, body, headers = {}) => {
       res.writeHead(status, {
@@ -70,7 +82,7 @@ export function staffMiddleware(
     };
     try {
       if (action === "login" && req.method === "POST") {
-        const token = login(req, await readBody(req), env);
+        const token = await login(req, await readBody(req), env, findPersonalAccount);
         return send(200, { ok: true }, { "Set-Cookie": cookie(token, env) });
       }
       const actor = requireActor(sessionFromRequest(req, env));
@@ -79,6 +91,7 @@ export function staffMiddleware(
           name: actor.name,
           role: actor.role,
           staffId: actor.staffId || "",
+          personal: actor.personal === true,
           csrf: actor.csrf,
         });
       const reads = {
@@ -86,11 +99,12 @@ export function staffMiddleware(
         content: ["admin", "contentStatus"],
         events: ["read", "listEvents"],
         activity: ["admin", "activityLog"],
+        account: ["read", "account"],
+        accounts: ["admin", "accounts"],
         config: ["admin", "getConfig"],
       };
       const writes = {
         "students/update": ["read", "updateStudent"],
-        checkin: ["read", "checkIn"],
         handover: ["read", "addHandover"],
         "data/preview": ["admin", "previewMasterExcelImport"],
         "data/import": ["admin", "commitMasterExcelImport"],
@@ -128,8 +142,33 @@ export function staffMiddleware(
           const roster = await createUnifiedRepository(createPrivateStore(env, fetchImpl)).staffRoster();
           const person = roster.staff.find((entry) => entry.id === input.staffId);
           if (!person) throw new StaffError(400, "Choose an active staff member from the list.");
+          if (await accountStore().byStaffId(person.id)) throw new StaffError(403, `${person.name} has a personal login. Sign in with it instead.`);
           const token = encodeSession({ id: person.id, name: person.name, role: actor.role, staffId: person.id }, env);
           return send(200, { ok: true, name: person.name }, { "Set-Cookie": cookie(token, env) });
+        }
+        if (action === "account/save") {
+          if (!actor.staffId) throw new StaffError(403, "Choose your name before setting a personal login.");
+          const input = await readBody(req);
+          const accounts = accountStore();
+          const existing = await accounts.byStaffId(actor.staffId);
+          const current = typeof input.currentPassword === "string" ? input.currentPassword : "";
+          const allowed = existing ? verifyPassword(current, existing) : [env.STAFF_ACCESS_CODE, env.STAFF_ADMIN_CODE].some((code) => code && verifyShared(current, code));
+          if (!allowed) throw new StaffError(401, "Your current password was not accepted.");
+          if (input.newPassword !== input.confirmPassword) throw new StaffError(400, "The new passwords don't match.");
+          const username = normalizeUsername(input.username);
+          await accounts.save(actor.staffId, username, input.newPassword);
+          await unifiedRepository.logStaffEvent(actor, `${actor.name} ${existing ? "changed their personal login" : "set up a personal login"} (username: ${username})`);
+          return send(200, { ok: true, username });
+        }
+        if (action === "account/reset") {
+          requireActor(actor, "admin");
+          const input = await readBody(req);
+          const roster = await unifiedRepository.staffRoster();
+          const person = roster.staff.find((entry) => entry.id === input.staffId);
+          if (!person) throw new StaffError(404, "Staff member not found.");
+          await accountStore().remove(person.id);
+          await unifiedRepository.logStaffEvent(actor, `Reset the personal login of ${person.name}; they use the shared login again`);
+          return send(200, { ok: true });
         }
         const route = writes[action];
         if (!route) throw new StaffError(404, "Staff action not found.");
@@ -142,7 +181,7 @@ export function staffMiddleware(
         });
         let result;
         if (route[2]) result = await unifiedRepository[route[1]](actor, input);
-        else if (["updateStudent", "checkIn", "addHandover", "previewMasterExcelImport", "commitMasterExcelImport"].includes(route[1]) && await hasUnifiedWorkbook()) result = await unifiedRepository[route[1]](actor, input);
+        else if (["updateStudent", "addHandover", "previewMasterExcelImport", "commitMasterExcelImport"].includes(route[1]) && await hasUnifiedWorkbook()) result = await unifiedRepository[route[1]](actor, input);
         else if (["previewContentWorkbook", "publishContentWorkbook", "rollbackContent"].includes(route[1]) && await hasUnifiedWorkbook()) throw new StaffError(409, "Public content is now edited in the staff Content page and saved directly to the Welcome Lounge workbook.");
         else result = await (operations[route[1]] ? operations[route[1]](actor, input) : repository[route[1]](actor, input));
         return send(200, result);
@@ -160,9 +199,9 @@ export function staffMiddleware(
       }
       if (req.method === "GET" && action === "students/export") {
         const query = new URL(req.url, "http://localhost").searchParams;
-        const date = query.get("date") || "", by = query.get("by") || "checkin";
-        const data = await unifiedRepository.exportStudents({ date, by });
-        res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="welcome-lounge-students-${by}-${date}.xlsx"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+        const date = query.get("date") || "";
+        const data = await unifiedRepository.exportStudents({ date });
+        res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="welcome-lounge-students-${date}.xlsx"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
         return res.end(Buffer.from(data));
       }
       if (req.method === "GET" && action === "workbook/template") {
@@ -211,13 +250,23 @@ export function staffMiddleware(
       const route = reads[action];
       if (req.method === "GET" && action === "roster") {
         requireActor(actor);
-        if (await hasUnifiedWorkbook()) return send(200, await unifiedRepository.staffRoster());
+        if (await hasUnifiedWorkbook()) {
+          // Staff with a personal login sign in with it, so the shared login can't pick their name.
+          const roster = await unifiedRepository.staffRoster();
+          const personal = new Set((await accountStore().load()).accounts.map((account) => account.staffId));
+          return send(200, { ...roster, staff: roster.staff.filter((person) => !personal.has(person.id) || person.id === actor.staffId) });
+        }
         return send(200, { staff: [], etag: null });
       }
       if (req.method !== "GET" || !route)
         throw new StaffError(404, "Staff action not found.");
       requireActor(actor, route[0]);
       if (action === "events") return send(200, await unifiedRepository.listEvents());
+      if (action === "account") {
+        const account = actor.staffId ? await accountStore().byStaffId(actor.staffId) : null;
+        return send(200, { personal: Boolean(account), username: account?.username || "", updatedAt: account?.updatedAt || "" });
+      }
+      if (action === "accounts") return send(200, { accounts: (await accountStore().load()).accounts.map(({ staffId, username, updatedAt }) => ({ staffId, username, updatedAt })) });
       if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {
         const result = action === "workspace" ? await unifiedRepository.workspace(actor) : action === "config" ? await unifiedRepository.getConfig() : await unifiedRepository.contentStatus();
