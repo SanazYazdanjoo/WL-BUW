@@ -2,6 +2,7 @@
 import { Link, useParams, useOutletContext, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
 import { staffRequest } from "./service";
+import { PasswordInput } from "./PasswordInput";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
@@ -559,7 +560,7 @@ function StaffLogins({ session }) {
               {editing === person.id && (
                 <form className="staff-form staff-login-reset" onSubmit={(event) => { event.preventDefault(); run("account/set-password", { staffId: person.id, username: form.username, newPassword: form.newPassword }, `${person.name} can now sign in with “${person.username || form.username.trim().toLowerCase()}” and the new password.`); }}>
                   {!person.username && <label>Username<input required autoCapitalize="none" spellCheck={false} minLength={3} maxLength={40} pattern="[A-Za-z0-9._\-]{3,40}" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>}
-                  <label>New password<input required type="text" autoComplete="off" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
+                  <label>New password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label>
                   <div className="button-row"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button><button type="button" onClick={() => setEditing(null)}>Cancel</button></div>
                 </form>
               )}
@@ -652,9 +653,9 @@ export function AccountPage() {
         <form className="staff-panel staff-form" onSubmit={save}>
           <h2>{account.personal ? "Change your login" : "Set up your personal login"}</h2>
           <label>Username<input required autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={3} maxLength={40} pattern="[A-Za-z0-9._\-]{3,40}" value={form.username} onChange={set("username")} /></label>
-          <label>{account.personal ? "Current password" : "Current password (the shared login password)"}<input required type="password" autoComplete="current-password" value={form.currentPassword} onChange={set("currentPassword")} /></label>
-          <label>New password<input required type="password" autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={set("newPassword")} /></label>
-          <label>Repeat new password<input required type="password" autoComplete="new-password" minLength={8} maxLength={200} value={form.confirmPassword} onChange={set("confirmPassword")} /></label>
+          <label>{account.personal ? "Current password" : "Current password (the shared login password)"}<PasswordInput required autoComplete="current-password" value={form.currentPassword} onChange={set("currentPassword")} /></label>
+          <label>New password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.newPassword} onChange={set("newPassword")} /></label>
+          <label>Repeat new password<PasswordInput required autoComplete="new-password" minLength={8} maxLength={200} value={form.confirmPassword} onChange={set("confirmPassword")} /></label>
           <p className="staff-muted">At least 8 characters. If you forget it, the Super Admin can reset your login so you can use the shared login again.</p>
           {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
           <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save login"}</button>

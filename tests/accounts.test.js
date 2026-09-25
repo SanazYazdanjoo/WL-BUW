@@ -55,6 +55,7 @@ test("sign-in accepts a personal login or the shared password, never a mix", asy
   await assert.rejects(login(request(), { username: "someone", password: env.STAFF_ACCESS_CODE }, env, findAccount), /not accepted/);
   await assert.rejects(login(request(), { username: "tutor", password: env.STAFF_ADMIN_CODE }, env, findAccount), /not accepted/);
   assert.equal(decodeSession(await login(request(), { username: "Admin", password: env.STAFF_ADMIN_CODE }, env, findAccount), env).role, "admin");
-  const shortEnv = { ...env, STAFF_ACCESS_CODE: "tutor1234" };
+  // A value pasted into Vercel with stray whitespace still works.
+  const shortEnv = { ...env, STAFF_ACCESS_CODE: " tutor1234\n" };
   assert.equal(decodeSession(await login(request(), { username: "tutor", password: "tutor1234" }, shortEnv, findAccount), shortEnv).role, "tutor");
 });

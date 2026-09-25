@@ -10,7 +10,9 @@ export class StaffError extends Error {
     this.status = status;
   }
 }
-export const verifyShared = (a, b) => same(a, b);
+// Spaces around a pasted environment value are never part of the password.
+export const sharedCode = (value) => (typeof value === "string" ? value.trim() : "");
+export const verifyShared = (a, b) => same(a, sharedCode(b));
 const same = (a, b) =>
   timingSafeEqual(
     createHash("sha256").update(String(a)).digest(),
@@ -21,9 +23,9 @@ export function staffConfigured(env) {
     env.STAFF_PILOT_ENABLED === "true" &&
     (env.STAFF_SESSION_SECRET || "").length >= 32 &&
     // The shared tutor password may be short (tutors are encouraged to set a personal login); the admin one may not.
-    (env.STAFF_ACCESS_CODE || "").length >= 8 &&
-    (env.STAFF_ADMIN_CODE || "").length >= 20 &&
-    env.STAFF_ACCESS_CODE !== env.STAFF_ADMIN_CODE
+    sharedCode(env.STAFF_ACCESS_CODE).length >= 8 &&
+    sharedCode(env.STAFF_ADMIN_CODE).length >= 20 &&
+    sharedCode(env.STAFF_ACCESS_CODE) !== sharedCode(env.STAFF_ADMIN_CODE)
   );
 }
 const sign = (value, env) =>
@@ -131,9 +133,9 @@ export async function login(req, body, env, findAccount = async () => null) {
   }
   // Shared logins: username "tutor" with the tutor password, "admin" with the admin password.
   const sharedUser = name.toLowerCase();
-  const role = sharedUser === "admin" && same(password, env.STAFF_ADMIN_CODE)
+  const role = sharedUser === "admin" && same(password, sharedCode(env.STAFF_ADMIN_CODE))
     ? "admin"
-    : sharedUser === "tutor" && same(password, env.STAFF_ACCESS_CODE)
+    : sharedUser === "tutor" && same(password, sharedCode(env.STAFF_ACCESS_CODE))
       ? "tutor"
       : null;
   if (!role) throw new StaffError(401, "The username or password was not accepted.");

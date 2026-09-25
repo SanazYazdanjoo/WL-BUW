@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { staffRequest } from "./service";
+import { PasswordInput } from "./PasswordInput";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
     [loading, setLoading] = useState(true),
@@ -126,12 +127,7 @@ export default function StaffLayout() {
             </label>
             <label>
               Password
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
+              <PasswordInput name="password" autoComplete="current-password" required />
             </label>
             <button className="primary" disabled={loginBusy}>{loginBusy ? "Signing in…" : "Sign in"}</button>
           </form>
