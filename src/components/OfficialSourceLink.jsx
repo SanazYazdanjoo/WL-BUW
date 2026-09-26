@@ -1,4 +1,5 @@
 import sourcesConfig from "../../content/app-content/sources.json";
+import { resolveOfficialLink } from "../services/officialLink";
 
 function checkedLabel(value) {
   if (!value) return "";
@@ -27,22 +28,9 @@ export default function OfficialSourceLink({
   compact = false,
   showStatusNote = true,
 }) {
-  const mapping = topicId ? sourcesConfig.topicMappings[topicId] : null;
-  const sourceId = requestedSourceId || mapping?.sourceId;
-  if (!sourceId && !officialUrl) return null;
-  const configured = sourceId ? sourcesConfig.sources[sourceId] : null;
-  if (!configured) return null;
-  const source = sourceId ? sources[sourceId] || {
-    sourceId,
-    label: configured.label,
-    url: configured.url,
-    status: "unavailable",
-  } : null;
-  const directUrl = officialUrl || mapping?.url;
-  const section = mapping?.sectionId
-    ? source.data?.sections?.find((item) => item.id === mapping.sectionId)
-    : null;
-  const url = directUrl || section?.officialUrl || source.url || configured.url;
+  const link = resolveOfficialLink(sourcesConfig, sources, { topicId, officialUrl, sourceId: requestedSourceId });
+  if (!link) return null;
+  const { url, directUrl, source } = link;
   let note = directUrl
     ? "Check the official page for current information."
     : checkedLabel(source.lastSuccessfulCheck);
