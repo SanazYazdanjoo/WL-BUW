@@ -318,6 +318,7 @@
       <div><dt>Problem</dt><dd>Arrival information was spread across university pages, PDFs and WhatsApp. Tutors kept students, shifts and handovers in separate sheets and chats.</dd></div>
       <div><dt>What I did</dt><dd>Worked out the problems from my own shifts and a tutor survey, turned them into requirements, then designed and built both interfaces around the existing Excel file.</dd></div>
       <div><dt>Strongest proof</dt><dd>The <a href="#trace">rows from evidence to design response</a>, and two <a href="#incident">production failures</a> I traced and fixed.</dd></div>
+      <div><dt>Status</dt><dd>Operational pilot. Built and tested in code; <a href="#proven">effect on users not measured yet</a>.</dd></div>
     </dl>
   </section>
 
@@ -544,7 +545,8 @@
         <ul>
           <li>Two ways to edit means conflicts: every write is version-checked, and on autosaved fields the second editor chooses “Use mine” or “Use latest”</li>
           <li>Hand-edited rows can be invalid, which caused <a href="#incident">the first failure below</a></li>
-          <li>The workbook lives on a server I don't run. When it can't be reached, the tab keeps its last data until sign-out or closing and queues everyday edits for the same conflict checks later; admin changes still need a connection</li>
+          <li>The workbook lives on a server I don't run. When it's unreachable, tutors keep working from the last loaded data, with a banner showing when it was loaded. Everyday edits queue and replay through the same conflict checks.</li>
+          <li>A queued edit that clashes with a newer change is not forced: it is dropped and shown to the tutor to enter again. The last data stays in that browser tab until sign-out or closing, and admin changes still need a connection.</li>
         </ul>
       </article>
     </div>

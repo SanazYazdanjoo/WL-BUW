@@ -26,7 +26,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 13 | In short · What I did | Worked from own shifts and survey, then requirements, design and build | NOT CHECKABLE | — | None |
 | 14 | In short · Strongest proof | Link text "evidence-to-decision rows" | VERIFIED (wording only) | Column header is "Design response" (index.html:377) | Changed (B2) |
 | 15 | In short · Strongest proof | Two production failures traced and fixed | VERIFIED (fixes) | 6247c67, be3d70d. Incident history itself not in repo | None |
-| 16 | In short · Status | Operational pilot; built and tested; effect not measured | VERIFIED / duplicate | Repeats #5, #6 and section 08 | Removed (B4) |
+| 16 | In short · Status | Operational pilot; built and tested; effect not measured | VERIFIED / duplicate | Repeats #5, #6 and section 08 | Removed (B4); restored on your decision after publishing, because the summary box is meant to repeat the key facts for skimmers (see Post-publish changes, A) |
 | 17 | 01 | Arrival list: insurance, room, semester fee, enrolment, city registration, bank account, residence permit | VERIFIED | content/app-content/onboarding.json topic IDs | None |
 | 18 | 01 | The university publishes it across many pages, PDFs and a WhatsApp group | NOT CHECKABLE | — | None |
 | 19 | 01 | Tutors keep their work in an Excel file, a shift sheet and chat | NOT CHECKABLE | — | None |
@@ -95,7 +95,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 82 | 05 · Cost | Every write version-checked; "Use mine" / "Use latest" on autosaved fields | VERIFIED | store.js; src/staff/SaveStatus.jsx:10 | None |
 | 83 | 05 · Cost | Hand-edited rows can be invalid (caused first failure) | VERIFIED (validation) / NOT CHECKABLE (incident) | unifiedWorkbook.js:156 | None |
 | 84 | 05 · Cost | Online editor needs a save-then-close habit, "which I documented" | NOT FOUND | See Not found | Removed (your decision: you did not recognise it) |
-| 85 | 05 · Offline trade-off | Nextcloud offline: tab keeps last data (sessionStorage, cleared on sign-out); everyday edits queued and replayed through conflict checks; banner with data age; clashing edits dropped and shown; admin changes need a connection | VERIFIED | src/staff/service.js:1-7, :126-159; src/staff/OfflineBanner.jsx; tests/offline.test.js; test "signing out removes the offline copy and the queue from the tab" | Merged into "What it cost" (B1) |
+| 85 | 05 · Offline trade-off | Nextcloud offline: tab keeps last data (sessionStorage, cleared on sign-out); everyday edits queued and replayed through conflict checks; banner with data age; clashing edits dropped and shown; admin changes need a connection | VERIFIED | src/staff/service.js:1-7, :126-159; src/staff/OfflineBanner.jsx; tests/offline.test.js; test "signing out removes the offline copy and the queue from the tab" | First pass (B1): the chain was removed and only the offline-copy, queue and admin-connection points went into the "What it cost" bullet; the banner and clashing-edit details were removed, not merged. Restored later in the "What it cost" card (see Post-publish changes, B) |
 | 86 | 05 · Under the interface | Browser never talks to Nextcloud directly; Node API checks every staff request against the role | VERIFIED | No Nextcloud/WebDAV reference in src/; api.js requireActor with permission map | None |
 | 87 | 05 · Tech · Interface | React and Vite, plain JavaScript | VERIFIED | package.json; no TypeScript source | None |
 | 88 | 05 · Tech · Interface | "Staff edits save field by field" | PARTLY | Autosave of changed fields (src/staff/useAutosave.js:5) covers students, content, events and shift cells. Settings, staff members, tutor list and semester setup use Save buttons (src/staff/UnifiedWorkbookPages.jsx:125, :149, :163, :271) | Corrected |
@@ -143,7 +143,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | # | Section | Old → new | Reason | Evidence |
 |---|---|---|---|---|
 | 1 | In short · Strongest proof | "evidence-to-decision rows" → "rows from evidence to design response" | B2, match the column name | index.html:377 |
-| 2 | In short | Status row removed | B4, duplicate of header Status and section 08 | index.html:298, :616-653 |
+| 2 | In short | Status row removed | B4, duplicate of header Status and section 08. Restored later on your decision (Post-publish changes, A) | index.html:298, :616-653 |
 | 3 | 04 · Req 04 proof | Paragraph "Free-text cells let anyone overwrite anyone's shift. Tutors now get “+ Add me” and ×, and the server enforces the same rule." removed | B4, duplicate of trace row 04 | index.html:410-412 |
 | 4 | 05 · What was already there | Bullet "No IT department to manage accounts" removed | B4, duplicate of the roles paragraph | index.html:499 |
 | 5 | 05 · What it cost | Added: "The workbook lives on a server I don't run. When it can't be reached, the tab keeps its last data until sign-out or closing and queues everyday edits for the same conflict checks later; admin changes still need a connection" | B1, one trade-off story | src/staff/service.js:1-7, :152-159 |
@@ -189,3 +189,16 @@ Only you can confirm these:
 | "The online editor needs a save-then-close habit, which I documented" (#84) | grep of `documentation/` and README.md for save/close, "online editor", "document editor", OnlyOffice, Collabora, lock. The only related text is documentation/excel-database.md:11, which is about the web workspace's autosave, not the Nextcloud editor. |
 | "Every page checked from 390 to 1920 px for sideways scroll" (#113) | grep of documentation/, tests/, scripts/ for 390/1920. Found only student-journey checks: development-log.md:53 (320/390 px) and :152 (375–1920 px), and operations.md:36 (a manual checklist). No committed check covers the staff pages. |
 | "Nothing scrolls sideways" for the tutor phone view (#77) | Same search. The screenshot scripts checked `scrollWidth === innerWidth` but live outside the repo. |
+
+## Post-publish changes (2026-09-26)
+
+After the fact-checked version was published, two edits were made on the published page (version `1790416932-e577`). They are copied into `case-study/index.html` verbatim.
+
+| | Change | Evidence | Status |
+|---|---|---|---|
+| A | "In short" box: the Status cell is back: "Operational pilot. Built and tested in code; effect on users not measured yet." (last phrase links to `#proven`). Restored on your decision: the summary box is meant to repeat the key facts for skimmers. | "Operational pilot": README.md:11; documentation/decisions.md:59; documentation/development-log.md:41. "Built and tested": `npm test` 108/108 pass. "Effect on users not measured yet": your own statement | VERIFIED; "not measured" is NOT CHECKABLE |
+| B | "What it cost": the offline bullet is split in two, and restores the banner and clashing-edit details: "…tutors keep working from the last loaded data, with a banner showing when it was loaded. Everyday edits queue and replay through the same conflict checks." / "A queued edit that clashes with a newer change is not forced: it is dropped and shown to the tutor to enter again. The last data stays in that browser tab until sign-out or closing, and admin changes still need a connection." | Banner: src/staff/OfflineBanner.jsx:16-17 ("You're seeing the data from HH:MM"); src/staff/service.js:80 (`since: cached.at`); tests/offline.test.js:35. Clashing edit: src/staff/service.js:126, :139-142; src/staff/OfflineBanner.jsx:24 ("Not saved: … Please check and enter it again."); tests/offline.test.js:62-73 | VERIFIED |
+
+All file:line references above were re-checked against commit `f352bf7` and are unchanged.
+
+The save-then-close bullet ("The online editor needs a save-then-close habit, which I documented") stays removed: NOT FOUND in the repo, and you didn't recognise it.
