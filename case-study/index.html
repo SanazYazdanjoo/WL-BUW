@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome Lounge Companion — UX Engineering case study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans+Extra+Condensed:wght@600;800&family=Fira+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+  :root {
+    --ink: #141416;
+    --ink-soft: #55565c;
+    --ground: #f3f2ee;
+    --paper: #ffffff;
+    --rule: #dcdbd4;
+    --magenta: #b71a49;      /* text and links; lightened in dark mode for contrast */
+    --buw-magenta: #b71a49;  /* accent: stripes, markers, borders — replaces the old yellow */
+    --chrome: #141416;
+    --chrome-text: #f4f4f0;
+    --chrome-soft: #c9c8c2;
+    --shadow: 0 1px 2px rgb(20 20 22 / 6%), 0 8px 24px rgb(20 20 22 / 7%);
+    --display: "Fira Sans Extra Condensed", "Arial Narrow", "Fira Sans", Arial, sans-serif;
+    --body: "Fira Sans", "Segoe UI", Arial, sans-serif;
+    --mono: "Fira Code", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #eeede8; --ink-soft: #a9a9b0; --ground: #121214; --paper: #1c1c20; --rule: #34343a;
+      --magenta: #ef5f8a; --chrome: #000000;
+      --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eeede8; --ink-soft: #a9a9b0; --ground: #121214; --paper: #1c1c20; --rule: #34343a;
+    --magenta: #ef5f8a; --chrome: #000000;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: auto; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 1.0625rem/1.65 var(--body); -webkit-font-smoothing: antialiased; }
+  a { color: var(--magenta); text-underline-offset: 0.18em; }
+  a:focus-visible { outline: 3px solid var(--magenta); outline-offset: 3px; border-radius: 2px; }
+  img { max-width: 100%; height: auto; display: block; }
+  code { font: 500 0.88em var(--mono); padding: 0.05em 0.35em; border-radius: 4px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  .wrap { width: min(100%, 72rem); margin-inline: auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
+
+  /* Masthead: the staff workspace's black chrome, with a BUW magenta stripe */
+  .masthead { background: var(--chrome); color: var(--chrome-text); border-top: 6px solid var(--buw-magenta); }
+  .masthead .wrap { display: grid; gap: 1.6rem; padding-block: clamp(2.5rem, 7vw, 4.5rem) clamp(2rem, 5vw, 3.25rem); }
+  .badge { justify-self: start; padding: 0.35rem 0.6rem; border-radius: 4px; background: var(--buw-magenta); color: #fff; font: 700 0.72rem/1 var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+  h1 { margin: 0; font: 800 clamp(2.8rem, 8vw, 5.6rem)/0.92 var(--display); letter-spacing: -0.01em; text-wrap: balance; max-width: 14ch; }
+  h1 .sq { display: inline-block; width: 0.42em; height: 0.42em; margin-right: 0.18em; background: var(--buw-magenta); vertical-align: 0.12em; }
+  .lede { margin: 0; max-width: 44rem; color: #d9d8d2; font-size: clamp(1.1rem, 2.2vw, 1.3rem); line-height: 1.5; text-wrap: pretty; }
+  .lede strong { color: #fff; font-weight: 600; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem 2rem; margin: 0; padding-top: 1.4rem; border-top: 1px solid #3a3a40; }
+  .facts div { display: grid; gap: 0.25rem; align-content: start; padding-left: 0.75rem; border-left: 3px solid var(--buw-magenta); }
+  .facts dt { color: var(--chrome-soft); font: 600 0.72rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+  .facts dd { margin: 0; color: var(--chrome-text); font-size: 0.95rem; line-height: 1.45; }
+
+  .hero-shot { margin-top: clamp(-1.5rem, -3vw, -1rem); }
+  .duo { position: relative; display: grid; gap: 1.25rem; }
+  .duo .phone-over .frame { border-radius: 22px; }
+  @media (min-width: 761px) {
+    .duo > .frame { width: 84%; }
+    .duo .phone-over { position: absolute; right: 0; bottom: -3rem; width: 18%; }
+    .duo .phone-over .frame { box-shadow: 0 2px 4px rgb(20 20 22 / 12%), 0 18px 40px rgb(20 20 22 / 22%); }
+    .hero-caption { margin-top: clamp(3.5rem, 6vw, 4.5rem); }
+  }
+  @media (max-width: 760px) { .duo .phone-over { width: min(60%, 13rem); justify-self: center; } }
+  .hero-caption { max-width: 46rem; }
+
+  .frame { overflow: hidden; border: 1px solid var(--rule); border-radius: 10px; background: #fff; box-shadow: var(--shadow); }
+  figure { margin: 0; display: grid; gap: 0.6rem; }
+  figcaption { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; max-width: 46rem; }
+  figcaption strong { color: var(--ink); font-weight: 600; }
+  .fig-narrow { max-width: 46rem; }
+
+  main { display: grid; gap: clamp(3.5rem, 8vw, 5.5rem); padding-block: clamp(2.5rem, 6vw, 4rem) clamp(3rem, 8vw, 5.5rem); }
+  section { display: grid; gap: 1.4rem; }
+  .sub { display: grid; gap: 1.2rem; padding-top: 1.75rem; border-top: 1px solid var(--rule); }
+  .kicker { margin: 0; display: flex; align-items: baseline; gap: 0.6rem; color: var(--magenta); font: 600 0.78rem/1.2 var(--body); letter-spacing: 0.1em; text-transform: uppercase; }
+  .kicker .n { font: 500 0.8rem/1 var(--mono); letter-spacing: 0; padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--buw-magenta); color: #fff; }
+  h2 { margin: 0; font: 800 clamp(2rem, 4.6vw, 3rem)/1 var(--display); text-wrap: balance; max-width: 22ch; }
+  h3 { margin: 0; font: 600 1.35rem/1.2 var(--display); letter-spacing: 0.005em; text-wrap: balance; }
+  p { margin: 0; }
+  .prose { display: grid; gap: 0.9rem; max-width: 42rem; }
+  .prose p, .prose li { text-wrap: pretty; }
+  .soft { color: var(--ink-soft); }
+  ul.clean { margin: 0; padding-left: 1.15rem; display: grid; gap: 0.45rem; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+  .split.wide-left { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .phone { max-width: 16rem; justify-self: center; }
+  .phone .frame { border-radius: 22px; }
+
+  /* In short */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); margin: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); overflow: hidden; }
+  .summary div { display: grid; gap: 0.35rem; align-content: start; padding: 1.1rem 1.25rem; border-left: 1px solid var(--rule); margin-left: -1px; border-top: 1px solid var(--rule); margin-top: -1px; }
+  .summary dt { margin: 0; font: 600 1.15rem/1.2 var(--display); }
+  .summary dd { margin: 0; color: var(--ink-soft); font-size: 0.95rem; line-height: 1.5; text-wrap: pretty; }
+  .summary dd a { font-weight: 500; }
+
+  /* Audiences */
+  .audiences { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; }
+  .aud { display: grid; gap: 0.75rem; align-content: start; padding: 1.2rem 1.35rem; border-radius: 12px; }
+  .aud.student { background: var(--paper); border: 1px solid var(--rule); border-top: 5px solid var(--buw-magenta); }
+  .aud.staff { background: var(--chrome); color: var(--chrome-text); border-top: 5px solid var(--buw-magenta); }
+  .aud dl { margin: 0; display: grid; gap: 0.4rem; }
+  .aud dt { font: 600 0.72rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--magenta); }
+  .aud.staff dt { color: var(--chrome-soft); }
+  .aud .soft { font-size: 0.95rem; margin-top: -0.4rem; }
+  .aud.staff .soft { color: var(--chrome-soft); }
+  .aud.student h3 + dl { margin-top: 0; }
+  .aud dd { margin: 0 0 0.35rem; font-size: 0.97rem; }
+
+  /* Evidence sources */
+  .sources { display: grid; margin: 0; border-top: 1px solid var(--rule); }
+  .sources div { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 0.35rem 1.5rem; padding-block: 0.9rem; border-bottom: 1px solid var(--rule); }
+  .sources dt { font-weight: 600; line-height: 1.4; }
+  .sources dt small { display: block; color: var(--ink-soft); font-weight: 400; font-size: 0.85rem; }
+  .sources dd { margin: 0; color: var(--ink-soft); font-size: 0.97rem; max-width: 40rem; }
+  .evidence { display: grid; gap: 0.35rem; padding: 0.95rem 1.2rem; border-left: 4px solid var(--buw-magenta); background: var(--paper); border-radius: 0 8px 8px 0; box-shadow: var(--shadow); max-width: 42rem; font-size: 0.97rem; }
+  .evidence strong { font-weight: 600; }
+
+  /* Evidence → decision */
+  .trace-head { display: none; }
+  .trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+  .trace > li { padding: 1.05rem 1.25rem; border: 1px solid var(--rule); border-left: 4px solid var(--buw-magenta); border-radius: 0 10px 10px 0; background: var(--paper); }
+  .trace dl { margin: 0; display: grid; gap: 0.8rem; }
+  .trace dl > div { position: relative; display: grid; gap: 0.2rem; align-content: start; }
+  .trace dt { font: 600 0.7rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .trace dd { margin: 0; font-size: 0.95rem; line-height: 1.5; text-wrap: pretty; }
+  .trace .decision dd { font-weight: 600; }
+  .src { display: inline-block; margin-bottom: 0.3rem; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-soft); font: 500 0.75rem/1.5 var(--body); }
+  @media (min-width: 900px) {
+    .trace-head, .trace dl { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 2.25rem; }
+    .trace-head { display: grid; padding: 0 1.25rem 0 calc(1.25rem + 4px); color: var(--ink-soft); font: 600 0.72rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+    .trace-head span:last-child { color: var(--magenta); }
+    .trace dt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .trace dl > div:not(:last-child)::after { content: "→"; position: absolute; right: -1.6rem; top: 0.05rem; margin: 0; color: var(--magenta); font-weight: 700; }
+    .trace .decision { margin: -0.45rem -0.65rem -0.45rem 0; }
+  }
+  /* Scan path: soft evidence → need → emphasised response, with ↓ connectors when stacked */
+  .trace > li { display: grid; grid-template-columns: 2.1rem minmax(0, 1fr); column-gap: 0.4rem; scroll-margin-top: 1rem; }
+  .trace .row-n { font: 500 0.8rem/1.6 var(--mono); color: var(--magenta); }
+  .trace-head { padding-left: calc(1.25rem + 4px + 2.5rem); }
+  .trace dl > div:first-child dd { color: var(--ink-soft); }
+  .trace dl > div:nth-child(3) dd { font-weight: 500; }
+  .trace .decision { padding: 0.45rem 0.65rem; border-radius: 6px; background: color-mix(in srgb, var(--buw-magenta) 8%, var(--paper)); }
+  .trace .decision dt { color: var(--magenta); }
+  @media (max-width: 899px) { .trace dl > div:not(:last-child)::after { content: "↓"; display: block; margin-top: 0.3rem; color: var(--magenta); font-weight: 700; line-height: 1; } }
+
+  /* A screenshot that proves a decision: decision first, image as evidence */
+  .proof { gap: 0.75rem; }
+  .proof-head { display: grid; gap: 0.3rem; max-width: 46rem; }
+  .proof-head h4 { margin: 0; font: 600 1.3rem/1.2 var(--display); text-wrap: balance; }
+  .proof-head p { color: var(--ink-soft); font-size: 0.97rem; }
+  .req { justify-self: start; font: 600 0.72rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* Under the interface */
+  .chain { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .chain li { display: grid; gap: 0.2rem; align-content: start; padding: 0.9rem 1.1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); font-size: 0.95rem; }
+  .chain li:last-child { border-color: var(--buw-magenta); }
+  .chain b { font: 600 0.72rem/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .chain li:last-child b { color: var(--magenta); }
+  .chain li:not(:last-child)::after { content: "↓"; color: var(--magenta); font-weight: 700; font-size: 1.1rem; line-height: 1; margin-top: 0.35rem; }
+  @media (min-width: 900px) {
+    .chain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; }
+    .chain li { position: relative; }
+    .chain li:not(:last-child)::after { content: "→"; position: absolute; right: -1.45rem; top: 50%; margin: 0; transform: translateY(-50%); }
+  }
+
+  /* Closing lesson */
+  .sub > h4 { margin: 0.4rem 0 0; font: 600 1.2rem/1.2 var(--display); text-wrap: balance; }
+  .lesson { display: grid; gap: 0.8rem; padding: clamp(1.4rem, 4vw, 2.25rem); border-radius: 12px; border-top: 6px solid var(--buw-magenta); background: var(--chrome); color: var(--chrome-text); }
+  .lesson h2 { font: 600 0.78rem/1.2 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--chrome-soft); max-width: none; }
+  .lesson p { max-width: 40rem; font: 600 clamp(1.35rem, 2.8vw, 1.8rem)/1.25 var(--display); text-wrap: pretty; }
+
+  /* Who touches what */
+  .sys { display: grid; gap: 0.5rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); }
+  .lane { display: contents; }
+  .node { display: grid; gap: 0.15rem; align-content: center; padding: 0.8rem 0.95rem; border-radius: 10px; border: 1px solid var(--rule); background: var(--ground); }
+  .node b { font: 600 1.1rem/1.2 var(--display); }
+  .node span { color: var(--ink-soft); font-size: 0.86rem; line-height: 1.4; }
+  .node.student { border-top: 4px solid var(--buw-magenta); background: var(--paper); }
+  .node.staff { background: var(--chrome); border-color: var(--chrome); color: var(--chrome-text); }
+  .node.staff span { color: var(--chrome-soft); }
+  .node.hub { border: 2px solid var(--buw-magenta); background: var(--paper); }
+  .node.hub b { font-size: 1.2rem; }
+  .edge { display: flex; align-items: center; gap: 0.4rem; color: var(--ink-soft); font-size: 0.8rem; line-height: 1.3; padding-left: 1rem; }
+  .edge::before { content: "↓"; color: var(--magenta); font-weight: 700; font-size: 1rem; }
+  @media (max-width: 899px) {
+    .lane { display: grid; gap: 0.5rem; padding-bottom: 0.9rem; margin-bottom: 0.4rem; border-bottom: 1px dashed var(--rule); }
+    .hub::before { content: "All three lead to"; color: var(--magenta); font: 600 0.7rem/1.4 var(--body); letter-spacing: 0.08em; text-transform: uppercase; }
+  }
+  @media (min-width: 900px) {
+    .sys { grid-template-columns: minmax(0, 1fr) 8.5rem minmax(0, 1fr) 9.5rem minmax(0, 1.05fr); grid-template-rows: auto auto auto; gap: 0.75rem 0.5rem; align-items: stretch; }
+    .edge { flex-direction: column; justify-content: center; gap: 0.25rem; padding: 0; text-align: center; }
+    .edge::before { content: none; }
+    .edge::after { content: ""; display: block; width: 100%; height: 2px; background: linear-gradient(90deg, var(--rule), var(--magenta)); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+    .edge span { text-wrap: balance; }
+    .edge span::after { content: "\00a0→"; color: var(--magenta); font-weight: 700; }
+    .who-students { grid-area: 1 / 1; } .e1 { grid-area: 1 / 2; } .ui-student { grid-area: 1 / 3; } .e2 { grid-area: 1 / 4; }
+    .who-team { grid-area: 2 / 1 / 4 / 2; } .e3 { grid-area: 2 / 2; } .ui-staff { grid-area: 2 / 3; } .e4 { grid-area: 2 / 4; }
+    .e5 { grid-area: 3 / 2; } .ui-excel { grid-area: 3 / 3; } .e6 { grid-area: 3 / 4; }
+    .hub { grid-area: 1 / 5 / 4 / 6; }
+  }
+
+  /* Staff questions */
+  .questions { margin: 0; display: grid; gap: 0; border-top: 1px solid var(--rule); }
+  .questions div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 0.3rem 1.5rem; padding-block: 0.8rem; border-bottom: 1px solid var(--rule); }
+  .questions dt { font-style: italic; }
+  .questions dd { margin: 0; color: var(--ink-soft); font-size: 0.97rem; }
+  .questions dd b { color: var(--ink); font-weight: 600; }
+
+  table.roles { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  table.roles th, table.roles td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  table.roles thead th { color: var(--ink-soft); font: 600 0.75rem/1.2 var(--body); letter-spacing: 0.06em; text-transform: uppercase; }
+  table.roles tbody th { white-space: nowrap; font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  .formula { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.55rem; padding: 1rem 1.2rem; border-radius: 10px; background: var(--chrome); color: var(--chrome-text); font: 500 0.95rem/1.5 var(--mono); }
+  .formula b { font-weight: 500; color: #fff; text-decoration: underline 2px var(--buw-magenta); text-underline-offset: 0.25em; }
+
+  /* Keep the spreadsheet: trade-off */
+  .tradeoff { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+  .tradeoff article { display: grid; gap: 0.6rem; align-content: start; padding: 1.1rem 1.25rem; border-radius: 10px; border: 1px solid var(--rule); background: var(--paper); }
+  .tradeoff article.decided { background: var(--chrome); color: var(--chrome-text); border-color: var(--chrome); border-top: 5px solid var(--buw-magenta); }
+  .tradeoff article.decided ul { color: var(--chrome-text); }
+  .tradeoff h3 { font-size: 1.2rem; }
+  .tradeoff ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.4rem; font-size: 0.95rem; color: var(--ink-soft); }
+  .tech { display: grid; grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); gap: 0.6rem 2rem; margin: 0; }
+  .tech div { display: grid; gap: 0.1rem; align-content: start; }
+  .tech dt { font-weight: 600; font-size: 0.97rem; }
+  .tech dd { margin: 0; color: var(--ink-soft); font-size: 0.93rem; }
+
+  /* Feedback → change */
+  .loop { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+  .loop li { display: grid; grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1.25fr); gap: 0.75rem; align-items: center; padding: 0.8rem 1.1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); }
+  .loop .said { font-style: italic; color: var(--ink-soft); }
+  .loop .arrow { color: var(--magenta); font-weight: 700; text-align: center; }
+  .loop .did { font-weight: 500; font-size: 0.97rem; }
+
+  .incident { display: grid; gap: 0.9rem; padding: 1.35rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); }
+  .incident ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+  .incident code { white-space: nowrap; }
+
+  /* What's proven */
+  .ladder { display: grid; grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr)); gap: 1rem; }
+  .ladder article { display: grid; gap: 0.5rem; align-content: start; padding: 1.1rem 1.2rem; border-radius: 10px; border: 1px solid var(--rule); background: var(--paper); }
+  .ladder .state { justify-self: start; padding: 0.15rem 0.5rem; border-radius: 999px; font: 600 0.72rem/1.5 var(--body); letter-spacing: 0.06em; text-transform: uppercase; }
+  .ladder .done .state { background: var(--chrome); color: var(--chrome-text); }
+  .ladder .open { border-style: dashed; background: transparent; }
+  .ladder .open .state { border: 1px solid var(--buw-magenta); color: var(--magenta); }
+  .ladder ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; font-size: 0.93rem; color: var(--ink-soft); }
+  .ladder p { font-size: 0.95rem; color: var(--ink-soft); }
+  .next { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+  .next article { display: grid; gap: 0.35rem; align-content: start; padding: 1rem 1.15rem; border-left: 3px solid var(--buw-magenta); background: var(--paper); border-radius: 0 10px 10px 0; }
+  .next h4 { margin: 0; font: 600 1.2rem/1.2 var(--display); }
+  .next p { color: var(--ink-soft); font-size: 0.95rem; }
+  .next-title { margin-top: 0.75rem; }
+
+  footer { border-top: 1px solid var(--rule); }
+  footer .wrap { display: grid; gap: 0.5rem; padding-block: 2rem 3rem; color: var(--ink-soft); font-size: 0.88rem; }
+
+  @media (max-width: 760px) {
+    .split, .split.wide-left { grid-template-columns: minmax(0, 1fr); }
+    .loop li { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+    .loop .arrow { text-align: left; }
+    .sources div, .questions div { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .frame { transition: transform 200ms ease; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="badge">UX Engineering case study</span>
+    <h1><span class="sq" aria-hidden="true"></span>Welcome Lounge Companion</h1>
+    <p class="lede">I work as a tutor in the Welcome Lounge at Bauhaus-Universität Weimar. From that desk, I saw where arrival information and the team's own coordination broke down. <strong>I turned what I saw into requirements and built a student journey and a staff workspace around the spreadsheet the team already trusted.</strong></p>
+    <dl class="facts">
+      <div><dt>Role</dt><dd>Sole UX engineer: research, interaction design, front-end and back-end. Also a tutor on the team.</dd></div>
+      <div><dt>Context</dt><dd>International Office Welcome Lounge, Winter Semester 2026/27</dd></div>
+      <div><dt>Focus</dt><dd>Workflow research · Interaction design · Implementation</dd></div>
+      <div><dt>Timeline</dt><dd>July – September 2026</dd></div>
+      <div><dt>Status</dt><dd>Operational pilot. Effect on users not yet measured.</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="wrap hero-shot">
+  <figure>
+    <div class="duo">
+      <div class="frame"><img src="img/dashboard-1440.png" alt="The staff Today page: black header with a magenta Staff Workspace badge, black sidebar with the menu, four summary cards, a Needs attention list, Latest handover, and on the right On duty today and Events, split into Today and Coming up." width="1440" height="900" fetchpriority="high"></div>
+      <div class="phone-over"><div class="frame"><img src="img/journey-390.png" alt="The student journey on a phone: the heading Your first steps, then numbered circles in one column joined by a dotted line, with Health insurance outlined in magenta as the next step." width="780" height="1688"></div></div>
+    </div>
+    <figcaption class="hero-caption"><strong>One product, two audiences.</strong> Tutors coordinate in the dark staff workspace. Students follow ten first steps on their phones, without an account.</figcaption>
+  </figure>
+</div>
+
+<main class="wrap">
+
+  <section aria-labelledby="short">
+    <h2 id="short" class="visually-hidden">The project in short</h2>
+    <dl class="summary">
+      <div><dt>Problem</dt><dd>Arrival information was spread across university pages, PDFs and WhatsApp. Tutors kept students, shifts and handovers in separate sheets and chats.</dd></div>
+      <div><dt>What I did</dt><dd>Worked out the problems from my own shifts and a tutor survey, turned them into requirements, then designed and built both interfaces around the existing Excel file.</dd></div>
+      <div><dt>Strongest proof</dt><dd>The <a href="#trace">rows from evidence to design response</a>, and two <a href="#incident">production failures</a> I traced and fixed.</dd></div>
+    </dl>
+  </section>
+
+  <!-- 01 -->
+  <section aria-labelledby="situation">
+    <p class="kicker"><span class="n">01</span>The situation</p>
+    <h2 id="situation">Everything a new student needs exists. It is just in too many places.</h2>
+    <div class="prose">
+      <p>Every semester, international students arrive in Weimar and work through the same list: health insurance, a room, the semester fee, enrolment, city registration, a bank account, a residence permit. The university publishes all of it, across many pages, PDFs and a WhatsApp group.</p>
+      <p>The Welcome Lounge tutors fill the gaps in person, while keeping their own work in an Excel file, a shift sheet and chat.</p>
+    </div>
+    <div class="audiences">
+      <article class="aud student">
+        <h3>Incoming students</h3>
+        <p class="soft">Often before they arrive</p>
+        <dl>
+          <dt>Need</dt><dd>Know the next step and reach the official answer quickly, on a phone</dd>
+          <dt>Constraint</dt><dd>No account, no tracking</dd>
+        </dl>
+      </article>
+      <article class="aud staff">
+        <h3>Welcome Lounge team</h3>
+        <p class="soft">Tutors, coordinators and admins</p>
+        <dl>
+          <dt>Need</dt><dd>One current, shared picture of students, shifts and handovers</dd>
+          <dt>Constraint</dt><dd>Spreadsheet speed, clear attribution, a semester handover without a developer</dd>
+        </dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section aria-labelledby="discovery">
+    <p class="kicker"><span class="n">02</span>Discovery</p>
+    <h2 id="discovery">Starting from inside the team, then checking with a survey</h2>
+    <div class="prose">
+      <p>The project started from my own shifts at the desk. That gave me direct access, but my view could be mistaken for the team's, so I checked it with the other tutors.</p>
+    </div>
+    <dl class="sources" aria-label="Where the evidence came from">
+      <div><dt>My shifts at the desk<small>Own observation, from July 2026</small></dt><dd>Repeated arrival questions, student notes in Excel, shifts in a separate sheet, handovers in chat messages.</dd></div>
+      <div><dt>Tutor survey<small>September 2026, four responses</small></dt><dd>Sent once the first version was running. It confirmed some decisions and reordered others.</dd></div>
+      <div><dt>Requests during the pilot<small>The Welcome Lounge team</small></dt><dd>Requests while using the tool, later also through the in-app Feedback button. <a href="#loop">See iteration.</a></dd></div>
+    </dl>
+    <div class="evidence">
+      <p><strong>How strong is this?</strong> Directional, not representative. It shaped priorities; it does not prove outcomes. What came up is traced in the rows below.</p>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section aria-labelledby="trace">
+    <p class="kicker"><span class="n">03</span>From evidence to requirements</p>
+    <h2 id="trace">Why the interface looks the way it does</h2>
+    <div class="prose">
+      <p class="soft">Each row runs from what I saw or was told to what I built. Sources are marked.</p>
+    </div>
+    <div class="trace-head" aria-hidden="true"><span>Observed</span><span>Problem</span><span>Requirement</span><span>Design response</span></div>
+    <ol class="trace">
+      <li id="req-1">
+        <span class="row-n" aria-hidden="true">01</span>
+        <dl>
+          <div><dt>Observed</dt><dd><span class="src">My shifts · Survey</span><br>Tutors answer the same arrival questions many times a day. Students don't know where to look.</dd></div>
+          <div><dt>Problem</dt><dd>The official answers exist, but spread across pages, PDFs and a WhatsApp group.</dd></div>
+          <div><dt>Requirement</dt><dd>A student can see the next step and reach the official source, without an account.</dd></div>
+          <div class="decision"><dt>Design response</dt><dd>One ordered ten-step journey. Each step links to the university page. Progress stays in the browser.</dd></div>
+        </dl>
+      </li>
+      <li id="req-2">
+        <span class="row-n" aria-hidden="true">02</span>
+        <dl>
+          <div><dt>Observed</dt><dd><span class="src">My shifts · Survey</span><br>Notes in one Excel file, shifts in another sheet, handovers in chat. Handover information gets lost, duplicated or unclear.</dd></div>
+          <div><dt>Problem</dt><dd>No shared, current picture, and no way to see who changed what.</dd></div>
+          <div><dt>Requirement</dt><dd>One place for students, shifts and handovers that records who changed what.</dd></div>
+          <div class="decision"><dt>Design response</dt><dd>A staff workspace where every change is logged with who, when and what changed (old → new for shifts), plus a shared handover feed.</dd></div>
+        </dl>
+      </li>
+      <li id="req-3">
+        <span class="row-n" aria-hidden="true">03</span>
+        <dl>
+          <div><dt>Observed</dt><dd><span class="src">Survey</span><br>Tutors rated Excel, WhatsApp and shared documents as easy to use.</dd></div>
+          <div><dt>Problem</dt><dd>Replacing tools that work would add migration risk and tie the team to a new app.</dd></div>
+          <div><dt>Requirement</dt><dd>The team keeps its Excel file and can hand it to the next semester's team without a developer.</dd></div>
+          <div class="decision"><dt>Design response</dt><dd>The workbook stays the source of truth. The web workspace reads and writes the same file.</dd></div>
+        </dl>
+      </li>
+      <li id="req-4">
+        <span class="row-n" aria-hidden="true">04</span>
+        <dl>
+          <div><dt>Observed</dt><dd><span class="src">Team request</span><br>“As a tutor I should only be able to put in my own name.”</dd></div>
+          <div><dt>Problem</dt><dd>With free-text shift cells, any tutor could change anyone's shift.</dd></div>
+          <div><dt>Requirement</dt><dd>Tutors change only their own shifts. Coordinators keep full control.</dd></div>
+          <div class="decision"><dt>Design response</dt><dd>“+ Add me” and × instead of text fields, with the same rule enforced on the server.</dd></div>
+        </dl>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 04 -->
+  <section aria-labelledby="workflow">
+    <p class="kicker"><span class="n">04</span>Designing the workflow</p>
+    <h2 id="workflow">Two front doors to one workbook</h2>
+    <figure>
+      <div class="sys">
+        <div class="lane">
+          <div class="node who-students"><b>Incoming students</b><span>On phones, often before arrival</span></div>
+          <div class="edge e1"><span>open, no account</span></div>
+          <div class="node student ui-student"><b>Student journey</b><span>Ten steps, read-only. Each links to the official university page.</span></div>
+          <div class="edge e2"><span>reads approved content from the workbook</span></div>
+        </div>
+        <div class="lane">
+          <div class="node who-team"><b>Welcome Lounge team</b><span>Tutors, coordinators, admins</span></div>
+          <div class="edge e3"><span>signs in by role</span></div>
+          <div class="node staff ui-staff"><b>Staff workspace</b><span>Students, shifts, handovers, events. Every change logged.</span></div>
+          <div class="edge e4"><span>reads and writes the workbook, version-checked</span></div>
+        </div>
+        <div class="lane">
+          <div class="edge e5"><span>or, as before</span></div>
+          <div class="node ui-excel"><b>Excel / Nextcloud editor</b><span>The team's familiar tool</span></div>
+          <div class="edge e6"><span>edits the workbook directly</span></div>
+        </div>
+        <div class="node hub"><b>Welcome-Lounge.xlsx</b><span>One workbook in the university's Nextcloud. Content, students, shifts, staff and the activity log are tabs in it.</span></div>
+      </div>
+      <figcaption><strong>Who touches what.</strong> Three ways in, one source of truth. The team can always fall back to the file they already know.</figcaption>
+    </figure>
+
+    <div class="sub">
+      <h3>For students: a calm path instead of a dashboard</h3>
+      <div class="prose">
+        <p>I first explored a home page with recommendations and event promotions, then cut it back to the journey alone. Every extra panel competed with the next step.</p>
+        <ul class="clean">
+          <li><strong>Official sources stay canonical.</strong> Pages are fetched server-side and cached. If a page changes unexpectedly, the last good version is kept.</li>
+          <li><strong>Private by default.</strong> No student accounts, no analytics, no server-side profile.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>For staff: screens that answer daily questions</h3>
+      <dl class="questions">
+        <div><dt>“Who's on duty, who needs attention, what's coming up?”</dt><dd><b>Today.</b> Tutors don't see the summary cards; they only answered questions tutors never ask.</dd></div>
+        <div><dt>“What do we know about this student?”</dt><dd><b>Students.</b> One row per student, edited in place.</dd></div>
+        <div><dt>“When am I working, and am I doing my share?”</dt><dd><b>Shifts.</b> Your total and the fair share sit above the grid.</dd></div>
+        <div><dt>“Is the work spread evenly?”</dt><dd><b>Statistics</b>, for coordinators and above.</dd></div>
+      </dl>
+      <figure class="proof">
+        <div class="proof-head">
+          <a class="req" href="#req-2">Requirement 02</a>
+          <h4>Spreadsheet speed, with accountability built in</h4>
+          <p>The team works fast in Excel and needed to see who changed what. So the table behaves like a sheet, and attribution costs nobody any typing.</p>
+        </div>
+        <div class="frame"><img src="img/students-1440.png" alt="The Students table: one line per student with editable cells for name, matriculation number, country, programme, checkboxes for Enrolled, Accommodation and City registration, contact and note, then read-only Added by and Date added columns, and an empty New student row at the bottom." width="1440" height="900" loading="lazy"></div>
+        <figcaption>Cells save themselves, the empty last row adds a student, and “Added by” fills in automatically.</figcaption>
+      </figure>
+      <figure class="proof">
+        <div class="proof-head">
+          <a class="req" href="#req-4">Requirement 04</a>
+          <h4>Tutors schedule themselves, and can only move their own name</h4>
+        </div>
+        <div class="frame"><img src="img/tutor-shifts-1440.png" alt="The Shifts grid as the tutor Sanaz sees it: a blue note with the fair share per tutor and her own scheduled hours, then the grid with other tutors' names as plain text, her own name with a remove button, + Add me buttons in empty weekday cells, and weekend rows without buttons." width="1440" height="900" loading="lazy"></div>
+        <figcaption>The grid mirrors the team's existing sheet and refreshes every 20 seconds.</figcaption>
+      </figure>
+      <div class="split wide-left">
+        <figure>
+          <div class="frame"><img src="img/statistics-1440.png" alt="The Statistics page: hours per tutor as horizontal bars split into worked and planned, with a dashed fair-share marker, and a table of S1 shifts, S2 shifts, worked, planned, total and difference from the fair share." width="1440" height="900" loading="lazy"></div>
+          <figcaption><strong>For coordinators: is anyone carrying too much or too little?</strong> Hours per tutor against the fair share; the table repeats every value. In this sample schedule most slots are still open, so every tutor sits below it.</figcaption>
+        </figure>
+        <div class="prose">
+          <div class="formula" aria-label="Fair share equals open days times S1 hours plus S2 hours, times tutors per shift, divided by tutors"><span>fair share =</span><span><b>open days</b> × (S1 hours + S2 hours) × <b>tutors per shift</b></span><span>÷ <b>tutors</b></span></div>
+          <p class="soft">Open days are weekdays in the semester period, plus any weekend day with someone scheduled. Closed days don't count.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Four roles, one ladder, and nobody climbs it alone</h3>
+      <div class="split wide-left">
+        <div class="prose">
+          <p>There is no IT department to manage accounts, so every permission follows from someone's place on one ladder.</p>
+          <div class="table-wrap">
+            <table class="roles">
+              <thead><tr><th scope="col">Role</th><th scope="col">Can do</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Tutor</th><td>Students, own shifts, events, handover</td></tr>
+                <tr><th scope="row">Coordinator</th><td>+ tutor list, semester setup, statistics, change log, content, backup</td></tr>
+                <tr><th scope="row">Admin</th><td>+ tutor and coordinator logins</td></tr>
+                <tr><th scope="row">Super Admin</th><td>Everything, including Admin logins. Exactly one.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><strong>No quiet promotions.</strong> Nobody can give anyone, including themselves, a role above their own. I found this gap while designing the ladder: a coordinator could have raised their own role and then set a personal login.</p>
+        </div>
+        <figure class="phone">
+          <div class="frame"><img src="img/tutor-today-390.png" alt="The Today page on a phone for a tutor: the black menu wraps at the top with the signed-in tutor and Sign out below it, followed by quick actions, the On duty today card and the start of the Events card." width="780" height="1688" loading="lazy"></div>
+          <figcaption><strong>A tutor on a phone.</strong> Fewer menu items, and nothing scrolls sideways.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section aria-labelledby="staff">
+    <p class="kicker"><span class="n">05</span>Building with constraints</p>
+    <h2 id="staff">Keep the spreadsheet. Give it a better front door.</h2>
+    <div class="prose">
+      <p>The easy story would be “the old tools are bad, replace them.” The evidence said the team trusted its Excel file. So I kept it and built the interaction layer around it.</p>
+    </div>
+    <div class="tradeoff">
+      <article>
+        <h3>What was already there</h3>
+        <ul>
+          <li>An Excel file the team trusted and knew how to use</li>
+          <li>A handover to the next semester's team, and one developer: me</li>
+        </ul>
+      </article>
+      <article class="decided">
+        <h3>What I decided</h3>
+        <ul>
+          <li>One workbook in the university's Nextcloud stays the source of truth</li>
+          <li>Excel and the web workspace read and write the same file</li>
+          <li>The workbook doubles as backup and semester handover document</li>
+        </ul>
+      </article>
+      <article>
+        <h3>What it cost</h3>
+        <ul>
+          <li>Two ways to edit means conflicts: every write is version-checked, and on autosaved fields the second editor chooses “Use mine” or “Use latest”</li>
+          <li>Hand-edited rows can be invalid, which caused <a href="#incident">the first failure below</a></li>
+          <li>The online editor needs a save-then-close habit, which I documented</li>
+          <li>The workbook lives on a server I don't run. When it can't be reached, the tab keeps its last data until sign-out or closing and queues everyday edits for the same conflict checks later; admin changes still need a connection</li>
+        </ul>
+      </article>
+    </div>
+    <div class="sub" id="engineering">
+      <h3>Under the interface</h3>
+      <div class="prose">
+        <p>I built both front doors in one codebase. The browser never talks to Nextcloud directly: a small Node API reads and writes the workbook and checks every staff request against the signed-in role.</p>
+      </div>
+      <dl class="tech">
+        <div><dt>Interface</dt><dd>React and Vite, in plain JavaScript. Everyday staff edits save field by field.</dd></div>
+        <div><dt>Data</dt><dd>The team's workbook in Nextcloud, read and written over WebDAV, parsed with ExcelJS and validated on every read.</dd></div>
+        <div><dt>Access</dt><dd>Four roles checked on the server, a signed session cookie with CSRF protection. Passwords salted and hashed with scrypt, never stored in the workbook.</dd></div>
+        <div><dt>Runtime &amp; recovery</dt><dd>Node on Vercel. Daily and before-major-change backups in Nextcloud.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section aria-labelledby="loop">
+    <p class="kicker"><span class="n">06</span>Iteration</p>
+    <h2 id="loop">Shipping in small loops with the people who run the lounge</h2>
+    <div class="prose">
+      <p>Requests from the team during the pilot. I decided how to respond and shipped each change, usually within hours. Most changes removed things.</p>
+    </div>
+    <ul class="loop">
+      <li><span class="said">“We don't need check-in.”</span><span class="arrow" aria-hidden="true">→</span><span class="did">Removed it everywhere, and kept old records readable.</span></li>
+      <li><span class="said">“Each student should be one row, edited right there.”</span><span class="arrow" aria-hidden="true">→</span><span class="did">Inline editing with autosave and short headers.</span></li>
+      <li><span class="said">“I don't want horizontal scroll anywhere.”</span><span class="arrow" aria-hidden="true">→</span><span class="did">Tables fit their container and become cards on narrow screens.</span></li>
+      <li><span class="said">“This looks like an error.”</span><span class="arrow" aria-hidden="true">→</span><span class="did">The red fair-share box became an informational blue note.</span></li>
+      <li><span class="said">“Who added this student?”</span><span class="arrow" aria-hidden="true">→</span><span class="did">A read-only “Added by” column, back-filled from the activity history.</span></li>
+      <li><span class="said">“People should be able to report problems.”</span><span class="arrow" aria-hidden="true">→</span><span class="did">A Feedback button on every workspace page. Messages land in the change log with name and page.</span></li>
+    </ul>
+    <figure class="fig-narrow">
+      <div class="frame"><img src="img/feedback-1280.png" alt="The Feedback panel open above the bottom-right Feedback button: choices for Suggestion, Problem / error, and Other, a message field, a note that the name and page are sent along, and Send and Cancel buttons." width="1280" height="900" loading="lazy"></div>
+      <figcaption><strong>Closing the loop inside the tool.</strong> One click, three choices, one message. Each report arrives with the sender's name and the page it came from.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 07 -->
+  <section aria-labelledby="incident">
+    <p class="kicker"><span class="n">07</span>When things broke</p>
+    <h2 id="incident">Designing for the failure I actually saw</h2>
+    <div class="incident">
+      <p>During the pilot, edits to the workbook stopped showing up on the site. I traced it layer by layer:</p>
+      <ol>
+        <li>One invalid row (a step name typed into the <code>Section</code> column) made the whole workbook fail validation.</li>
+        <li>The site then quietly fell back to built-in sample steps. They looked real, so the problem was invisible.</li>
+        <li>Meanwhile the university's document editor had lost its connection, so later edits never reached the file.</li>
+      </ol>
+      <p><strong>What I changed:</strong> the server now keeps serving the last valid workbook it has loaded instead of dropping to sample steps (a freshly started server with nothing loaded still falls back to them), and admins see the exact validation message, such as “Content row 4: choose First Step, Useful Info, …”. The fix was mostly about making the system's state readable to the person responsible for it.</p>
+    </div>
+    <div class="incident">
+      <p><strong>A sign-in that crashed for one role only.</strong> After I added the Super Admin login, a correct password returned a server error. I reproduced it live, traced it to a helper used before it was defined, and fixed the order. Then I added the missing test and confirmed it fails on the old code and passes on the new.</p>
+      <p class="soft">The lesson: the tutor path had a test and the new role didn't. Every role's sign-in is now tested; tutor and Super Admin through the full API.</p>
+    </div>
+  </section>
+
+  <!-- 08 -->
+  <section aria-labelledby="proven">
+    <p class="kicker"><span class="n">08</span>Status</p>
+    <h2 id="proven">What the pilot still has to prove</h2>
+    <div class="prose">
+      <p class="soft">Building something is not the same as showing that it helps.</p>
+    </div>
+    <div class="ladder">
+      <article class="done">
+        <span class="state">Output</span>
+        <h3>What exists</h3>
+        <ul>
+          <li>Student journey with ten steps</li>
+          <li>Staff workspace: Today, Students, Shifts, Handover, Events, Statistics, Change log</li>
+          <li>Four roles, enforced on the server</li>
+          <li>28 written design decisions</li>
+        </ul>
+      </article>
+      <article class="done">
+        <span class="state">Validation</span>
+        <h3>What I checked</h3>
+        <ul>
+          <li>105 automated tests: parsing, permissions, roles, conflicts, logins, statistics, offline queue</li>
+          <li>Every page checked from 390 to 1920 px for sideways scroll</li>
+          <li>Used by the team during the pilot; two production failures fixed</li>
+          <li>Accessibility basics built in; no formal audit yet</li>
+        </ul>
+      </article>
+      <article class="open">
+        <span class="state">User outcome</span>
+        <h3>Not measured yet</h3>
+        <p>No task-based testing with tutors or students so far. I can't yet say whether the tool makes their work easier.</p>
+      </article>
+      <article class="open">
+        <span class="state">Operational outcome</span>
+        <h3>Not measured yet</h3>
+        <p>No comparison with the old spreadsheet and chat workflow exists, so there is no evidence of time saved or fewer repeated questions.</p>
+      </article>
+    </div>
+    <h3 class="next-title">Next</h3>
+    <div class="next">
+      <article><h4>Task-based testing</h4><p>Time tutors on real tasks against the old workflow.</p></article>
+      <article><h4>Student validation</h4><p>Do incoming students reach the right official page without asking?</p></article>
+      <article><h4>Accessibility audit</h4><p>WCAG 2.1 AA, including screen readers on the map and tables.</p></article>
+      <article><h4>Institutional login</h4><p>University single sign-on before the next semester's handover.</p></article>
+    </div>
+  </section>
+
+  <!-- 09 -->
+  <section aria-labelledby="reflect">
+    <p class="kicker"><span class="n">09</span>Reflection</p>
+    <h2 id="reflect">What I would keep, and what I would change</h2>
+    <div class="prose">
+      <p><strong>Keep:</strong> the most useful decision was not a screen. It was keeping Excel as the source of truth. It lowered the risk for the team, gave them a way out, and turned each new feature into a question of presentation instead of migration.</p>
+      <p><strong>Keep:</strong> letting real use drive removals. “We don't need this” was worth more than any feature request.</p>
+      <p><strong>Change:</strong> I would run the tutor survey before building the staff workspace, not after. Being on the team gave me a head start, but some early decisions rested on my own view of the work.</p>
+    </div>
+  </section>
+
+  <section class="lesson" aria-labelledby="lesson">
+    <h2 id="lesson">The main lesson</h2>
+    <p>The hardest calls were about what not to build: no new database, no student accounts, no replacement for the Excel file the team already trusted. The engineering went into making that one file safe to share, and the design into making its state readable to the people who rely on it.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>All student records in the screenshots are synthetic sample data. No real student information is shown. Tutor names appear with their agreement.</p>
+    <p>Built with AI pair-programming (Claude Code) for implementation. I did the research, the design decisions and the review of every change.</p>
+  </div>
+</footer>
+</body>
+</html>
+
