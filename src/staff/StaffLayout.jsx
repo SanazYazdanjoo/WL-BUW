@@ -189,7 +189,7 @@ export default function StaffLayout() {
               ["events", "Events"],
             ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
             {canManage(session) && <>
-              <p className="staff-sidebar-label">{roleLabel(session.role)}</p>
+              <p className="staff-sidebar-label">Management</p>
               {[
                 ["tutor-list", "Tutors"],
                 ["statistics", "Statistics"],

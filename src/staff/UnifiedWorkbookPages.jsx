@@ -190,7 +190,7 @@ export function BackupPage() {
     try { const result = await staffRequest("workbook/backup", { csrf: session.csrf, body: {} }); setMessage(`Backup created · ${statusDate(result.createdAt)}`); setStatus(await staffRequest("workbook/status")); }
     catch (e) { setError(e.message); }
   }
-  return <section className="staff-page"><p className="staff-eyebrow">COORDINATOR · DATA SAFETY</p><h1>Backup</h1><p>Last backup: {statusDate(status?.lastBackup)}</p><button className="primary" onClick={backup}>Create backup now</button> <a href="/api/staff/workbook/download">Download Welcome-Lounge.xlsx</a>{message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}</section>;
+  return <section className="staff-page"><p className="staff-eyebrow">MANAGEMENT · DATA SAFETY</p><h1>Backup</h1><p>Last backup: {statusDate(status?.lastBackup)}</p><button className="primary" onClick={backup}>Create backup now</button> <a href="/api/staff/workbook/download">Download Welcome-Lounge.xlsx</a>{message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}</section>;
 }
 
 const emptyEvent = () => ({ title: "", date: "", startTime: "", endTime: "", location: "", description: "", link: "", active: true });
