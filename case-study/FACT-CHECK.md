@@ -202,3 +202,24 @@ After the fact-checked version was published, two edits were made on the publish
 All file:line references above were re-checked against commit `f352bf7` and are unchanged.
 
 The save-then-close bullet ("The online editor needs a save-then-close habit, which I documented") stays removed: NOT FOUND in the repo, and you didn't recognise it.
+
+## Roles map, Management heading, new screenshots, survey evidence (2026-09-26)
+
+**A. Where Coordinator features live.** Recorded in `case-study/ROLES-MAP.md` (checked against `a241510`). No permission in the roles table disagrees with the code. Data import has no menu link: it's the route `/staff/data`, and the only link to it is on that page itself (src/staff/CoordinatorPages.jsx:111, :256). By your decision the Coordinator cell in the roles table is unchanged.
+
+**B. Sidebar heading (app fix, commit `a241510`).** src/staff/StaffLayout.jsx:192 rendered `{roleLabel(session.role)}`, so Coordinators saw "COORDINATOR", Admins "ADMIN" and the Super Admin "SUPER ADMIN". Tutors don't see the section (:191). It now reads "Management" (shown uppercase by CSS) for every role that sees it. The Backup page eyebrow changed from "COORDINATOR · DATA SAFETY" to "MANAGEMENT · DATA SAFETY" (src/staff/UnifiedWorkbookPages.jsx:193). No test, doc, decision entry or aria label contained the old text. `npm test`: 108 pass, 0 fail.
+
+**C. Screenshots.** The capture setup first reproduced the committed `dashboard-1440.png`, `students-1440.png`, `feedback-1280.png` and `statistics-1440.png` byte-for-byte. After the fix I recaptured all four with the same fixture, data, date (25 Sept 2026), Super Admin session, viewport and scale. The Feedback button is visible only in feedback-1280, and statistics-1440 is scrolled 35 px again (all 7 rows, title clear of the header). In each image the only changed pixels are the heading box (x 25–105, y 362–370). No alt text mentions the heading, so none changed. The tutor screenshots and journey-390.png have no Management section and were not touched.
+
+**D. Survey evidence.** Source: tutor survey (Google Forms): questions and response summary, held by the author, not in the repo. NOT CHECKABLE in code. Counts are the author's, and they match the response summary. The 1–5 scale labels for "How easy are the current tools (Excel, WhatsApp, shared files, documents, etc.) to use?" (1 = Very difficult, 5 = Very easy) were confirmed by the author in the form's Questions view on 26 Sept 2026; the response summary itself shows only 1–5.
+
+| Where | Added | Source |
+|---|---|---|
+| 02 · Tutor survey | "All four respondents were Welcome Lounge tutors." | Survey "What is your role?": 4 of 4 Welcome Lounge tutor |
+| 03 · Row 1 Observed | "Survey: all four said information is spread across different places and that students don't know where to look." | 4 of 4, 4 of 4 |
+| 03 · Row 2 Observed | "Survey: 3 of 4 said information between colleagues is sometimes lost or unclear, and 3 of 4 that it's hard to know who changed information." | "Sometimes" 3, "Rarely" 1; "Hard to know who changed information" 3 of 4 |
+| 03 · Row 3 Observed | "Survey: all four rated them 4 or 5 on a scale from very difficult (1) to very easy (5). One open answer: “having a big whatsapp group is good”." | Ratings: 4 ×2, 5 ×2; open answer verbatim |
+
+Row 4, the Problem, Requirement and Design response cells, and the Reflection are unchanged. The page's "108 automated tests" is still correct (108 pass).
+
+Follow-up (same day): in rows 1–3 the Observed text after the source tag was replaced with your wording, to remove the repeated findings. Row 1 drops "Students don't know where to look.", row 2 drops "Handover information gets lost, duplicated or unclear.", and row 3's "Tutors rated Excel, WhatsApp and shared documents as easy to use." is merged into the survey sentence. Source tags and all other cells are unchanged.
