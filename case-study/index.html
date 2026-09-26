@@ -500,7 +500,7 @@
               <thead><tr><th scope="col">Role</th><th scope="col">Can do</th></tr></thead>
               <tbody>
                 <tr><th scope="row">Tutor</th><td>Students, own shifts, events, handover</td></tr>
-                <tr><th scope="row">Coordinator</th><td>+ tutor list, semester setup, statistics, change log, content, backup</td></tr>
+                <tr><th scope="row">Coordinator</th><td>+ tutor list, staff list, semester setup, settings, statistics, change log, content, data import, backup</td></tr>
                 <tr><th scope="row">Admin</th><td>+ tutor and coordinator logins</td></tr>
                 <tr><th scope="row">Super Admin</th><td>Everything, including Admin logins. Exactly one.</td></tr>
               </tbody>
@@ -544,7 +544,6 @@
         <ul>
           <li>Two ways to edit means conflicts: every write is version-checked, and on autosaved fields the second editor chooses “Use mine” or “Use latest”</li>
           <li>Hand-edited rows can be invalid, which caused <a href="#incident">the first failure below</a></li>
-          <li>The online editor needs a save-then-close habit, which I documented</li>
           <li>The workbook lives on a server I don't run. When it can't be reached, the tab keeps its last data until sign-out or closing and queues everyday edits for the same conflict checks later; admin changes still need a connection</li>
         </ul>
       </article>
@@ -625,7 +624,7 @@
         <span class="state">Validation</span>
         <h3>What I checked</h3>
         <ul>
-          <li>105 automated tests: parsing, permissions, roles, conflicts, logins, statistics, offline queue</li>
+          <li>108 automated tests: parsing, permissions, roles, conflicts, logins, statistics, offline queue</li>
           <li>Every page checked from 390 to 1920 px for sideways scroll</li>
           <li>Used by the team during the pilot; two production failures fixed</li>
           <li>Accessibility basics built in; no formal audit yet</li>

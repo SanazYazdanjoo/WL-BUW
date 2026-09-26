@@ -3,7 +3,7 @@
 **Reference page:** `case-study/` did not exist in the repository. I recreated it from the live published artifact (https://claude.ai/artifact/3gUE1YQ5nXuDvRS2EMyfow, version `1790370089-ef47`): `index.html` plus the 7 images it references. I removed the artifact service's wrapper lines. All line references to the page below point to that original.
 
 **Codebase checked:** commit `772d693` (main).
-**Test suite:** `npm test` → **105 tests, 105 pass, 0 fail** (2026-09-26).
+**Test suite:** `npm test` → **105 tests, 105 pass, 0 fail** (2026-09-26, before the app fix). After the step-link fix: **108 tests, 108 pass, 0 fail**; the page now says 108 (Changed #14).
 
 Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 
@@ -20,7 +20,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 7 | Hero · alt text (dashboard) | Magenta badge, sidebar, four cards, Needs attention, Latest handover, On duty, Events split into Today / Coming up | VERIFIED | img/dashboard-1440.png | None |
 | 8 | Hero · alt text (journey) | "Your first steps", numbered circles, Health insurance outlined as next step | VERIFIED | img/journey-390.png | None |
 | 9 | Hero · caption | Tutors coordinate in the dark staff workspace | VERIFIED | Black header and sidebar in the screenshots | None |
-| 10 | Hero · caption (also 03 row 1, diagram, 08) | "ten first steps" | PARTLY | Step count = active "First Step" rows in the workbook (server/excel/unifiedWorkbook.js:359-360). Bundled sample: 10 active of 12 (content/app-content/onboarding.json). Live workbook not checkable | Needs your decision |
+| 10 | Hero · caption (also 03 row 1, diagram, 08) | "ten first steps" | PARTLY | Step count = active "First Step" rows in the workbook (server/excel/unifiedWorkbook.js:359-360). Bundled sample: 10 active of 12 (content/app-content/onboarding.json). Live workbook not checkable | Kept: your decision (the number can vary with the workbook) |
 | 11 | Hero · caption | Students use it without an account | VERIFIED | No student auth; public `/api/content` only; src/hooks/useProgress.js | None |
 | 12 | In short · Problem | Information spread across pages, PDFs, WhatsApp; tutors used separate sheets and chats | NOT CHECKABLE | Fragmentation is partly documented (documentation/research-findings.md "Information fragmentation"); the rest is observation | None |
 | 13 | In short · What I did | Worked from own shifts and survey, then requirements, design and build | NOT CHECKABLE | — | None |
@@ -43,7 +43,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 30 | 03 · Row 1 Observed | Same arrival questions many times a day; students don't know where to look | NOT CHECKABLE | Survey themes are documented (research-findings.md "Repeated questions", "Information fragmentation"); "many times a day" is observation | None |
 | 31 | 03 · Row 1 Problem / Requirement | Official answers spread out; student reaches next step and source without an account | NOT CHECKABLE | — | None |
 | 32 | 03 · Row 1 Design response | One ordered journey | VERIFIED | unifiedWorkbook.js:360 (sorted by Order) | None |
-| 33 | 03 · Row 1 Design response (also diagram) | "Each step links to the university page" | PARTLY | A step shows a link only if its ID has an entry in `topicMappings` (src/components/OfficialSourceLink.jsx:30-34, content/app-content/sources.json). Bundled sample: 8 of 10 active steps (not `university-portals`, `program-tutors`). Workbook IDs default to title slugs (unifiedWorkbook.js:45-49, 170), so a workbook link on an unmapped ID is not shown | Needs your decision |
+| 33 | 03 · Row 1 Design response (also diagram) | "Each step links to the university page" | PARTLY → fixed in app | A step shows a link only if its ID has an entry in `topicMappings` (src/components/OfficialSourceLink.jsx:30-34, content/app-content/sources.json). Bundled sample: 8 of 10 active steps (not `university-portals`, `program-tutors`). Workbook IDs default to title slugs (unifiedWorkbook.js:45-49, 170), so a workbook link on an unmapped ID is not shown Fixed in the app (see "Resolved decisions"): a step\'s own Link is now always shown | Text kept |
 | 34 | 03 · Row 1 Design response | Progress stays in the browser | VERIFIED | src/hooks/useProgress.js (localStorage) | None |
 | 35 | 03 · Row 2 Observed | Notes, shifts and handovers in separate places; information lost, duplicated or unclear | VERIFIED (survey part) / NOT CHECKABLE (own shifts) | research-findings.md "Internal continuity" | None |
 | 36 | 03 · Row 2 Problem / Requirement | No shared picture; one place that records who changed what | NOT CHECKABLE | — | None |
@@ -81,7 +81,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 68 | 04 · Formula note | Weekdays plus weekend days with someone scheduled; closed days don't count | VERIFIED | statistics.js:34-36, :48 | None |
 | 69 | 04 · Roles | No IT department to manage accounts | NOT CHECKABLE | — | None |
 | 70 | 04 · Roles · Tutor | Students, own shifts, events, handover | VERIFIED | server/staff/api.js (routes with "read") | None |
-| 71 | 04 · Roles · Coordinator | + tutor list, semester setup, statistics, change log, content, backup | VERIFIED | api.js ("admin" = coordinator and up, auth.js:88): tutors/save, schedule/setup, activity, content/*, workbook/backup. Not a full list: settings, staff list and data import are also allowed | Needs your decision (optional) |
+| 71 | 04 · Roles · Coordinator | + tutor list, semester setup, statistics, change log, content, backup | VERIFIED | api.js ("admin" = coordinator and up, auth.js:88): tutors/save, schedule/setup, activity, content/*, workbook/backup. Not a full list: settings, staff list and data import are also allowed | Row extended (your decision) |
 | 72 | 04 · Roles · Admin | + tutor and coordinator logins | VERIFIED | api.js:75 (mayManageLoginOf); auth.js:90 | None |
 | 73 | 04 · Roles · Super Admin | Everything, including Admin logins; exactly one | VERIFIED | auth.js:92; unifiedRepository.js:475; test "'Who is working?' … one Super Admin" | None |
 | 74 | 04 · Roles | Nobody can give anyone a role above their own | VERIFIED | unifiedRepository.js:470-474; test "nobody can give or edit a staff role above their own" | None |
@@ -94,7 +94,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 81 | 05 · Decided | One workbook is source of truth; Excel and web share it; it doubles as backup and handover document | VERIFIED | as #40; backups unifiedRepository.js:79-99; documentation/semester-handover.md | None |
 | 82 | 05 · Cost | Every write version-checked; "Use mine" / "Use latest" on autosaved fields | VERIFIED | store.js; src/staff/SaveStatus.jsx:10 | None |
 | 83 | 05 · Cost | Hand-edited rows can be invalid (caused first failure) | VERIFIED (validation) / NOT CHECKABLE (incident) | unifiedWorkbook.js:156 | None |
-| 84 | 05 · Cost | Online editor needs a save-then-close habit, "which I documented" | NOT FOUND | See Not found | None |
+| 84 | 05 · Cost | Online editor needs a save-then-close habit, "which I documented" | NOT FOUND | See Not found | Removed (your decision: you did not recognise it) |
 | 85 | 05 · Offline trade-off | Nextcloud offline: tab keeps last data (sessionStorage, cleared on sign-out); everyday edits queued and replayed through conflict checks; banner with data age; clashing edits dropped and shown; admin changes need a connection | VERIFIED | src/staff/service.js:1-7, :126-159; src/staff/OfflineBanner.jsx; tests/offline.test.js; test "signing out removes the offline copy and the queue from the tab" | Merged into "What it cost" (B1) |
 | 86 | 05 · Under the interface | Browser never talks to Nextcloud directly; Node API checks every staff request against the role | VERIFIED | No Nextcloud/WebDAV reference in src/; api.js requireActor with permission map | None |
 | 87 | 05 · Tech · Interface | React and Vite, plain JavaScript | VERIFIED | package.json; no TypeScript source | None |
@@ -122,7 +122,7 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 109 | 08 · Output | Staff workspace: Today, Students, Shifts, Handover, Events, Statistics, Change log | VERIFIED | src/App.jsx:34-53 | None |
 | 110 | 08 · Output | Four roles, enforced on the server | VERIFIED | auth.js:8, :85-93 | None |
 | 111 | 08 · Output | 28 written design decisions | VERIFIED | documentation/decisions.md: D01–D28 (plus 2 dated entries; log ends 2026-09-18) | None |
-| 112 | 08 · Validation | 105 automated tests covering parsing, permissions, roles, conflicts, logins, statistics, offline queue | VERIFIED | `npm test` 105/105; tests/*.test.js incl. offline.test.js, statistics.test.js | None |
+| 112 | 08 · Validation | 105 automated tests covering parsing, permissions, roles, conflicts, logins, statistics, offline queue | VERIFIED | `npm test` 105/105; tests/*.test.js incl. offline.test.js, statistics.test.js | Updated to 108 after the app fix (Changed #14) |
 | 113 | 08 · Validation | Every page checked from 390 to 1920 px for sideways scroll | NOT FOUND | See Not found | None |
 | 114 | 08 · Validation | Used by the team during the pilot; two production failures fixed | NOT CHECKABLE (use) / VERIFIED (fixes) | 6247c67, be3d70d | None |
 | 115 | 08 · Validation | Accessibility basics built in; no formal audit yet | VERIFIED (basics) / NOT CHECKABLE (no audit) | aria-labels, focus styles, prefers-reduced-motion in src/index.css | None |
@@ -154,14 +154,19 @@ Statuses: VERIFIED · WRONG · PARTLY · NOT FOUND · NOT CHECKABLE.
 | 10 | 07 · Incident 1 fix | Added "(a freshly started server with nothing loaded still falls back to them)" | PARTLY → exact | server/content.js:31, :44-60, :88-89 |
 | 11 | img/statistics-1440.png | Recaptured: same synthetic data and fixture (byte-identical reproduction of the old shot first), page scrolled 35 px so all 7 tutor rows show; 1440×900 at scale 1, scrollbars and Feedback hidden | B3 | Captured 2026-09-26 with local-data/browser-fixture.mjs + headless Chrome |
 
+| 12 | 05 · What it cost | Bullet "The online editor needs a save-then-close habit, which I documented" removed | Your decision: not something you recognised; no documentation found | — |
+| 13 | 04 · Roles · Coordinator | "+ tutor list, semester setup, statistics, change log, content, backup" → "+ tutor list, staff list, semester setup, settings, statistics, change log, content, data import, backup" | Your decision: the coordinator is the manager and has these rights | server/staff/api.js: settings/save, staff/save, data/import require "admin" (coordinator and up) |
+| 14 | 08 · Validation | "105 automated tests" → "108 automated tests" | WRONG after the app fix (3 new tests) | `npm test`: 108 pass, 0 fail |
 Not changed: B5, the lesson box ("no new database" and "no student accounts" are both accurate). No captions needed changes besides #9. The statistics caption still holds.
 
-## Needs your decision
+## Resolved decisions (2026-09-26)
 
-1. **"Ten" steps** (hero caption, row 01, diagram, section 08). The count depends on the live workbook's active First Step rows. It matches the bundled sample (10 active). If the live workbook has a different number, the claim is wrong.
-2. **"Each step links to the university page"** (row 01, diagram). In code a step shows its link only when its ID is in `topicMappings` (`content/app-content/sources.json`). In the bundled sample, 2 of 10 active steps have no link. For workbook steps, a link typed into the Link column is ignored unless the row's ID matches a mapping (`src/components/OfficialSourceLink.jsx:30-34`). This looks like an app bug rather than a text problem. Should the text become "Most steps link…", or should the app be fixed? I didn't change app code.
-3. **Coordinator rights** in the roles table. Everything listed is correct, but coordinators can also change settings, the staff list and import data. Leave the table as a short summary, or add these?
-4. **"The online editor needs a save-then-close habit, which I documented".** I couldn't find this documentation (see Not found). Add it to `documentation/`, or drop "which I documented"?
+1. **"Each step links to the university page"**: fixed in the app, text kept. `src/components/OfficialSourceLink.jsx` hid a step's own workbook Link when the step ID had no entry in `sources.json`. The link logic now lives in `src/services/officialLink.js` and always shows the step's own Link. Tests: `tests/official-link.test.js` (3 new). Checked in the browser: mapped steps still link as before. A step whose Link cell is empty and has no mapping still shows no link, so the sentence holds as long as every First Step row has a Link.
+2. **"Ten" steps**: kept. The number can vary with the workbook.
+3. **"Save-then-close habit, which I documented"**: removed. You didn't recognise it.
+4. **Coordinator rights**: row extended with staff list, settings and data import.
+
+**Follow-on correction:** after the app fix the suite has 108 tests, so the page's "105 automated tests" became wrong and now reads "108 automated tests" (Changed #14).
 
 ## Not checkable in code
 
