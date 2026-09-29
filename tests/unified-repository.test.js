@@ -561,6 +561,35 @@ test("All Tutors is imported from Excel, grouped by faculty, edited, added to, d
   assert.equal(stored.data.tutorsList[0].whatsapp, "https://chat.whatsapp.com/AbC123");
 });
 
+test("the faculty's own list layout (no headings, faculty bands) is imported as sent", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Tabelle1");
+  const band = (text, argb) => { const row = sheet.addRow([text]); row.getCell(1).font = { bold: true }; row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb } }; };
+  band("Fakultät Example (5)", "FFFFC000");
+  sheet.addRow([]);
+  sheet.addRow(["Program One B.Sc. (94)", "Example", "Anna", "anna@example.org", 17612345678]);
+  sheet.addRow([null, "Sample ", "Ben ", " <ben@example.org>", "4915112345678"]);
+  sheet.addRow(["Program One B.Sc. (94)"]);
+  sheet.addRow(["Long Programme Name in Two", "Test", "Cara", "cara@example.org"]);
+  sheet.addRow(["M.Sc. (13)", "Demo", "Dan", "dan@example.org"]);
+  const empty = sheet.addRow(["Program Without Tutor M.Sc (20)"]);
+  empty.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { theme: 0 } };
+  sheet.addRow(["MFA Something & Design", "Case", "Eve", "eve@example.org"]);
+  band("DIB Welcome.Lounge (1)", "FFA878A5");
+  sheet.addRow([null, "Lounge", "Finn", "finn@example.org", "via Office"]);
+  const { parseTutorsImport } = await import("../server/excel/unifiedWorkbook.js");
+  const rows = await parseTutorsImport(Buffer.from(await workbook.xlsx.writeBuffer()));
+  assert.deepEqual(rows.map(({ faculty, program, tutor, email, phone }) => [faculty, program, tutor, email, phone]), [
+    ["Fakultät Example", "Program One B.Sc.", "Anna Example", "anna@example.org", "017612345678"],
+    ["Fakultät Example", "Program One B.Sc.", "Ben Sample", "ben@example.org", "+4915112345678"],
+    ["Fakultät Example", "Long Programme Name in Two M.Sc.", "Cara Test", "cara@example.org", ""],
+    ["Fakultät Example", "Long Programme Name in Two M.Sc.", "Dan Demo", "dan@example.org", ""],
+    ["Fakultät Example", "Program Without Tutor M.Sc", "", "", ""],
+    ["Fakultät Example", "MFA Something & Design", "Eve Case", "eve@example.org", ""],
+    ["DIB Welcome.Lounge", "", "Finn Lounge", "finn@example.org", "via Office"],
+  ]);
+});
+
 test("the earlier Program Tutors tab still loads and is saved as All Tutors", async () => {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await serializeUnifiedWorkbook({ settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false } }));

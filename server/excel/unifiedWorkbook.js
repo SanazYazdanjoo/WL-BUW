@@ -406,10 +406,64 @@ export async function parseTutorsImport(bytes) {
       entry.whatsapp = safeUrl(entry.whatsapp, `${sheet.name} row ${row.number} WhatsApp Link`);
       result.push(entry);
     }
-    if (result.length > 500) throw new WorkbookError("The list has more than 500 tutors.");
-    return result;
+    return checkedImport(result);
   }
-  throw new WorkbookError("No sheet with Tutor and Program headings was found.");
+  // No headings: the faculty's own list layout (see parseFacultyTutorList).
+  for (const sheet of workbook.worksheets) {
+    const result = parseFacultyTutorList(sheet);
+    if (result.length) return checkedImport(result);
+  }
+  throw new WorkbookError("No tutor list was found. Use a sheet with Faculty, Program, Tutor, Email and Phone headings, or the faculty list layout (program, last name, first name, email, phone).");
+}
+function checkedImport(result) {
+  if (result.length > 500) throw new WorkbookError("The list has more than 500 tutors.");
+  for (const entry of result) for (const [field, value] of Object.entries(entry))
+    if (value.length > TUTORS_LIST_LIMITS[field]) throw new WorkbookError(`${entry.tutor || entry.program}: ${field} is too long.`);
+  return result;
+}
+// Excel drops the leading 0 of German mobile numbers and the + of 49… numbers.
+const importPhone = (value) => (/^1[5-7]\d{8,9}$/.test(value) ? `0${value}` : /^49[\d ]{10,14}$/.test(value) ? `+${value}` : value);
+const withoutCount = (value) => value.replace(/\s*\(\d+\)/g, "").replace(/\s+/g, " ").trim();
+// A line that is only a degree ("M.Sc.", "B.A") continues the programme name above it.
+const DEGREE_ONLY = /^(B|M)\.\s?(Sc|A|Eng)\.?$/i;
+// The list the faculties send: no heading row, one coloured band row per faculty ("Fakultät Medien (19)"),
+// then Program | Last name | First name | Email | Phone. The programme is often written only on the
+// first row of its block, and a long name can wrap onto the next row ("… Design" / "M.Sc. (13)").
+// Student counts in brackets are dropped.
+function parseFacultyTutorList(sheet) {
+  const result = [];
+  let faculty = "", program = "", programHasTutor = false;
+  for (const { values, row } of rows(sheet)) {
+    const [a = "", last = "", first = "", email = "", phone = ""] = values.slice(0, 5).map((value) => cellText(value));
+    // Faculty bands are bold with a coloured fill; programme cells may be filled white.
+    const cell = row.getCell(1), color = cell.fill?.fgColor || {};
+    const band = cell.font?.bold === true && cell.fill?.pattern === "solid" && color.theme !== 0 && color.argb !== "FFFFFFFF";
+    if (a && !last && !first && !email && !phone && (band || /^(fakult|dib\b)/i.test(a))) {
+      faculty = withoutCount(a); program = ""; programHasTutor = false;
+      continue;
+    }
+    if (a) {
+      const name = withoutCount(a);
+      if (DEGREE_ONLY.test(name) && program) program = `${program} ${name}`;
+      else if (name !== program) { program = name; programHasTutor = false; }
+    }
+    const tutor = `${first} ${last}`.replace(/\s+/g, " ").trim();
+    if (!tutor) {
+      // A programme without a tutor still gets a row; repeats of a programme that has tutors are skipped.
+      if (a && !programHasTutor && !result.some((entry) => entry.faculty === faculty && entry.program === program && !entry.tutor))
+        result.push({ faculty, program, tutor: "", email: "", phone: "", whatsapp: "", note: "" });
+      continue;
+    }
+    // The wrapped second half of a programme name belongs to the row above, too.
+    const previous = result.at(-1);
+    if (previous && previous.faculty === faculty && program.startsWith(previous.program) && program !== previous.program) previous.program = program;
+    const placeholder = result.findIndex((entry) => entry.faculty === faculty && entry.program === program && !entry.tutor);
+    if (placeholder >= 0) result.splice(placeholder, 1);
+    programHasTutor = true;
+    result.push({ faculty, program, tutor, email: email.replace(/[<>']/g, "").trim(), phone: importPhone(phone), whatsapp: "", note: "" });
+  }
+  // Tutor lists always have e-mail addresses; this keeps unrelated sheets from being read as one.
+  return result.some((entry) => entry.email.includes("@")) ? result : [];
 }
 export async function serializeUnifiedWorkbook(data) {
   const bytes = Buffer.from(await createUnifiedWorkbook(data).xlsx.writeBuffer());

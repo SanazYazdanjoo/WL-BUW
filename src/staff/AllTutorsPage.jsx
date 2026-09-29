@@ -257,7 +257,7 @@ function ImportDialog({ file, count, onImport, onClose }) {
       <form onSubmit={submit}>
         <h2 id="import-tutors-title">Replace the tutor list?</h2>
         <p className="staff-delete-student"><strong>{file.name}</strong></p>
-        <p>The {count} rows now in All Tutors are replaced by the rows in this file (a sheet with Faculty, Program, Tutor, Email, Phone, WhatsApp Link and Note headings). Tutors already listed with the same name and programme keep their QR code. A backup of the workbook is saved first.</p>
+        <p>The {count} rows now in All Tutors are replaced by the tutors in this file — either the faculties' tutor list as sent, or a sheet with Faculty, Program, Tutor, Email, Phone, WhatsApp Link and Note headings. Tutors already listed with the same name and programme keep their QR code. A backup of the workbook is saved first.</p>
         {error && <p className="staff-autosave-error" role="alert">{error}</p>}
         <div className="button-row">
           <button type="button" disabled={busy} onClick={() => dialogRef.current?.close()}>Cancel</button>
