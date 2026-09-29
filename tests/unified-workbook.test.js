@@ -12,7 +12,7 @@ async function workbookBytes(content = []) {
 test("unified template contains the workbook sheets, including Events, and inactive examples", async () => {
   const bytes = await createUnifiedWorkbookTemplate();
   const parsed = await loadWorkbook(bytes);
-  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), ["Settings", "Content", "Events", "Students", "Activity", "Staff", "Shifts", "Tutors", "Program Tutors"]);
+  assert.deepEqual(parsed.worksheets.map((sheet) => sheet.name), ["Settings", "Content", "Events", "Students", "Activity", "Staff", "Shifts", "Tutors", "All Tutors"]);
   assert.ok(SHEETS.every((name) => parsed.getWorksheet(name)));
   const content = parsed.getWorksheet("Content");
   assert.deepEqual(content.getRow(3).values.slice(1), ["Section", "Order", "Title", "Text", "Link", "Active", "ID"]);

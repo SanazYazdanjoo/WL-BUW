@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES, DEFAULT_TUTORS_PER_SHIFT, TUTORS_LIST_LIMITS, TUTOR_QR_FILE } from "../excel/unifiedWorkbook.js";
+import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES, DEFAULT_TUTORS_PER_SHIFT, TUTORS_LIST_LIMITS, TUTOR_QR_FILE, parseTutorsImport } from "../excel/unifiedWorkbook.js";
 import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
@@ -46,8 +46,10 @@ function checkStudentField(field, value, student, data) {
   if (field === "matriculationNumber" && matriculation && data.students.some((other) => other.id !== student.id && String(other.matriculationNumber || "").trim().toLocaleLowerCase("en") === matriculation))
     throw new StaffError(409, "Another student already has this matriculation number.");
 }
-// Program Tutors: one row per programme. QR images are uploaded separately; a patch may only clear qrCode.
-const TUTORS_LIST_FIELDS = ["tutor", "program", "contact", "whatsapp", "note", "qrCode"];
+// All Tutors: one row per tutor, grouped by faculty. QR images are uploaded separately; a patch may only clear qrCode.
+const TUTORS_LIST_TEXT = ["faculty", "program", "tutor", "email", "phone", "whatsapp", "note"];
+const TUTORS_LIST_FIELDS = [...TUTORS_LIST_TEXT.filter((field) => field !== "faculty"), "qrCode"];
+const sameTutor = (a, b) => a.tutor.trim().toLowerCase() === b.tutor.trim().toLowerCase() && a.program.trim().toLowerCase() === b.program.trim().toLowerCase();
 const TUTOR_QR_MAX_BYTES = 90 * 1024;
 const TUTOR_QR_TYPES = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
 // "chat.whatsapp.com/abc" is saved as "https://chat.whatsapp.com/abc".
@@ -59,11 +61,11 @@ function tutorsListLink(value) {
   return link;
 }
 function checkTutorsListField(field, value) {
-  if (typeof value !== "string") throw new StaffError(400, "A Program Tutors field is invalid.");
+  if (typeof value !== "string") throw new StaffError(400, "An All Tutors field is invalid.");
   if (field === "qrCode") { if (value) throw new StaffError(400, "Upload the QR code image instead."); return; }
   text(value, TUTORS_LIST_LIMITS[field]);
 }
-const tutorsListLabel = (row) => `Program Tutors · ${row.program || row.tutor || "row"}`;
+const tutorsListLabel = (row) => `All Tutors · ${row.tutor || row.program || "row"}`;
 // Recognise the image from its first bytes rather than trusting the file name.
 function qrImageType(bytes) {
   if (bytes.length > 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
@@ -357,24 +359,25 @@ export function createUnifiedRepository(store) {
       return mutateFields(actor, input, {
         id: input.id, collection: "tutorsList", allowed: TUTORS_LIST_FIELDS,
         reason: "tutors list update", activityType: "Other", label: tutorsListLabel,
-        fieldMap: (field, value) => [field, typeof value !== "string" ? value : field === "whatsapp" ? tutorsListLink(value) : field === "program" ? shortProgram(value) : value],
+        fieldMap: (field, value) => [field, typeof value === "string" && field === "whatsapp" ? tutorsListLink(value) : value],
         validate(record, patch) {
           for (const field of Object.keys(patch)) checkTutorsListField(field, record[field]);
         },
       });
     },
     async addTutorsListRow(actor, input) {
-      const row = { id: idFor("tl"), tutor: "", program: "", contact: "", whatsapp: "", qrCode: "", note: "" };
-      for (const field of ["tutor", "program", "contact", "whatsapp", "note"]) {
+      const row = { id: idFor("tl"), qrCode: "" };
+      for (const field of TUTORS_LIST_TEXT) {
         const value = input[field] ?? "";
         checkTutorsListField(field, value);
         row[field] = value.trim();
       }
-      row.program = shortProgram(row.program);
       row.whatsapp = tutorsListLink(row.whatsapp);
       if (!row.tutor && !row.program) throw new StaffError(400, "Enter a tutor or a programme.");
       return mutate(actor, input, "tutors list row added", (data) => {
-        data.tutorsList.push(row);
+        // A new tutor goes to the end of their faculty's group, so the tab stays in faculty order.
+        const lastInFaculty = data.tutorsList.findLastIndex((item) => item.faculty === row.faculty);
+        data.tutorsList.splice(lastInFaculty < 0 ? data.tutorsList.length : lastInFaculty + 1, 0, row);
         appendActivity(data, actor, "Other", { note: `${tutorsListLabel(row)} · added` });
         return row.id;
       }, { safeRetry: true });
@@ -388,6 +391,27 @@ export function createUnifiedRepository(store) {
         const [removed] = data.tutorsList.splice(index, 1);
         appendActivity(data, actor, "Other", { note: `${tutorsListLabel(removed)} · deleted${removed.tutor ? ` (${removed.tutor})` : ""}` });
       }, { major: true, safeRetry: true });
+    },
+    // Replaces the whole list with rows from an Excel file. A tutor who is already listed
+    // (same name and programme) keeps their row ID, QR code, and any WhatsApp link or note the file leaves empty.
+    async importTutorsList(actor, input) {
+      const match = typeof input.file === "string" ? input.file.match(/^[A-Za-z0-9+/=]+$/) : null;
+      if (!match) throw new StaffError(400, "Choose an Excel (.xlsx) file.");
+      const imported = await parseTutorsImport(Buffer.from(input.file, "base64"));
+      if (!imported.length) throw new StaffError(400, "The file has no tutors.");
+      let kept = 0;
+      const result = await mutate(actor, input, "tutors list imported", (data) => {
+        const used = new Set();
+        data.tutorsList = imported.map((entry) => {
+          const existing = data.tutorsList.find((row) => !used.has(row.id) && sameTutor(row, entry));
+          if (!existing) return { id: idFor("tl"), qrCode: "", ...entry };
+          used.add(existing.id);
+          kept += 1;
+          return { ...entry, id: existing.id, qrCode: existing.qrCode, whatsapp: entry.whatsapp || existing.whatsapp, note: entry.note || existing.note };
+        });
+        appendActivity(data, actor, "Other", { note: `All Tutors · imported ${imported.length} rows` });
+      }, { major: true, safeRetry: true });
+      return { ...result, count: imported.length, kept };
     },
     // The image is saved as its own file first; the row then points at it. A replaced image stays in the folder.
     async uploadTutorQr(actor, input) {

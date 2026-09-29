@@ -15,8 +15,8 @@ import { BackupPage, ContentManagementPage, EventsManagementPage } from "./staff
 import InformationPage from "./pages/InformationPage";
 import OfficialSourcesPage from "./staff/OfficialSourcesPage";
 import LoginHistoryPage from "./staff/LoginHistoryPage";
-import ProgramTutorsPage from "./staff/ProgramTutorsPage";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AllTutorsPage from "./staff/AllTutorsPage";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import {
   CommunityPage,
@@ -44,7 +44,8 @@ export default function App() {
           <Route path="activity" element={<ChangeLogPage />} />
           <Route path="sign-ins" element={<LoginHistoryPage />} />
           <Route path="account" element={<AccountPage />} />
-          <Route path="program-tutors" element={<ProgramTutorsPage />} />
+          <Route path="all-tutors" element={<AllTutorsPage />} />
+          <Route path="program-tutors" element={<Navigate to="/staff/all-tutors" replace />} />
           <Route path="handover" element={<Handover />} />
           <Route path="data" element={<ImportPage />} />
           <Route path="content" element={<ContentManagementPage />} />

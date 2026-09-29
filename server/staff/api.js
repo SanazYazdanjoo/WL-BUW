@@ -171,10 +171,11 @@ export function staffMiddleware(
         "shifts/day": ["read", "updateShiftDay", true],
         "schedule/setup": ["admin", "saveScheduleSetup", true],
         "tutors/save": ["admin", "saveTutors", true],
-        "program-tutors/update": ["admin", "updateTutorsListRow", true],
-        "program-tutors/create": ["admin", "addTutorsListRow", true],
-        "program-tutors/delete": ["admin", "deleteTutorsListRow", true],
-        "program-tutors/qr": ["admin", "uploadTutorQr", true],
+        "all-tutors/update": ["admin", "updateTutorsListRow", true],
+        "all-tutors/create": ["admin", "addTutorsListRow", true],
+        "all-tutors/delete": ["admin", "deleteTutorsListRow", true],
+        "all-tutors/qr": ["admin", "uploadTutorQr", true],
+        "all-tutors/import": ["admin", "importTutorsList", true],
         "feedback/send": ["read", "submitFeedback", true],
         "workbook/initialize": ["admin", "initialize", true],
         "workbook/create-template": ["admin", "createFromTemplate", true],
@@ -303,7 +304,7 @@ export function staffMiddleware(
         res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="welcome-lounge-students-${date}.xlsx"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
         return res.end(Buffer.from(data));
       }
-      if (req.method === "GET" && action === "program-tutors/qr") {
+      if (req.method === "GET" && action === "all-tutors/qr") {
         // Every staff member may view the QR codes; file names change with each upload, so they cache well.
         const image = await unifiedRepository.readTutorQr(new URL(req.url, "http://localhost").searchParams.get("file"));
         res.writeHead(200, { "Content-Type": image.type, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'" });

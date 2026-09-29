@@ -5174,13 +5174,79 @@ body:has(.staff)::before {
   flex-wrap: wrap;
 }
 
-/* Cards below laptop width: tutor, program, contact, WhatsApp on one line; QR and note below. */
+/* All Tutors: a faculty heading above each group, like the coloured bands of the printed list. */
+.staff-tutors-table .staff-group-row th {
+  width: auto;
+  padding: 0.55rem 0.6rem 0.45rem;
+  border-top: 2px solid var(--color-text);
+  background: #f0f0ed;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.staff-group-head,
+.staff-new-group-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.staff-group-head {
+  justify-content: space-between;
+}
+
+.staff-group-title {
+  font-weight: 700;
+}
+
+/* A programme repeated from the row above is shown faintly, as in the printed list. */
+.staff-tutors-table td.is-repeat .staff-cell-input:not(:focus),
+.staff-tutors-table td.is-repeat .staff-cell-text {
+  color: #a0a0a4;
+}
+
+.staff .staff-new-group {
+  margin-top: 0.75rem;
+}
+
+.staff-new-group-form {
+  margin-top: 0.75rem;
+  align-items: end;
+}
+
+.staff-new-group-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.staff-new-group-form input {
+  min-width: min(18rem, 100%);
+  padding: 0.45rem 0.6rem;
+}
+
+/* Cards below laptop width: program, tutor, email, phone on one line; WhatsApp, QR and note below. */
 @media (max-width: 1279px) {
-  .staff-tutors-table td[data-field="qrCode"] { grid-column: span 3; }
-  .staff-tutors-table td[data-field="note"] { grid-column: span 9; }
+  .staff-tutors-table tr.staff-group-row,
+  .staff-tutors-table tr.staff-group-row th {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .staff-tutors-table tr.staff-group-row th {
+    padding: 0.7rem 1rem 0.6rem;
+  }
+
+  .staff-tutors-table td[data-field="whatsapp"] { grid-column: span 4; }
+  .staff-tutors-table td[data-field="qrCode"] { grid-column: span 2; }
+  .staff-tutors-table td[data-field="note"] { grid-column: span 6; }
 }
 
 @media (max-width: 699px) {
+  .staff-tutors-table td[data-field="whatsapp"],
   .staff-tutors-table td[data-field="qrCode"],
   .staff-tutors-table td[data-field="note"] { grid-column: 1 / -1; }
 }
