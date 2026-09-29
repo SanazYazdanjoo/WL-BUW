@@ -6,7 +6,8 @@ import { PasswordInput } from "./PasswordInput";
 import { canManage, canManageLogins, roleLabel } from "./roles";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
-import { COUNTRY_OPTIONS, STUDY_PROGRAM_OPTIONS } from "./studentOptions";
+import { STUDY_PROGRAM_OPTIONS } from "./studentOptions";
+import { CountryInput } from "./CountryInput";
 import { fairShare, formatHours, shiftHours, tutorStatistics } from "./statistics";
 const studyProgramOptions = (workspace) => [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
 function SuggestedInput({ label, name, value, onChange, options, maxLength = 300, type = "text" }) {
@@ -46,7 +47,7 @@ function StudentExport({ workspace }) {
 const STUDENT_COLUMNS = [
   { field: "name", label: "Full name", max: 200, share: 12 },
   { field: "matriculationNumber", label: "Matriculation no.", short: "Matric. no.", max: 100, share: 8 },
-  { field: "country", label: "Country", max: 200, list: "staff-country-options", share: 8 },
+  { field: "country", label: "Country", max: 200, country: true, share: 8 },
   { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 11 },
   { field: "address", label: "Address", max: 12000, optional: true, share: 11 },
   { field: "enrolled", label: "Enrolled", check: true, share: 7 },
@@ -68,8 +69,10 @@ const studentRowDraft = (student) => ({
 const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : "");
 
 function StudentCells({ columns, draft, set, who, nameRef }) {
-  return columns.map(({ field, label, max, list, type, check, contact }) => check
+  return columns.map(({ field, label, max, list, type, check, contact, country }) => check
     ? <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => set(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>
+    : country
+    ? <td key={field} data-label={label}><CountryInput className="staff-cell-input" aria-label={`${label} · ${who}`} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
     : <td key={field} data-label={label}>
       <input
         ref={field === "name" ? nameRef : undefined}
@@ -144,7 +147,6 @@ function StudentTable({ students, save, programOptions, onCreate, showAddress, t
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
-      <datalist id="staff-country-options">{COUNTRY_OPTIONS.map((option) => <option key={option} value={option} />)}</datalist>
       <datalist id="staff-program-options">{programOptions.map((option) => <option key={option} value={option} />)}</datalist>
       <table aria-label="Student records" className="staff-student-table">
         <thead>
@@ -420,7 +422,7 @@ function StudentEditor({ student, save, programOptions }) {
         <div className="staff-form-grid">
           <label>Full name<input required maxLength={200} value={draft.name} onChange={(e) => setField("name", e.target.value)} /></label>
           <label>Matriculation number<input maxLength={100} value={draft.matriculationNumber} onChange={(e) => setField("matriculationNumber", e.target.value)} /></label>
-          <SuggestedInput label="Country" name="country" value={draft.country} options={COUNTRY_OPTIONS} onChange={(value) => setField("country", value)} maxLength={200} />
+          <label>Country<CountryInput value={draft.country} onChange={(value) => setField("country", value)} /></label>
           <SuggestedInput label="Study programme" name="study-program" value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} />
           <label className="staff-field-wide">Address<textarea rows={2} maxLength={12000} value={draft.address || ""} onChange={(e) => setField("address", e.target.value)} /></label>
         </div>

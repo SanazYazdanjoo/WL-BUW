@@ -4401,3 +4401,91 @@ body:has(.staff)::before {
 .staff-offline-conflict {
   color: #6b1a1a;
 }
+
+/* Country picker (CountryInput): a chevron hints there is a list; the list floats above the page. */
+.staff-combo-input {
+  padding-right: 1.6rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23686870' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+}
+
+.staff-student-table .staff-combo-input {
+  padding-right: 0.4rem;
+  background-image: none;
+}
+
+.staff-student-table .staff-combo-input:hover,
+.staff-student-table .staff-combo-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23686870' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  padding-right: 1.4rem;
+}
+
+.staff-combo-list {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  padding: 0.25rem;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid #dededa;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  color: #25252a;
+  font-size: 0.95rem;
+}
+
+.staff-combo-list li {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.staff-combo-list li:hover {
+  background: #f2f2ee;
+}
+
+.staff-combo-list li[aria-selected="true"] {
+  background: #b71a49;
+  color: white;
+}
+
+.staff-combo-list li.is-current {
+  font-weight: 600;
+}
+
+.staff-combo-list mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.staff-combo-list small {
+  overflow: hidden;
+  color: #686870;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-combo-list li[aria-selected="true"] small {
+  color: rgb(255 255 255 / 0.85);
+}
+
+.staff-combo-list .staff-combo-empty {
+  color: #686870;
+  cursor: default;
+}
+
+.staff-combo-list .staff-combo-empty:hover {
+  background: none;
+}
