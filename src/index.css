@@ -3023,6 +3023,10 @@ main:focus {
   background: white;
 }
 
+.staff .staff-student-table td[data-field="name"] .staff-cell-input {
+  color: #000;
+}
+
 .staff-student-table .staff-cell-note {
   min-width: 16rem;
 }
@@ -4961,9 +4965,12 @@ body:has(.staff)::before {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  align-self: flex-start;
+  justify-content: center;
+  min-width: 2.25rem;
   min-height: 2.25rem;
-  margin: 0.75rem 0.75rem 0;
-  padding: 0.35rem 0.85rem;
+  margin: 0.75rem 0.75rem 0.75rem;
+  padding: 0.35rem;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -4991,8 +4998,7 @@ body:has(.staff)::before {
   }
 
   .is-collapsed .staff-nav-text,
-  .is-collapsed .staff-sidebar-user-text,
-  .is-collapsed .staff-sidebar-toggle-text {
+  .is-collapsed .staff-sidebar-user-text {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -5012,7 +5018,8 @@ body:has(.staff)::before {
   }
 
   .staff .is-collapsed .staff-sidebar-toggle {
-    margin-inline: 0.5rem;
+    align-self: center;
+    margin-inline: 0;
   }
 
   /* The "Management" heading becomes a thin divider. */
@@ -5056,4 +5063,124 @@ body:has(.staff)::before {
 /* Students page: ticked boxes are black, matching the header row and sidebar. */
 .staff-students-page input[type="checkbox"] {
   accent-color: #000;
+}
+
+/* Program Tutors: the Students table look, plus a QR thumbnail and an "open link" arrow. */
+.staff-tutors-table .staff-cell-with-link {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.staff-tutors-table .staff-cell-with-link .staff-cell-input {
+  flex: 1;
+}
+
+.staff-cell-open {
+  flex: none;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.staff-cell-open:hover,
+.staff-cell-open:focus-visible {
+  background: #f0f0ed;
+  color: var(--color-text);
+}
+
+.staff-tutors-table .staff-cell-text {
+  display: block;
+  padding: 0.3rem 0.4rem;
+  white-space: pre-wrap;
+}
+
+.staff-qr {
+  display: flex;
+  align-items: center;
+}
+
+.staff .staff-qr-thumb {
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: white;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.staff-qr-thumb img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+/* A quiet text button: every empty row has one, so it must not shout. */
+.staff .staff-qr-upload {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.staff .staff-qr-upload:hover,
+.staff .staff-qr-upload:focus-visible {
+  border-color: var(--color-border);
+  background: white;
+  color: var(--color-text);
+}
+
+.staff-qr-later {
+  font-size: 0.75rem;
+}
+
+.staff-qr-dialog {
+  width: min(24rem, calc(100% - 2rem));
+  padding: 1.5rem;
+  border: 0;
+  border-radius: 12px;
+  color: var(--color-text);
+  text-align: center;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
+}
+
+.staff-qr-dialog::backdrop {
+  background: rgb(15 15 20 / 0.55);
+}
+
+.staff-qr-dialog h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.3rem;
+}
+
+.staff-qr-dialog p {
+  margin: 0;
+}
+
+.staff-qr-dialog img {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  margin: 1rem auto;
+}
+
+.staff-qr-dialog .button-row {
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Cards below laptop width: tutor, program, contact, WhatsApp on one line; QR and note below. */
+@media (max-width: 1279px) {
+  .staff-tutors-table td[data-field="qrCode"] { grid-column: span 3; }
+  .staff-tutors-table td[data-field="note"] { grid-column: span 9; }
+}
+
+@media (max-width: 699px) {
+  .staff-tutors-table td[data-field="qrCode"],
+  .staff-tutors-table td[data-field="note"] { grid-column: 1 / -1; }
 }

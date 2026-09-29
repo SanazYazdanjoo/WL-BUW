@@ -1,5 +1,4 @@
 import { COUNTRIES } from "./countries.js";
-import { PROGRAM_SHORT_NAMES } from "../../shared/studyPrograms.js";
 
 // "Côte d'Ivoire" → "cote d ivoire", so accents and punctuation never block a match.
 export const foldText = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -34,32 +33,5 @@ export function canonicalCountry(value) {
   return hits.length === 1 ? hits[0].name : null;
 }
 
-// Suggested names from BUW's 2026 academic-programme overview
-// (https://www.uni-weimar.de/en/university/studies/academic-programmes/).
-// Existing
-// workbook values are added at runtime, and tutors can type other programmes.
-export const STUDY_PROGRAM_OPTIONS = [
-  "Architecture",
-  "Architecture and Urbanism",
-  "Art Education for Secondary Schools",
-  "Art and Design (PhD)",
-  "Building Materials Engineering",
-  "Civil Engineering",
-  "Civil Engineering – Structural Engineering",
-  "Computer Science",
-  "European Media Culture",
-  "European Urban Studies",
-  "Fine Art",
-  "Film Cultures – Extended Cinema",
-  "Management [Construction, Real Estate and Infrastructure]",
-  "Media Art and Design",
-  "Media Culture",
-  "Media Management",
-  "MediaEcologies",
-  "Media Studies",
-  "Product Design",
-  "Urbanism",
-  "Visual Communication",
-  "Environmental Engineering",
-  ...Object.values(PROGRAM_SHORT_NAMES),
-].sort((a, b) => a.localeCompare(b));
+// The programme list lives in shared/ so the server can pre-fill Program Tutors with it.
+export { STUDY_PROGRAM_OPTIONS } from "../../shared/studyPrograms.js";

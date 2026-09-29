@@ -11,6 +11,7 @@ import { FeedbackButton } from "./FeedbackButton";
 const NAV_ICONS = {
   dashboard: "M8 2.5v1.5M8 12v1.5M2.5 8H4M12 8h1.5M4.1 4.1l1 1M10.9 10.9l1 1M4.1 11.9l1-1M10.9 5.1l1-1M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
   students: "M6 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.5 13.5c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4M11 7.5a2 2 0 1 0-.8-3.8M12 9.7c1.5.5 2.5 1.9 2.5 3.8",
+  "program-tutors": "M2.5 3.5h11a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 2 12V4a.5.5 0 0 1 .5-.5ZM6 8.2a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM3.8 10.8c.3-1 1.2-1.6 2.2-1.6s1.9.6 2.2 1.6M10 6.5h2M10 9h2",
   shifts: "M8 14a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM8 4.5V8l2.5 1.5",
   handover: "M5.5 2.5h5v2h-5zM10.5 3.5H12a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1h1.5M5.5 8h5M5.5 10.5h3",
   events: "M3 3.5h10a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5ZM2.5 6.5h11M5.5 2v2.5M10.5 2v2.5",
@@ -202,14 +203,13 @@ export default function StaffLayout() {
           <>
           <div className={`staff-dashboard-shell staff-enter${collapsed ? " is-collapsed" : ""}`}>
           <aside className="staff-sidebar-wrap">
-          <button type="button" className="staff-sidebar-toggle" aria-expanded={!collapsed} aria-controls="staff-sidebar-nav" title={collapsed ? "Expand menu" : "Collapse menu"} onClick={toggleSidebar}>
-            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d={collapsed ? "M4 3.5 8.5 8 4 12.5M8.5 3.5 13 8l-4.5 4.5" : "M12 3.5 7.5 8l4.5 4.5M7.5 3.5 3 8l4.5 4.5"} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            <span className="staff-sidebar-toggle-text">{collapsed ? "Expand menu" : "Collapse menu"}</span>
-          </button>
+          <button type="button" className="staff-sidebar-toggle" aria-expanded={!collapsed} aria-controls="staff-sidebar-nav" title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"} onClick={toggleSidebar}>
+            <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d={collapsed ? "M4 3.5 8.5 8 4 12.5M8.5 3.5 13 8l-4.5 4.5" : "M12 3.5 7.5 8l4.5 4.5M7.5 3.5 3 8l4.5 4.5"} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>          </button>
           <nav id="staff-sidebar-nav" className="staff-nav staff-sidebar" aria-label="Staff navigation">
             {[
               ["dashboard", "Today"],
               ["students", "Students"],
+              ["program-tutors", "Program Tutors"],
               ["shifts", "Shifts"],
               ["handover", "Handover"],
               ["events", "Events"],

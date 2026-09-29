@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { formatDate } from "../../shared/dates.js";
 import { booleanValue, cellText, dateValue, key, readWorkbook, rows, WorkbookError } from "./excelUtils.js";
 import { inferLinkLabel, safeLink, whatsappLink } from "../../shared/content.js";
-import { shortProgram } from "../../shared/studyPrograms.js";
+import { shortProgram, STUDY_PROGRAM_OPTIONS } from "../../shared/studyPrograms.js";
 
 export const UNIFIED_WORKBOOK = "Welcome-Lounge.xlsx";
 export const SHIFT_SLOTS = ["S1", "S2"];
@@ -11,7 +11,7 @@ export const DEFAULT_TUTORS_PER_SHIFT = 3;
 const LEGACY_SHIFT_HEADERS = ["ID", "Date", "Start", "End", "Tutor 1", "Tutor 2", "Tutor 3", "Important Event", "Notes"];
 export const SHEETS = ["Settings", "Content", "Students", "Activity", "Staff", "Shifts"];
 // Optional tabs: older workbooks without them stay valid; the app writes them on the next save.
-export const OPTIONAL_SHEETS = ["Events", "Tutors"];
+export const OPTIONAL_SHEETS = ["Events", "Tutors", "Program Tutors"];
 export const MAX_TUTORS = 100;
 // Staff tab Role column: stored key → label shown in Excel ("Super Admin" reads as "superadmin").
 export const STAFF_ROLE_LABELS = { tutor: "Tutor", coordinator: "Coordinator", admin: "Admin", superadmin: "Super Admin" };
@@ -25,6 +25,17 @@ export const HEADERS = {
   Shifts: ["Date", ...SHIFT_SLOTS.flatMap((slot) => [1, 2, 3, 4].map((n) => `${slot} - Person ${n}`)), "Note"],
   Events: ["Title", "Date", "Start", "End", "Location", "Description", "Link", "Active", "ID"],
   Tutors: ["Tutor", "Name"],
+  // One row per programme: its tutor and the programme's WhatsApp group. QR Code holds the uploaded image's file name.
+  "Program Tutors": ["Tutor", "Program", "Tutor Contact", "WhatsApp Link", "QR Code", "Note", "ID"],
+};
+export const TUTORS_LIST_LIMITS = { tutor: 200, program: 300, contact: 1000, whatsapp: 1000, note: 4000 };
+// QR images are stored next to the workbook; the cell keeps only this file name.
+export const TUTOR_QR_FILE = /^tl[_-][a-z0-9_-]{1,120}\.(png|jpg|webp)$/;
+const TUTORS_LIST_ID = /^tl[_-][a-z0-9-]{1,100}$/i;
+// Before the tab exists, every programme gets a row with a stable ID, so the first edit can find it.
+export const defaultTutorsList = () => {
+  const used = new Set();
+  return STUDY_PROGRAM_OPTIONS.map((program) => ({ id: uniqueId(`tl-${slug(program)}`, used), tutor: "", program, contact: "", whatsapp: "", qrCode: "", note: "" }));
 };
 const sectionMap = new Map(["First Step", "Useful Info", "Student Support", "Community", "Help"].map((x) => [key(x), x]));
 const bool = (value, context, blank = null) => {
@@ -258,6 +269,29 @@ export async function parseUnifiedWorkbook(bytes) {
     const tutorKey = tutorName.toLocaleLowerCase("en");
     if (tutorName && !tutorKeys.has(tutorKey) && tutors.length < MAX_TUTORS) { tutorKeys.add(tutorKey); tutors.push(tutorName); }
   }
+  const tutorsList = tables["Program Tutors"] ? [] : defaultTutorsList();
+  const tutorsListIds = new Set();
+  for (const row of tables["Program Tutors"]?.dataRows || []) {
+    if (!row.values.some((value) => String(value ?? "").trim())) continue;
+    const context = `Program Tutors row ${row.number}`;
+    const cell = (label, field) => {
+      const value = cellText(valueAt(row, tables["Program Tutors"], label));
+      if (value.length > TUTORS_LIST_LIMITS[field]) throw new WorkbookError(`${context}: ${label} is too long.`);
+      return value;
+    };
+    const tutor = cell("Tutor", "tutor"), program = shortProgram(cell("Program", "program"));
+    const whatsapp = safeUrl(valueAt(row, tables["Program Tutors"], "WhatsApp Link"), `${context} WhatsApp Link`);
+    const qrCode = cellText(valueAt(row, tables["Program Tutors"], "QR Code"));
+    if (qrCode && !TUTOR_QR_FILE.test(qrCode)) throw new WorkbookError(`${context}: QR Code is set by the app when an image is uploaded. Clear the cell to remove it.`);
+    let id = cellText(valueAt(row, tables["Program Tutors"], "ID"));
+    if (!id) { id = uniqueId(`tl-${slug(program || tutor || "row")}`, tutorsListIds); idAssignments.push({ sheet: "Program Tutors", row: row.number, column: tables["Program Tutors"].col.ID + 1, id }); }
+    else {
+      if (!TUTORS_LIST_ID.test(id)) throw new WorkbookError(`${context}: ID must start with tl- and use letters, numbers and hyphens.`);
+      if (tutorsListIds.has(id)) throw new WorkbookError(`${context}: duplicate ID ${id}.`);
+      tutorsListIds.add(id);
+    }
+    tutorsList.push({ id, tutor, program, contact: cell("Tutor Contact", "contact"), whatsapp, qrCode, note: cell("Note", "note") });
+  }
   for (const item of content) if (item.active && item.section === "First Step" && !item.text.trim()) throw new WorkbookError(`First Step ${item.title} needs a short Text description.`);
   for (const item of activity) if (item.studentId && !studentIds.has(item.studentId)) throw new WorkbookError(`Activity entry ${item.id} refers to a missing student ID.`);
   // Older rows have no "Added By": take it from the "Student created" entry in the activity history.
@@ -269,7 +303,7 @@ export async function parseUnifiedWorkbook(bytes) {
     const student = students.find((item) => item.id === entry.recordId);
     if (student) { student.updatedAt = entry.timestamp; student.updatedBy = entry.actor.name; }
   }
-  return { workbook, data: { version: 1, settings: config, shiftTimes, schedule, tutors, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
+  return { workbook, data: { version: 1, settings: config, shiftTimes, schedule, tutors, tutorsList, content, events, students, activity, staff, shifts, semesterLabel, programTutors: staff.filter((item) => item.program).map(({ program, name, email, phone, telegram }) => ({ program, tutor: name, email, phone, telegram })), checkins, handover, audit, lastImported: "" }, idAssignments, warnings };
 }
 
 const SHEET_GUIDANCE = {
@@ -280,6 +314,7 @@ const SHEET_GUIDANCE = {
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
   Shifts: "One row per day. Write who works in each shift; use Note for closures such as a bank holiday.",
   Tutors: "This semester's tutors, one per row. Add, rename or delete rows; the numbering is updated automatically.",
+  "Program Tutors": "One row per study programme: its tutor, contact and WhatsApp group. QR codes are uploaded in the staff app; leave the QR Code and ID cells as they are.",
   Events: "One event per row. Date as DD.MM.YYYY, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
@@ -296,7 +331,7 @@ function addSheet(workbook, name, dataRows = []) {
   sheet.views = [{ state: "frozen", ySplit: 3 }];
   for (const values of dataRows) sheet.addRow(values.map((value) => value ?? ""));
   sheet.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: HEADERS[name].length } };
-  sheet.columns = HEADERS[name].map((header) => ({ width: ["Text", "Notes", "Address", "Accommodation", "Description"].includes(header) ? 48 : 24 }));
+  sheet.columns = HEADERS[name].map((header) => ({ width: ["Text", "Notes", "Note", "Address", "Accommodation", "Description", "WhatsApp Link"].includes(header) ? 48 : 24 }));
   sheet.eachRow((row) => { row.alignment = { vertical: "top", wrapText: true }; });
   return sheet;
 }
@@ -334,6 +369,7 @@ export function createUnifiedWorkbook(data = {}) {
   // An empty list still gets ten numbered rows so the tab is easy to fill in Excel.
   const tutorRows = data.tutors?.length ? data.tutors : Array(10).fill("");
   addSheet(workbook, "Tutors", tutorRows.map((name, index) => [`Tutor ${index + 1}`, name]));
+  addSheet(workbook, "Program Tutors", (data.tutorsList || defaultTutorsList()).map((t) => [t.tutor, t.program, t.contact, t.whatsapp, t.qrCode, t.note, t.id]));
   HEADERS.Shifts.forEach((label, index) => {
     const color = label.startsWith("S1") ? "FF2F5D62" : label.startsWith("S2") ? "FFB8860B" : null;
     if (color) shiftsSheet.getCell(3, index + 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };

@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES, DEFAULT_TUTORS_PER_SHIFT } from "../excel/unifiedWorkbook.js";
+import { createUnifiedWorkbookTemplate, parseUnifiedWorkbook, serializeUnifiedWorkbook, publicContentFromWorkbook, slotNames, MAX_TUTORS, DEFAULT_SHIFT_TIMES, DEFAULT_TUTORS_PER_SHIFT, TUTORS_LIST_LIMITS, TUTOR_QR_FILE } from "../excel/unifiedWorkbook.js";
 import { parseContentWorkbook } from "../excel/contentWorkbook.js";
 import { parseMasterExcel, exportMasterExcel } from "../excel/masterExcel.js";
 import { validateContent } from "../../shared/content.js";
@@ -45,6 +45,31 @@ function checkStudentField(field, value, student, data) {
   const matriculation = value.trim().toLocaleLowerCase("en");
   if (field === "matriculationNumber" && matriculation && data.students.some((other) => other.id !== student.id && String(other.matriculationNumber || "").trim().toLocaleLowerCase("en") === matriculation))
     throw new StaffError(409, "Another student already has this matriculation number.");
+}
+// Program Tutors: one row per programme. QR images are uploaded separately; a patch may only clear qrCode.
+const TUTORS_LIST_FIELDS = ["tutor", "program", "contact", "whatsapp", "note", "qrCode"];
+const TUTOR_QR_MAX_BYTES = 90 * 1024;
+const TUTOR_QR_TYPES = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+// "chat.whatsapp.com/abc" is saved as "https://chat.whatsapp.com/abc".
+function tutorsListLink(value) {
+  const typed = value.trim();
+  if (!typed) return "";
+  const link = safeLink(/^[a-z][a-z0-9+.-]*:/i.test(typed) ? typed : `https://${typed}`);
+  if (!link) throw new StaffError(400, "Enter the full WhatsApp link, for example https://chat.whatsapp.com/…");
+  return link;
+}
+function checkTutorsListField(field, value) {
+  if (typeof value !== "string") throw new StaffError(400, "A Program Tutors field is invalid.");
+  if (field === "qrCode") { if (value) throw new StaffError(400, "Upload the QR code image instead."); return; }
+  text(value, TUTORS_LIST_LIMITS[field]);
+}
+const tutorsListLabel = (row) => `Program Tutors · ${row.program || row.tutor || "row"}`;
+// Recognise the image from its first bytes rather than trusting the file name.
+function qrImageType(bytes) {
+  if (bytes.length > 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
+  if (bytes.length > 12 && bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") return "webp";
+  return "";
 }
 // Shift grid cells: s1p1..s1p4, s2p1..s2p4 and the day note.
 const SHIFT_FIELDS = [...[1, 2].flatMap((slot) => [1, 2, 3, 4].map((person) => `s${slot}p${person}`)), "note"];
@@ -139,7 +164,7 @@ export function createUnifiedRepository(store) {
     }
     throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
   }
-  async function mutateFields(actor, input, { id, collection, allowed, reason, activityType, fieldMap = (field, value) => [field, value], validate }) {
+  async function mutateFields(actor, input, { id, collection, allowed, reason, activityType, fieldMap = (field, value) => [field, value], validate, label }) {
     const patch = input.patch;
     if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length || Object.keys(patch).some((field) => !allowed.includes(field))) throw new StaffError(400, "The requested fields cannot be updated.");
     if (!input.base || typeof input.base !== "object" || Object.keys(patch).some((field) => !Object.hasOwn(input.base, field))) throw new StaffError(400, "Reload this record before saving your changes.");
@@ -174,7 +199,7 @@ export function createUnifiedRepository(store) {
       }
       if (!changed.length) return { ok: true, etag: file.etag, unchanged: true };
       validate?.(record, patch, data);
-      appendActivity(data, actor, activityType, { studentId: collection === "students" ? record.id : "", note: collection === "students" ? changed.join(",") : `${record.title || record.date || "Record"} · ${changed.join(",")}` });
+      appendActivity(data, actor, activityType, { studentId: collection === "students" ? record.id : "", note: collection === "students" ? changed.join(",") : `${label?.(record) || record.title || record.date || "Record"} · ${changed.join(",")}` });
       const priorVersion = file.etag;
       try {
         const result = await commit(file, data, actor, reason);
@@ -268,7 +293,7 @@ export function createUnifiedRepository(store) {
       const file = await current();
       const admin = rankOf(actor.role) >= ROLE_RANK.coordinator;
       const shiftLog = file.parsed.data.activity.filter((item) => item.type === "Shift Update").sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 30);
-      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, schedule: file.parsed.data.schedule, tutors: file.parsed.data.tutors, shiftLog: admin ? shiftLog : [], unified: true, ...(admin ? {} : { data: { ...workspaceData(file.parsed.data), audit: [] } }) };
+      return { data: workspaceData(file.parsed.data), etag: file.etag, today: dateToday(), shiftSummary: shiftSummary(file.parsed.data.shifts), shiftTimes: file.parsed.data.shiftTimes, schedule: file.parsed.data.schedule, tutors: file.parsed.data.tutors, tutorsList: file.parsed.data.tutorsList, shiftLog: admin ? shiftLog : [], unified: true, ...(admin ? {} : { data: { ...workspaceData(file.parsed.data), audit: [] } }) };
     },
     async listArrivals() {
       const { parsed } = await current();
@@ -327,6 +352,69 @@ export function createUnifiedRepository(store) {
         for (const entry of data.activity) if (entry.studentId === id) entry.studentId = "";
         appendActivity(data, actor, "Student Update", { note: `Deleted student: ${removed.name}${removed.matriculationNumber ? ` (${removed.matriculationNumber})` : ""}` });
       }, { major: true, safeRetry: true });
+    },
+    async updateTutorsListRow(actor, input) {
+      return mutateFields(actor, input, {
+        id: input.id, collection: "tutorsList", allowed: TUTORS_LIST_FIELDS,
+        reason: "tutors list update", activityType: "Other", label: tutorsListLabel,
+        fieldMap: (field, value) => [field, typeof value !== "string" ? value : field === "whatsapp" ? tutorsListLink(value) : field === "program" ? shortProgram(value) : value],
+        validate(record, patch) {
+          for (const field of Object.keys(patch)) checkTutorsListField(field, record[field]);
+        },
+      });
+    },
+    async addTutorsListRow(actor, input) {
+      const row = { id: idFor("tl"), tutor: "", program: "", contact: "", whatsapp: "", qrCode: "", note: "" };
+      for (const field of ["tutor", "program", "contact", "whatsapp", "note"]) {
+        const value = input[field] ?? "";
+        checkTutorsListField(field, value);
+        row[field] = value.trim();
+      }
+      row.program = shortProgram(row.program);
+      row.whatsapp = tutorsListLink(row.whatsapp);
+      if (!row.tutor && !row.program) throw new StaffError(400, "Enter a tutor or a programme.");
+      return mutate(actor, input, "tutors list row added", (data) => {
+        data.tutorsList.push(row);
+        appendActivity(data, actor, "Other", { note: `${tutorsListLabel(row)} · added` });
+        return row.id;
+      }, { safeRetry: true });
+    },
+    async deleteTutorsListRow(actor, input) {
+      const id = text(input.id || "", 120).trim();
+      if (!id) throw new StaffError(400, "Choose a row to delete.");
+      return mutate(actor, input, "tutors list row deleted", (data) => {
+        const index = data.tutorsList.findIndex((row) => row.id === id);
+        if (index < 0) throw new StaffError(404, "This row was already deleted. Reload the list.");
+        const [removed] = data.tutorsList.splice(index, 1);
+        appendActivity(data, actor, "Other", { note: `${tutorsListLabel(removed)} · deleted${removed.tutor ? ` (${removed.tutor})` : ""}` });
+      }, { major: true, safeRetry: true });
+    },
+    // The image is saved as its own file first; the row then points at it. A replaced image stays in the folder.
+    async uploadTutorQr(actor, input) {
+      const id = text(input.id || "", 120).trim();
+      const match = typeof input.image === "string" ? input.image.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/) : null;
+      if (!match) throw new StaffError(400, "Choose a PNG, JPG or WebP image.");
+      const bytes = Buffer.from(match[1], "base64");
+      const type = qrImageType(bytes);
+      if (!type) throw new StaffError(400, "Choose a PNG, JPG or WebP image.");
+      if (bytes.length > TUTOR_QR_MAX_BYTES) throw new StaffError(413, "The image is too large. Use a smaller picture of the QR code.");
+      const { parsed } = await current();
+      if (!parsed.data.tutorsList.some((row) => row.id === id)) throw new StaffError(404, "This row was deleted. Reload the list.");
+      const fileName = `${id.toLowerCase()}-${randomUUID().slice(0, 8)}.${type}`;
+      await store.writeBytes(`${store.paths.tutorQr}/${fileName}`, bytes, null);
+      const result = await mutate(actor, input, "tutors list QR code", (data) => {
+        const row = data.tutorsList.find((item) => item.id === id);
+        if (!row) throw new StaffError(404, "This row was deleted. Reload the list.");
+        row.qrCode = fileName;
+        appendActivity(data, actor, "Other", { note: `${tutorsListLabel(row)} · QR code uploaded` });
+      }, { safeRetry: true });
+      return { ...result, qrCode: fileName };
+    },
+    async readTutorQr(fileName) {
+      if (typeof fileName !== "string" || !TUTOR_QR_FILE.test(fileName)) throw new StaffError(404, "Image not found.");
+      const file = await store.read(`${store.paths.tutorQr}/${fileName}`, 1024 * 1024);
+      if (!file.value) throw new StaffError(404, "Image not found.");
+      return { bytes: file.value, type: TUTOR_QR_TYPES[fileName.split(".").pop()] };
     },
     async addHandover(actor, input) {
       const note = text(input.note || "", 4000).trim();

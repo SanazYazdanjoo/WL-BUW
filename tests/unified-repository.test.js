@@ -5,7 +5,7 @@ import { serializeUnifiedWorkbook, parseUnifiedWorkbook, publicContentFromWorkbo
 import { createUnifiedRepository } from "../server/staff/unifiedRepository.js";
 
 function memoryStore(initialBytes) {
-  const paths = { unified: "Welcome-Lounge.xlsx", unifiedName: "Welcome-Lounge.xlsx", unifiedBackups: "backups", unifiedBackupStatus: "content-meta/unified-workbook-backup-status.json", master: "staff-data/MasterExcel.xlsx" };
+  const paths = { unified: "Welcome-Lounge.xlsx", unifiedName: "Welcome-Lounge.xlsx", unifiedBackups: "backups", unifiedBackupStatus: "content-meta/unified-workbook-backup-status.json", master: "staff-data/MasterExcel.xlsx", tutorQr: "staff-data/tutor-qr" };
   const files = new Map(initialBytes ? [[paths.unified, { value: initialBytes, etag: '"v1"' }]] : []);
   let counter = 1;
   const conflict = () => Object.assign(new Error("precondition failed"), { status: 409 });
@@ -487,4 +487,51 @@ test("feedback from the workspace is saved as an attributed Feedback activity", 
   await assert.rejects(repo.submitFeedback(actor, { kind: "spam", message: "hi" }), /what the feedback is about/);
   const log = (await repo.activityLog()).entries.filter((entry) => entry.type === "Feedback");
   assert.deepEqual(log.map(({ actor: who, note }) => [who, note]), [["Zarina", "[Problem] The export button does nothing (page: /staff/students)"]]);
+});
+
+test("Program Tutors starts with one row per programme; rows are edited, added, deleted and get QR images", async () => {
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    staff: [{ id: staffId, name: "Coordinator Example", role: "coordinator", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Coordinator Example", role: "coordinator", staffId };
+  let workspace = await repo.workspace(actor);
+  const architecture = workspace.tutorsList.find((row) => row.program === "Architecture");
+  assert.ok(architecture && workspace.tutorsList.length > 20);
+  assert.equal(architecture.tutor, "");
+
+  await repo.updateTutorsListRow(actor, { id: architecture.id, patch: { tutor: "Anna Example", whatsapp: "chat.whatsapp.com/AbC123" }, base: { tutor: "", whatsapp: "" } });
+  await assert.rejects(repo.updateTutorsListRow(actor, { id: architecture.id, patch: { whatsapp: "http://example.org" }, base: { whatsapp: "https://chat.whatsapp.com/AbC123" } }), /WhatsApp link/);
+  await assert.rejects(repo.updateTutorsListRow(actor, { id: architecture.id, patch: { qrCode: "tl-x.png" }, base: { qrCode: "" } }), /Upload the QR code/);
+
+  const { etag } = await repo.workspace(actor);
+  await repo.addTutorsListRow(actor, { etag, tutor: "Ben Example", program: "Digital Engineering", contact: "ben@example.org", note: "Mondays" });
+
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40)]);
+  await assert.rejects(repo.uploadTutorQr(actor, { id: architecture.id, image: `data:image/png;base64,${Buffer.from("not an image").toString("base64")}` }), /PNG, JPG or WebP/);
+  const upload = await repo.uploadTutorQr(actor, { id: architecture.id, image: `data:image/png;base64,${png.toString("base64")}` });
+  assert.match(upload.qrCode, /^tl-architecture-[0-9a-f]{8}\.png$/);
+  const image = await repo.readTutorQr(upload.qrCode);
+  assert.equal(image.type, "image/png");
+  assert.deepEqual(image.bytes, png);
+  await assert.rejects(repo.readTutorQr("../Welcome-Lounge.xlsx"), /not found/);
+
+  const civil = (await repo.workspace(actor)).tutorsList.find((row) => row.program === "Civil Engineering");
+  await repo.deleteTutorsListRow(actor, { id: civil.id });
+
+  // Everything is in the workbook's Program Tutors tab.
+  const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  const saved = stored.data.tutorsList.find((row) => row.id === architecture.id);
+  assert.equal(saved.tutor, "Anna Example");
+  assert.equal(saved.whatsapp, "https://chat.whatsapp.com/AbC123");
+  assert.equal(saved.qrCode, upload.qrCode);
+  const added = stored.data.tutorsList.find((row) => row.tutor === "Ben Example");
+  assert.equal(added.program, "DigiEng");
+  assert.equal(added.note, "Mondays");
+  assert.ok(!stored.data.tutorsList.some((row) => row.program === "Civil Engineering"));
+  assert.ok(stored.data.activity.some((entry) => entry.note === "Program Tutors · Architecture · tutor,whatsapp"));
+  workspace = await repo.workspace({ name: "Tutor", role: "tutor", staffId: "" });
+  assert.equal(workspace.tutorsList.length, stored.data.tutorsList.length);
 });

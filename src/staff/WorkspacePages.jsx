@@ -1005,28 +1005,6 @@ export function StatisticsPage() {
     </div>
   );
 }
-export function Tutors() {
-  const { workspace, error } = useWorkspace();
-  return !workspace ? (
-    <State error={error} />
-  ) : (
-    <div className="staff-page">
-      <header className="staff-page-heading"><h1>Programme tutors</h1></header>
-      <div className="staff-dashboard-grid">
-      {workspace.data.programTutors.map((t, i) => (
-        <section key={i} className="staff-dashboard-section">
-          <h2>{t.program}</h2>
-          <p>{t.tutor === "?" ? "Not assigned" : t.tutor}</p>
-          {t.email && <p>{t.email}</p>}
-          {t.phone && <p>{t.phone}</p>}
-          {t.telegram && <p>{t.telegram}</p>}
-        </section>
-      ))}
-      </div>
-      {!workspace.data.programTutors.length && <p className="staff-empty-state">No tutors listed.</p>}
-    </div>
-  );
-}
 export function Handover() {
   const { workspace, error, busy, act } = useWorkspace();
   const [note, setNote] = useState(""), [studentId, setStudentId] = useState("");
