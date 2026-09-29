@@ -60,7 +60,8 @@ export default function StaffLayout() {
   useEffect(() => {
     if (!session) return;
     let active = true;
-    const loadSemester = () => Promise.allSettled([staffRequest("config"), staffRequest("workspace")]).then(([configResult, workspaceResult]) => {
+    // Only coordinators and up may read the published settings; tutors take the label from the workspace.
+    const loadSemester = () => Promise.allSettled([canManage(session) ? staffRequest("config") : Promise.reject(), staffRequest("workspace")]).then(([configResult, workspaceResult]) => {
       if (!active) return;
       const published = configResult.status === "fulfilled" ? configResult.value?.config?.semesterLabel || "" : "";
       const operational = workspaceResult.status === "fulfilled" ? workspaceResult.value?.data?.semesterLabel || "" : "";
