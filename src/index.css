@@ -5250,3 +5250,33 @@ body:has(.staff)::before {
   .staff-tutors-table td[data-field="qrCode"],
   .staff-tutors-table td[data-field="note"] { grid-column: 1 / -1; }
 }
+
+/* Students list: row numbers on the left. */
+.staff-student-table .staff-col-number,
+.staff-student-table .staff-cell-number {
+  padding-inline: 0.2rem 0.35rem;
+  text-align: right;
+}
+
+.staff-student-table .staff-cell-number {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.staff-student-table .staff-cell-number.is-pending {
+  opacity: 0.5;
+}
+
+/* In the card layout the number sits small at the top of each card. */
+@media (max-width: 1279px) {
+  .staff-student-table td.staff-cell-number {
+    display: block;
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .staff-student-table td.staff-cell-number::before {
+    content: "#";
+  }
+}

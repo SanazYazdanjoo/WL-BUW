@@ -62,6 +62,9 @@ const STUDENT_COLUMNS = [
 // "Date added" is set by the server when a student is created and is read-only here.
 // Who added the student and when share one narrow column: an icon that shows both on hover or focus.
 const ADDED_SHARE = 5.5;
+// Row numbers on the left count the rows as shown (after search and filters).
+const NUMBER_SHARE = 2.5;
+const NumberCell = ({ number, pending = false }) => <td data-field="number" className={`staff-cell-number${pending ? " is-pending" : ""}`}>{number}</td>;
 const formatDay = (iso) => formatDate(iso) || "—";
 const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
@@ -108,10 +111,11 @@ function AddedCell({ by, date, pending = false }) {
   );
 }
 
-function StudentRow({ student, save, columns, onDelete }) {
+function StudentRow({ student, number, save, columns, onDelete }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
   return (
     <tr className={autosave.draft.needsAttention === true ? "is-attention" : undefined}>
+      <NumberCell number={number} />
       <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
       <AddedCell by={student.addedBy} date={student.legacyDate} />
       <td className="staff-cell-status"><div className="staff-cell-status-inner">
@@ -127,7 +131,7 @@ function StudentRow({ student, save, columns, onDelete }) {
 
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
-function NewStudentRow({ onCreate, columns, today, me }) {
+function NewStudentRow({ onCreate, number, columns, today, me }) {
   const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false, needsAttention: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
@@ -152,6 +156,7 @@ function NewStudentRow({ onCreate, columns, today, me }) {
       onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); create(); } if (event.key === "Escape") { setDraft(blank()); setState({ saving: false, error: "" }); } }}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
     >
+      <NumberCell number={number} pending />
       <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
       <AddedCell by={me} date={today} pending />
       <td className="staff-cell-status">
@@ -197,7 +202,7 @@ function DeleteStudentDialog({ student, onDelete, onClose }) {
 
 function StudentTable({ students, save, programOptions, onCreate, onDelete, showAddress, today, me }) {
   const columns = visibleStudentColumns(showAddress);
-  const totalShare = columns.reduce((sum, column) => sum + column.share, 0) + ADDED_SHARE;
+  const totalShare = columns.reduce((sum, column) => sum + column.share, 0) + ADDED_SHARE + NUMBER_SHARE;
   // The save status and delete button keep 6%; everything else splits the rest by share.
   const width = (share) => `${(share / totalShare) * 94}%`;
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
@@ -208,14 +213,15 @@ function StudentTable({ students, save, programOptions, onCreate, onDelete, show
         <thead>
           <tr>
             {/* Column widths are proportional shares, so a row always fits on one line. */}
+            <th className="staff-col-number" style={{ width: width(NUMBER_SHARE) }}><span aria-hidden="true">#</span><span className="sr-only">Row number</span></th>
             {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: width(share) }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
             <th className="staff-col-added" title="Added by and date added" style={{ width: width(ADDED_SHARE) }}><span aria-hidden="true">Added</span><span className="sr-only">Added by and date added</span></th>
             <th className="staff-col-status" style={{ width: "6%" }}><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
-          {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} onDelete={onDelete} save={(patch, base) => save(s.id, patch, base)} />)}
-          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} today={today} me={me} />}
+          {students.map((s, index) => <StudentRow key={s.id} number={index + 1} student={s} columns={columns} onDelete={onDelete} save={(patch, base) => save(s.id, patch, base)} />)}
+          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} number={students.length + 1} onCreate={onCreate} columns={columns} today={today} me={me} />}
         </tbody>
       </table>
     </div>
