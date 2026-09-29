@@ -51,8 +51,6 @@ export const STUDY_PROGRAM_OPTIONS = [
   "European Urban Studies",
   "Fine Art",
   "Film Cultures – Extended Cinema",
-  "Human-Computer Interaction",
-  "Integrated Urban Development and Design",
   "Management [Construction, Real Estate and Infrastructure]",
   "Media Art and Design",
   "Media Culture",

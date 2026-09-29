@@ -5,6 +5,8 @@ export const PROGRAM_SHORT_NAMES = {
   "Digital Engineering": "DigiEng",
   "Computer Science for Digital Media": "CS4DM",
   "Digital Technologies in Architecture and Design": "DigiTechs",
+  "Integrated Urban Development and Design": "IUDD",
+  "Human-Computer Interaction": "HCI",
 };
 const byFolded = new Map(Object.entries(PROGRAM_SHORT_NAMES).map(([long, short]) => [long.toLowerCase().replace(/\s+/g, " "), short]));
 

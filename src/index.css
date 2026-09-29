@@ -5052,3 +5052,8 @@ body:has(.staff)::before {
     transition: none;
   }
 }
+
+/* Students page: ticked boxes are black, matching the header row and sidebar. */
+.staff-students-page input[type="checkbox"] {
+  accent-color: #000;
+}

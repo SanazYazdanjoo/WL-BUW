@@ -269,8 +269,10 @@ test("long programme names are stored and shown by their short name", async () =
   assert.equal(workspace.data.programTutors[0].program, "DigiEng");
   await repo.updateStudent(actor, { id: studentId, patch: { studyProgram: "computer science for digital media" }, base: { studyProgram: "NHRE" } });
   await repo.addStudent(actor, { etag: (await repo.workspace()).etag, name: "New Student", studyProgram: "Digital Technologies in Architecture and Design" });
+  await repo.addStudent(actor, { etag: (await repo.workspace()).etag, name: "Urban Student", studyProgram: "Integrated Urban Development and Design" });
+  await repo.addStudent(actor, { etag: (await repo.workspace()).etag, name: "HCI Student", studyProgram: "Human-Computer Interaction" });
   const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
-  assert.deepEqual(stored.data.students.map((student) => student.studyProgram), ["CS4DM", "DigiTechs"]);
+  assert.deepEqual(stored.data.students.map((student) => student.studyProgram), ["CS4DM", "DigiTechs", "IUDD", "HCI"]);
 });
 
 test("student list checkboxes and accommodation contact round-trip, and old text values count as ticked", async () => {
