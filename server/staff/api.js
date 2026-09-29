@@ -158,6 +158,7 @@ export function staffMiddleware(
         "content/publish": ["admin", "publishContentWorkbook"],
         "content/rollback": ["admin", "rollbackContent"],
         "students/create": ["read", "addStudent", true],
+        "students/delete": ["read", "deleteStudent", true],
         "staff/save": ["admin", "saveStaff", true],
         "content/save": ["admin", "saveContent", true],
         "content/delete": ["admin", "deleteContent", true],

@@ -3320,8 +3320,9 @@ main:focus {
   width: 9.5rem;
 }
 
-/* Below laptop width, each student row becomes a card with labelled fields. */
-@media (max-width: 1100px) {
+/* Below laptop width, each student row becomes a card with labelled fields,
+   laid out on a 12-column grid (6 on phones) so related fields share a line. */
+@media (max-width: 1279px) {
   .staff-student-table,
   .staff-student-table tbody {
     display: block;
@@ -3333,39 +3334,97 @@ main:focus {
 
   .staff-student-table tr {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-    gap: 0.4rem 0.9rem;
-    padding: 0.9rem 1rem;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-flow: row dense;
+    gap: 0.6rem 0.9rem;
+    padding: 1rem;
     border-bottom: 1px solid var(--color-border);
   }
 
-  .staff-student-table td,
+  .staff-student-table tr > td,
   .staff-student-table .staff-cell-sticky {
     display: flex;
     position: static;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.2rem;
+    min-width: 0;
     padding: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
+    grid-column: span 3;
   }
 
+  /* Row 1: name, country, number, enrolled. Row 2: program, accommodation, contact, city registration. */
+  .staff-student-table td[data-field="name"],
+  .staff-student-table td[data-field="studyProgram"],
+  .staff-student-table td[data-field="accommodationContact"],
+  .staff-student-table td[data-field="notes"] { grid-column: span 4; }
+  .staff-student-table td[data-field="address"] { grid-column: span 6; }
+  .staff-student-table td[data-field="matriculationNumber"],
+  .staff-student-table td.staff-cell-check { grid-column: span 2; }
+  .staff-student-table td[data-field="added"] { grid-column: span 6; }
+  .staff-student-table td[data-field="enrolled"] { grid-column: span 3; }
+  .staff-student-table td.staff-cell-status { grid-column: 1 / -1; }
+  .staff-student-table td.staff-cell-status:not(:has(.staff-autosave > :not(:empty))):not(:has(.staff-row-delete)) { display: none; }
+
+  /* Checkboxes line up at the bottom even when a label wraps. */
   .staff-student-table td.staff-cell-check {
+    justify-content: space-between;
     align-items: flex-start;
     text-align: left;
+  }
+
+  .staff-student-table td.staff-cell-check input {
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0.35rem 0;
   }
 
   .staff-student-table td[data-label]::before {
     content: attr(data-label);
     color: var(--color-text-muted);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
   }
 
   .staff-student-table .staff-cell-input {
+    min-height: 2.5rem;
     border-color: var(--color-border);
     background: white;
   }
+
+  .staff-student-table .staff-new-student-row {
+    border-top: 2px dashed var(--color-border);
+    background: #fafaf7;
+  }
+
+  .staff-student-table .staff-new-student-row td {
+    border-top: 0;
+    background: transparent;
+  }
+}
+
+@media (max-width: 699px) {
+  .staff-student-table tr {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.6rem 0.75rem;
+    padding: 1rem 0.85rem;
+  }
+
+  .staff-student-table tr > td,
+  .staff-student-table td[data-field="name"],
+  .staff-student-table td[data-field="studyProgram"],
+  .staff-student-table td[data-field="accommodationContact"],
+  .staff-student-table td[data-field="notes"],
+  .staff-student-table td[data-field="address"] { grid-column: 1 / -1; }
+  .staff-student-table td[data-field="matriculationNumber"],
+  .staff-student-table td[data-field="country"],
+  .staff-student-table td[data-field="matriculationNumber"],
+  .staff-student-table td[data-field="country"] { grid-column: span 3; }
+  .staff-student-table td[data-field="added"] { grid-column: 1 / -1; }
+  .staff-student-table td.staff-cell-check,
+  .staff-student-table td[data-field="enrolled"] { grid-column: span 2; }
 }
 
 @media (max-width: 1000px) {
@@ -3528,7 +3587,7 @@ body:has(.staff)::before {
   text-align: center;
 }
 
-@media (min-width: 1101px) {
+@media (min-width: 1280px) {
   .staff-student-table td {
     white-space: nowrap;
   }
@@ -3971,17 +4030,6 @@ body:has(.staff)::before {
   background: white;
 }
 
-.staff-student-table .staff-cell-date {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.staff-student-table .staff-cell-date.is-pending {
-  opacity: 0.6;
-}
-
 /* Shifts: fair-share note — informational blue (red read as an error), matching the shift bars. */
 .staff-fair-notice {
   display: grid;
@@ -4084,13 +4132,6 @@ body:has(.staff)::before {
 .staff-vbars-names .is-me {
   color: var(--color-text);
   font-weight: 700;
-}
-
-@media (min-width: 1101px) {
-  .staff-student-table .staff-cell-by {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 /* Students: the day export sits at the very bottom, even when the list is short. */
@@ -4488,4 +4529,483 @@ body:has(.staff)::before {
 
 .staff-combo-list .staff-combo-empty:hover {
   background: none;
+}
+
+/* Students: deleting a row. The button stays faint until the row is hovered or focused,
+   and only opens a confirmation dialog. */
+.staff-cell-status-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.staff-cell-status-inner > .staff-autosave {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.staff .staff-row-delete {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.staff-row-delete-text {
+  display: none;
+}
+
+.staff-student-table tr:hover .staff-row-delete,
+.staff-student-table tr:focus-within .staff-row-delete {
+  opacity: 0.55;
+}
+
+.staff .staff-row-delete:hover,
+.staff .staff-row-delete:focus-visible {
+  border-color: #f0c2c4;
+  background: #fdf3f3;
+  color: #b0000b;
+  opacity: 1;
+}
+
+/* Touch screens cannot hover, so the button stays faintly visible there. */
+@media (hover: none) {
+  .staff .staff-row-delete {
+    opacity: 0.55;
+  }
+}
+
+/* Cards: the delete button sits quietly at the bottom right of each card, with a word. */
+@media (max-width: 1279px) {
+  .staff-student-table td.staff-cell-status {
+    margin-top: -0.2rem;
+  }
+
+  .staff .staff-row-delete {
+    padding-inline: 0.5rem;
+    opacity: 0.6;
+  }
+
+  .staff-row-delete-text {
+    display: inline;
+  }
+}
+
+.staff-delete-notice:empty {
+  display: none;
+}
+
+.staff-delete-notice {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid var(--color-text-muted);
+  background: white;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.staff-delete-dialog {
+  width: min(30rem, calc(100% - 2rem));
+  padding: 1.5rem;
+  border: 0;
+  border-radius: 12px;
+  color: var(--color-text);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
+}
+
+.staff-delete-dialog::backdrop {
+  background: rgb(15 15 20 / 0.55);
+}
+
+.staff-delete-dialog h2 {
+  margin: 0 0 1rem;
+  font-size: 1.3rem;
+}
+
+.staff-delete-dialog p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.staff-delete-student {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+
+.staff-delete-student span {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.staff-delete-dialog label {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.staff-delete-dialog input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #aaaab0;
+  border-radius: 6px;
+}
+
+.staff-delete-dialog .button-row {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.staff .staff-danger-button {
+  border-color: #b0000b;
+  background: #b0000b;
+  color: white;
+}
+
+.staff .staff-danger-button:hover:not(:disabled) {
+  border-color: #8a0009;
+  background: #8a0009;
+}
+
+.staff .staff-danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Students table: black header row, matching the staff chrome. */
+.staff .staff-student-table thead th {
+  border-bottom-color: #000;
+  background: #000;
+  color: white;
+}
+
+.staff .staff-student-table thead th:first-child {
+  border-top-left-radius: 9px;
+}
+
+.staff .staff-student-table thead th:last-child {
+  border-top-right-radius: 9px;
+}
+
+/* Students: title, search and filters on one line (they wrap on small screens). */
+.staff-students-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 2rem;
+  margin-bottom: 1.25rem;
+}
+
+.staff-students-top h1 {
+  margin: 0;
+}
+
+.staff-students-top .staff-student-toolbar {
+  flex: 1 1 32rem;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+}
+
+.staff-students-top .staff-search {
+  flex: 1 1 16rem;
+  max-width: 26rem;
+}
+
+.staff-students-top .staff-search input {
+  padding-block: 0.55rem;
+}
+
+.staff-students-top .staff-filter {
+  align-self: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 699px) {
+  .staff-students-top .staff-student-toolbar {
+    justify-content: flex-start;
+  }
+
+  .staff-students-top .staff-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+/* A ticked "Needs attention" tints the row, so it stands out while scrolling. */
+.staff-student-table tr.is-attention > td {
+  background: #fff6cc;
+}
+
+@media (max-width: 1279px) {
+  .staff-student-table tr.is-attention {
+    background: #fff9dd;
+    box-shadow: inset 4px 0 0 var(--buw-yellow);
+  }
+
+  .staff-student-table tr.is-attention > td {
+    background: transparent;
+  }
+
+  .staff-student-table td[data-field="needsAttention"] {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 699px) {
+  /* Phones: the attention tick sits on its own line with the label beside it. */
+  .staff-student-table td[data-field="needsAttention"] {
+    grid-column: 1 / -1;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .staff-student-table td[data-field="needsAttention"]::before {
+    font-size: 0.85rem;
+    color: var(--color-text);
+  }
+}
+
+/* Students: "Added" column. Laptops show an info icon with a box on hover or focus;
+   cards show the same line as plain text. */
+.staff-student-table .staff-col-added,
+.staff-student-table td.staff-cell-added {
+  text-align: center;
+}
+
+.staff-added {
+  position: relative;
+  display: inline-flex;
+}
+
+.staff .staff-added-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: help;
+}
+
+.staff .staff-added-icon:hover,
+.staff .staff-added-icon:focus-visible {
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+
+.staff-added-tip {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: -0.5rem;
+  z-index: 20;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #18181c;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  color: white;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: left;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease, visibility 120ms;
+  pointer-events: none;
+}
+
+.staff-added-tip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 1.1rem;
+  border: 6px solid transparent;
+  border-bottom-color: #18181c;
+}
+
+.staff-added:hover .staff-added-tip,
+.staff-added-icon:focus-visible + .staff-added-tip,
+.staff-added-icon:focus + .staff-added-tip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.staff-cell-added.is-pending .staff-added-icon {
+  opacity: 0.5;
+}
+
+@media (max-width: 1279px) {
+  .staff-student-table td.staff-cell-added {
+    text-align: left;
+  }
+
+  .staff .staff-added-icon {
+    display: none;
+  }
+
+  .staff-added-tip {
+    position: static;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    white-space: normal;
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .staff-added-tip::before {
+    content: none;
+  }
+
+  .staff-student-table td[data-field="added"]::before {
+    display: none;
+  }
+
+  .staff-cell-added.is-pending .staff-added-tip {
+    opacity: 0.6;
+  }
+}
+
+/* ---- Sidebar icons and collapse (laptop and desktop only) ---- */
+.staff .staff-sidebar a,
+.staff .staff-sidebar-signout {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.staff .staff-sidebar-signout {
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.staff-nav-icon {
+  flex: none;
+  opacity: 0.85;
+}
+
+.staff-nav-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff .staff-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.25rem;
+  margin: 0.75rem 0.75rem 0;
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8a8a93;
+  font-size: 0.8rem;
+}
+
+.staff .staff-sidebar-toggle:hover,
+.staff .staff-sidebar-toggle:focus-visible {
+  background: #17171b;
+  color: var(--staff-chrome-text);
+}
+
+.staff-sidebar-wrap > .staff-sidebar-toggle + .staff-sidebar {
+  padding-top: 0.5rem;
+}
+
+@media (min-width: 901px) {
+  .staff-dashboard-shell {
+    transition: grid-template-columns 180ms ease;
+  }
+
+  .staff-dashboard-shell.is-collapsed {
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+  }
+
+  .is-collapsed .staff-nav-text,
+  .is-collapsed .staff-sidebar-user-text,
+  .is-collapsed .staff-sidebar-toggle-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .staff .is-collapsed .staff-sidebar {
+    padding-inline: 0.5rem;
+  }
+
+  .staff .is-collapsed .staff-sidebar a,
+  .staff .is-collapsed .staff-sidebar-toggle {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .staff .is-collapsed .staff-sidebar-toggle {
+    margin-inline: 0.5rem;
+  }
+
+  /* The "Management" heading becomes a thin divider. */
+  .is-collapsed .staff-sidebar-label {
+    height: 1px;
+    margin: 0.75rem 0.4rem;
+    overflow: hidden;
+    background: #2a2a31;
+    color: transparent;
+  }
+
+  .is-collapsed .staff-sidebar-footer {
+    padding-inline: 0.5rem;
+    justify-items: center;
+  }
+
+  .staff .is-collapsed .staff-sidebar-user {
+    padding: 0.3rem;
+  }
+
+  .staff .is-collapsed .staff-sidebar-signout {
+    width: 2.5rem;
+    padding: 0;
+  }
+}
+
+/* Phones and small tablets keep the compact wrapped menu: no toggle, no icons. */
+@media (max-width: 900px) {
+  .staff .staff-sidebar-toggle,
+  .staff-sidebar .staff-nav-icon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-dashboard-shell {
+    transition: none;
+  }
 }

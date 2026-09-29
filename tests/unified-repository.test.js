@@ -1,6 +1,7 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { serializeUnifiedWorkbook, parseUnifiedWorkbook, publicContentFromWorkbook } from "../server/excel/unifiedWorkbook.js";
+import ExcelJS from "exceljs";
+import { serializeUnifiedWorkbook, parseUnifiedWorkbook, publicContentFromWorkbook, HEADERS } from "../server/excel/unifiedWorkbook.js";
 import { createUnifiedRepository } from "../server/staff/unifiedRepository.js";
 
 function memoryStore(initialBytes) {
@@ -204,6 +205,72 @@ test("staff can correct a student's name, matriculation number and welcome mater
   assert.deepEqual([student.name, student.matriculationNumber, student.receivedBackpack], ["Example Student", "012346", true]);
   await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { matriculationNumber: "99999" }, base: { matriculationNumber: "012346" } }), /already has this matriculation number/);
   await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { name: "  " }, base: { name: "Example Student" } }), /full name/);
+});
+
+test("deleting a student needs the matching name, keeps a backup and leaves a readable workbook", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const otherId = "stu_22345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [
+      { id: studentId, name: "Example Student", matriculationNumber: "12345" },
+      { id: otherId, name: "Other Student", matriculationNumber: "99999" },
+    ],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  // An earlier change links a log entry to the student.
+  await repo.updateStudent(actor, { id: studentId, patch: { notes: "Visited" }, base: { notes: "" } });
+  await assert.rejects(repo.deleteStudent(actor, { id: studentId, name: "Other Student" }), /name changed/);
+  await repo.deleteStudent(actor, { id: studentId, name: "Example Student" });
+  const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.deepEqual(stored.data.students.map((student) => student.id), [otherId]);
+  assert.ok(stored.data.activity.every((entry) => entry.studentId !== studentId));
+  assert.ok(stored.data.activity.some((entry) => entry.note === "Deleted student: Example Student (12345)" && entry.actor === "Tutor Example"));
+  assert.ok([...store.files.keys()].some((path) => path.startsWith("backups/")));
+  await assert.rejects(repo.deleteStudent(actor, { id: studentId, name: "Example Student" }), /already deleted/);
+});
+
+test("staff can tick Needs attention, and older workbooks without that column still load", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const bytes = await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Example Student" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  });
+  // Remove the column, as in workbooks created before it existed.
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(bytes);
+  workbook.getWorksheet("Students").spliceColumns(HEADERS.Students.indexOf("Needs Attention") + 1, 1);
+  const store = memoryStore(Buffer.from(await workbook.xlsx.writeBuffer()));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  assert.equal((await repo.workspace()).data.students[0].needsAttention, false);
+  await repo.updateStudent(actor, { id: studentId, patch: { needsAttention: true }, base: { needsAttention: false } });
+  const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.equal(stored.data.students[0].needsAttention, true);
+});
+
+test("long programme names are stored and shown by their short name", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Example Student", studyProgram: "Natural Hazards and Risks in Structural Engineering" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true, program: "Digital Engineering" }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  const workspace = await repo.workspace();
+  assert.equal(workspace.data.students[0].studyProgram, "NHRE");
+  assert.equal(workspace.data.programTutors[0].program, "DigiEng");
+  await repo.updateStudent(actor, { id: studentId, patch: { studyProgram: "computer science for digital media" }, base: { studyProgram: "NHRE" } });
+  await repo.addStudent(actor, { etag: (await repo.workspace()).etag, name: "New Student", studyProgram: "Digital Technologies in Architecture and Design" });
+  const stored = await parseUnifiedWorkbook(store.files.get(store.paths.unified).value);
+  assert.deepEqual(stored.data.students.map((student) => student.studyProgram), ["CS4DM", "DigiTechs"]);
 });
 
 test("student list checkboxes and accommodation contact round-trip, and old text values count as ticked", async () => {

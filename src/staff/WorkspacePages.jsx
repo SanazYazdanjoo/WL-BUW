@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useParams, useOutletContext, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "./useWorkspace";
 import { staffRequest } from "./service";
@@ -45,20 +45,21 @@ function StudentExport({ workspace }) {
 // One line per student. Address is optional ("Show address"); checkboxes save
 // almost immediately, text after a short pause; the server logs who changed what.
 const STUDENT_COLUMNS = [
-  { field: "name", label: "Full name", max: 200, share: 12 },
-  { field: "matriculationNumber", label: "Matriculation no.", short: "Matric. no.", max: 100, share: 8 },
-  { field: "country", label: "Country", max: 200, country: true, share: 8 },
-  { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 11 },
+  { field: "name", label: "Full name", max: 200, share: 16 },
+  { field: "country", label: "Country", max: 200, country: true, share: 9 },
+  { field: "matriculationNumber", label: "Matriculation no.", short: "Matr.-no", max: 100, share: 9 },
+  { field: "enrolled", label: "Enrolled", check: true, share: 6.5 },
+  { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 14 },
   { field: "address", label: "Address", max: 12000, optional: true, share: 11 },
-  { field: "enrolled", label: "Enrolled", check: true, share: 7 },
-  { field: "accommodation", label: "Accommodation", short: "Accomm.", check: true, share: 8 },
+  { field: "accommodation", label: "Accommodation", short: "Accomm.", check: true, share: 7 },
   { field: "accommodationContact", label: "Contact (if no accommodation)", short: "Contact", max: 1000, contact: true, share: 10 },
-  { field: "cityRegistration", label: "City registration appointment", short: "City reg.", check: true, share: 7 },
-  { field: "notes", label: "Note", max: 4000, share: 9 },
+  { field: "cityRegistration", label: "City registration appointment", short: "City reg.", card: "City registration", check: true, share: 6.5 },
+  { field: "needsAttention", label: "Needs attention", short: "Attention", check: true, share: 7 },
+  { field: "notes", label: "Note", max: 4000, share: 10 },
 ];
 // "Date added" is set by the server when a student is created and is read-only here.
-const DATE_ADDED_SHARE = 8;
-const ADDED_BY_SHARE = 8;
+// Who added the student and when share one narrow column: an icon that shows both on hover or focus.
+const ADDED_SHARE = 5.5;
 const formatDay = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`)) : "—");
 const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
@@ -69,11 +70,12 @@ const studentRowDraft = (student) => ({
 const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : "");
 
 function StudentCells({ columns, draft, set, who, nameRef }) {
-  return columns.map(({ field, label, max, list, type, check, contact, country }) => check
-    ? <td key={field} data-label={label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => set(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>
+  // data-field places each cell in the card grid on smaller screens.
+  return columns.map(({ field, label, card, max, list, type, check, contact, country }) => check
+    ? <td key={field} data-field={field} data-label={card || label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => set(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>
     : country
-    ? <td key={field} data-label={label}><CountryInput className="staff-cell-input" aria-label={`${label} · ${who}`} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
-    : <td key={field} data-label={label}>
+    ? <td key={field} data-field={field} data-label={label}><CountryInput className="staff-cell-input" aria-label={`${label} · ${who}`} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
+    : <td key={field} data-field={field} data-label={label}>
       <input
         ref={field === "name" ? nameRef : undefined}
         className="staff-cell-input"
@@ -90,14 +92,33 @@ function StudentCells({ columns, draft, set, who, nameRef }) {
     </td>);
 }
 
-function StudentRow({ student, save, columns }) {
+function AddedCell({ by, date, pending = false }) {
+  const tipId = useId();
+  return (
+    <td data-field="added" data-label="Added" className={`staff-cell-added${pending ? " is-pending" : ""}`}>
+      <span className="staff-added">
+        <button type="button" className="staff-added-icon" aria-label={pending ? "Will be added" : "Added"} aria-describedby={tipId}>
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" /><path d="M8 7.2v4M8 4.9v.1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        </button>
+        <span role="tooltip" id={tipId} className="staff-added-tip">{pending ? "Will be added by" : "Added by"} <strong>{by || "—"}</strong> · {formatDay(date)}</span>
+      </span>
+    </td>
+  );
+}
+
+function StudentRow({ student, save, columns, onDelete }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
   return (
-    <tr>
+    <tr className={autosave.draft.needsAttention === true ? "is-attention" : undefined}>
       <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
-      <td data-label="Added by" className="staff-cell-date staff-cell-by" title={student.addedBy || undefined}>{student.addedBy || "—"}</td>
-      <td data-label="Date added" className="staff-cell-date">{formatDay(student.legacyDate)}</td>
-      <td className="staff-cell-status"><SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} /></td>
+      <AddedCell by={student.addedBy} date={student.legacyDate} />
+      <td className="staff-cell-status"><div className="staff-cell-status-inner">
+        <SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} />
+        {onDelete && <button type="button" className="staff-row-delete" title="Delete student…" aria-label={`Delete ${student.name || "student"}…`} onClick={() => onDelete(student)}>
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 6.5v4.5M9.2 6.5v4.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="staff-row-delete-text">Delete</span>
+        </button>}
+      </div></td>
     </tr>
   );
 }
@@ -105,7 +126,7 @@ function StudentRow({ student, save, columns }) {
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
 function NewStudentRow({ onCreate, columns, today, me }) {
-  const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false });
+  const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false, needsAttention: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
   const nameRef = useRef(null);
@@ -130,8 +151,7 @@ function NewStudentRow({ onCreate, columns, today, me }) {
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
     >
       <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
-      <td data-label="Added by" className="staff-cell-date staff-cell-by is-pending">{me || "—"}</td>
-      <td data-label="Date added" className="staff-cell-date is-pending">{formatDay(today)}</td>
+      <AddedCell by={me} date={today} pending />
       <td className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
           {state.saving ? <span>Adding…</span> : state.error ? <span className="staff-autosave-error" role="alert">{state.error}</span> : touched ? <span>Press Enter to add</span> : null}
@@ -141,9 +161,43 @@ function NewStudentRow({ onCreate, columns, today, me }) {
   );
 }
 
-function StudentTable({ students, save, programOptions, onCreate, showAddress, today, me }) {
+// Deleting takes three deliberate steps: the faint row button, this dialog, and typing "delete".
+function DeleteStudentDialog({ student, onDelete, onClose }) {
+  const dialogRef = useRef(null);
+  const [typed, setTyped] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  useEffect(() => { dialogRef.current?.showModal(); }, []);
+  const confirmed = typed.trim().toLowerCase() === "delete";
+  async function submit(event) {
+    event.preventDefault();
+    if (!confirmed || busy) return;
+    setBusy(true);
+    setError("");
+    const result = await onDelete(student);
+    if (!result.ok) { setBusy(false); setError(result.error); }
+  }
+  const details = [student.matriculationNumber && `Matr.-no ${student.matriculationNumber}`, student.country, student.studyProgram, student.legacyDate && `added ${formatDay(student.legacyDate)}${student.addedBy ? ` by ${student.addedBy}` : ""}`].filter(Boolean).join(" · ");
+  return (
+    <dialog ref={dialogRef} className="staff-delete-dialog" aria-labelledby="delete-student-title" onCancel={(event) => { if (busy) event.preventDefault(); }} onClose={onClose}>
+      <form onSubmit={submit}>
+        <h2 id="delete-student-title">Delete this student?</h2>
+        <p className="staff-delete-student"><strong>{student.name}</strong>{details && <span>{details}</span>}</p>
+        <p>The row disappears from the list for all staff. Only do this for duplicates or entries added by mistake. A backup of the workbook is saved first, and the change log records who deleted it.</p>
+        <label><span>Type <strong>delete</strong> to confirm</span><input autoComplete="off" autoCapitalize="none" spellCheck="false" value={typed} disabled={busy} onChange={(e) => setTyped(e.target.value)} /></label>
+        {error && <p className="staff-autosave-error" role="alert">{error}</p>}
+        <div className="button-row">
+          <button type="button" disabled={busy} onClick={() => dialogRef.current?.close()}>Cancel</button>
+          <button type="submit" className="staff-danger-button" disabled={!confirmed || busy}>{busy ? "Deleting…" : "Delete student"}</button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+function StudentTable({ students, save, programOptions, onCreate, onDelete, showAddress, today, me }) {
   const columns = visibleStudentColumns(showAddress);
-  const totalShare = columns.reduce((sum, column) => sum + column.share, 0) + ADDED_BY_SHARE + DATE_ADDED_SHARE;
+  const totalShare = columns.reduce((sum, column) => sum + column.share, 0) + ADDED_SHARE;
+  // The save status and delete button keep 6%; everything else splits the rest by share.
+  const width = (share) => `${(share / totalShare) * 94}%`;
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
@@ -152,14 +206,13 @@ function StudentTable({ students, save, programOptions, onCreate, showAddress, t
         <thead>
           <tr>
             {/* Column widths are proportional shares, so a row always fits on one line. */}
-            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: `${(share / totalShare) * 94}%` }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
-            <th style={{ width: `${(ADDED_BY_SHARE / totalShare) * 94}%` }}>Added by</th>
-            <th style={{ width: `${(DATE_ADDED_SHARE / totalShare) * 94}%` }}>Date added</th>
-            <th className="staff-col-status"><span className="sr-only">Save status</span></th>
+            {columns.map(({ field, label, short, check, share }) => <th key={field} title={short ? label : undefined} className={check ? "staff-col-check" : undefined} style={{ width: width(share) }}>{short ? <><span aria-hidden="true">{short}</span><span className="sr-only">{label}</span></> : label}</th>)}
+            <th className="staff-col-added" title="Added by and date added" style={{ width: width(ADDED_SHARE) }}><span aria-hidden="true">Added</span><span className="sr-only">Added by and date added</span></th>
+            <th className="staff-col-status" style={{ width: "6%" }}><span className="sr-only">Save status</span></th>
           </tr>
         </thead>
         <tbody>
-          {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} save={(patch, base) => save(s.id, patch, base)} />)}
+          {students.map((s) => <StudentRow key={s.id} student={s} columns={columns} onDelete={onDelete} save={(patch, base) => save(s.id, patch, base)} />)}
           {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} onCreate={onCreate} columns={columns} today={today} me={me} />}
         </tbody>
       </table>
@@ -213,7 +266,7 @@ function AttentionList({ students }) {
         <li key={student.id}>
           <Link to={`/staff/students?q=${encodeURIComponent(student.name)}`}>{student.name || "Name not supplied"}</Link>
           <span className="staff-muted">{student.studyProgram || "No programme"}</span>
-          <span className={`staff-pill ${student.enrolled === false ? "is-warning" : "is-neutral"}`}>{student.enrolled === false ? "Not enrolled" : "Enrollment unknown"}</span>
+          {student.notes && <span className="staff-muted">{student.notes}</span>}
         </li>
       ))}
     </ul>
@@ -310,7 +363,7 @@ export function Dashboard() {
       </aside>}
       {canManage(session) && <section className="staff-kpis" aria-label="Summary">
         <SummaryCard label="Students" value={data.students.length} to="/staff/students" hint={data.semesterLabel} />
-        <SummaryCard label="Needs attention" value={attentionStudents.length} to="/staff/students?filter=attention" hint={percent(attentionStudents.length) || "Enrollment not confirmed"} />
+        <SummaryCard label="Needs attention" value={attentionStudents.length} to="/staff/students?filter=attention" hint={percent(attentionStudents.length) || "Ticked by staff"} />
         <SummaryCard label="Without accommodation" value={withoutHousing.length} to="/staff/students?filter=housing" hint={percent(withoutHousing.length)} />
         <SummaryCard label="Added today" value={addedToday.length} to="/staff/students?filter=today" hint="New students registered today" />
       </section>}
@@ -339,7 +392,7 @@ export function Dashboard() {
 
 // Student list filters, shared with the summary cards on the Today page.
 const STUDENT_FILTERS = {
-  attention: { label: "Needs attention", test: (student) => student.enrolled !== true },
+  attention: { label: "Needs attention", test: (student) => student.needsAttention === true },
   housing: { label: "Without accommodation", test: (student) => student.accommodation !== true },
   today: { label: "Added today", test: (student, today) => student.legacyDate === today },
 };
@@ -351,7 +404,20 @@ export function Students() {
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [showAddress, setShowAddress] = useState(() => { try { return localStorage.getItem("wl-staff-show-address") === "1"; } catch { return false; } });
   const toggleAddress = (value) => { setShowAddress(value); try { localStorage.setItem("wl-staff-show-address", value ? "1" : "0"); } catch { /* storage unavailable */ } };
+  const [deleting, setDeleting] = useState(null), [deleted, setDeleted] = useState("");
+  useEffect(() => { if (!deleted) return undefined; const timer = setTimeout(() => setDeleted(""), 8000); return () => clearTimeout(timer); }, [deleted]);
   if (!workspace) return <State error={error} />;
+  async function deleteStudent(student) {
+    try {
+      await staffRequest("students/delete", { csrf: session.csrf, body: { id: student.id, name: student.name } });
+      setDeleting(null);
+      setDeleted(student.name);
+      await reload();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
   async function createStudent(fields) {
     try {
       await staffRequest("students/create", { csrf: session.csrf, body: { ...fields, etag: workspace.etag } });
@@ -371,32 +437,38 @@ export function Students() {
   );
   return (
     <div className="staff-page staff-students-page">
-      <header className="staff-page-heading"><h1>Students <span className="staff-count">{students.length}</span></h1></header>
-      <div className="staff-student-toolbar">
-        <label className="staff-search">
-          Search students
-          <input type="search" placeholder="Name, number, country or programme" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </label>
-        <label className="staff-filter"><input type="checkbox" checked={attentionOnly} onChange={(event) => {
-          setSearchParams((previous) => {
-            const next = new URLSearchParams(previous);
-            if (event.target.checked) next.set("filter", "attention"); else next.delete("filter");
-            return next;
-          });
-        }} />Needs attention</label>
-        <label className="staff-filter"><input type="checkbox" checked={showAddress} onChange={(e) => toggleAddress(e.target.checked)} />Show address</label>
-      </div>
+      {/* Title, search and filters share one line on wider screens to leave room for the list. */}
+      <header className="staff-page-heading staff-students-top">
+        <h1>Students <span className="staff-count">{students.length}</span></h1>
+        <div className="staff-student-toolbar">
+          <label className="staff-search">
+            <span className="sr-only">Search students</span>
+            <input type="search" placeholder="Search name, number, country or program" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </label>
+          <label className="staff-filter"><input type="checkbox" checked={attentionOnly} onChange={(event) => {
+            setSearchParams((previous) => {
+              const next = new URLSearchParams(previous);
+              if (event.target.checked) next.set("filter", "attention"); else next.delete("filter");
+              return next;
+            });
+          }} />Needs attention</label>
+          <label className="staff-filter"><input type="checkbox" checked={showAddress} onChange={(e) => toggleAddress(e.target.checked)} />Show address</label>
+        </div>
+      </header>
+      <p className="staff-delete-notice" role="status">{deleted && <>Deleted {deleted}.</>}</p>
       {filter && filter !== "attention" && <p className="staff-filter-chip">Showing: {STUDENT_FILTERS[filter].label} <button type="button" onClick={() => setSearchParams({})}>Clear</button></p>}
       <StudentTable
         students={students}
         programOptions={studyProgramOptions(workspace)}
         save={(id, patch, base) => autosave("students/update", id, patch, base)}
         onCreate={workspace.unified ? createStudent : null}
+        onDelete={workspace.unified ? setDeleting : null}
         showAddress={showAddress}
         today={workspace.today}
         me={session.name}
       />
       {workspace.unified && <StudentExport workspace={workspace} />}
+      {deleting && <DeleteStudentDialog student={deleting} onDelete={deleteStudent} onClose={() => setDeleting(null)} />}
     </div>
   );
 }
@@ -670,10 +742,10 @@ export function TutorListPage() {
   const { session } = useOutletContext();
   const { workspace, error, busy, act } = useWorkspace();
   const [draft, setDraft] = useState(null);
-  if (!canManage(session)) return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin or the Coordinator can manage the tutor list.</p></div>;
-  if (!workspace) return <State error={error} />;
   // The workbook version the draft was based on when editing began.
   const [editEtag, setEditEtag] = useState(null);
+  if (!canManage(session)) return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin or the Coordinator can manage the tutor list.</p></div>;
+  if (!workspace) return <State error={error} />;
   const saved = workspace.tutors || [];
   const names = draft ?? (saved.length ? saved : [""]);
   const set = (next) => { if (draft === null) setEditEtag(workspace.etag); setDraft(next); };

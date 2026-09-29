@@ -1,4 +1,5 @@
 import { COUNTRIES } from "./countries.js";
+import { PROGRAM_SHORT_NAMES } from "../../shared/studyPrograms.js";
 
 // "Côte d'Ivoire" → "cote d ivoire", so accents and punctuation never block a match.
 export const foldText = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -46,9 +47,6 @@ export const STUDY_PROGRAM_OPTIONS = [
   "Civil Engineering",
   "Civil Engineering – Structural Engineering",
   "Computer Science",
-  "Computer Science for Digital Media",
-  "Digital Engineering",
-  "Digital Technologies in Architecture and Design",
   "European Media Culture",
   "European Urban Studies",
   "Fine Art",
@@ -61,9 +59,9 @@ export const STUDY_PROGRAM_OPTIONS = [
   "Media Management",
   "MediaEcologies",
   "Media Studies",
-  "Natural Hazards and Risks in Structural Engineering",
   "Product Design",
   "Urbanism",
   "Visual Communication",
   "Environmental Engineering",
+  ...Object.values(PROGRAM_SHORT_NAMES),
 ].sort((a, b) => a.localeCompare(b));

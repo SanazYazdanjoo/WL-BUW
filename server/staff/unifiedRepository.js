@@ -8,6 +8,7 @@ import { ROLE_RANK, rankOf, StaffError } from "./auth.js";
 import { shiftSummary } from "../excel/masterExcel.js";
 import { exportStudentsForDay } from "../excel/studentExport.js";
 import { safeLink } from "../../shared/content.js";
+import { shortProgram } from "../../shared/studyPrograms.js";
 import onboardingSample from "../../content/app-content/onboarding.json" with { type: "json" };
 import eventsSample from "../../content/app-content/events.json" with { type: "json" };
 import afterArrivalSample from "../../content/app-content/after-arrival.json" with { type: "json" };
@@ -29,9 +30,9 @@ const text = (value, max = 12000) => {
 const contentSections = new Set(["First Step", "Useful Info", "Student Support", "Community", "Help"]);
 const slug = (value) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "content-item";
 const idFor = (prefix) => `${prefix}_${randomUUID()}`;
-const STUDENT_FIELDS = ["name", "matriculationNumber", "enrolled", "accommodation", "accommodationContact", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email"];
+const STUDENT_FIELDS = ["name", "matriculationNumber", "enrolled", "accommodation", "accommodationContact", "receivedBackpack", "cityRegistration", "address", "country", "studyProgram", "notes", "phone", "email", "needsAttention"];
 const yesNo = (value) => (typeof value === "boolean" ? value : value ? true : null);
-const STUDENT_YES_NO_FIELDS = ["enrolled", "accommodation", "receivedBackpack", "cityRegistration"];
+const STUDENT_YES_NO_FIELDS = ["enrolled", "accommodation", "receivedBackpack", "cityRegistration", "needsAttention"];
 const STUDENT_FIELD_LIMITS = { name: 200, matriculationNumber: 100, notes: 4000, email: 254, phone: 100, accommodationContact: 1000 };
 function checkStudentField(field, value, student, data) {
   if (STUDENT_YES_NO_FIELDS.includes(field)) {
@@ -274,6 +275,7 @@ export function createUnifiedRepository(store) {
       return parsed.data.checkins.filter((entry) => entry.date === dateToday());
     },
     async updateStudent(actor, input) {
+      if (input.patch && typeof input.patch.studyProgram === "string") input = { ...input, patch: { ...input.patch, studyProgram: shortProgram(input.patch.studyProgram) } };
       if (input.patch && input.base) return mutateFields(actor, input, {
         id: input.id, collection: "students", allowed: STUDENT_FIELDS,
         reason: "student update", activityType: "Student Update",
@@ -304,13 +306,27 @@ export function createUnifiedRepository(store) {
         }
         const email = text(input.email || "", 254).trim();
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new StaffError(400, "Enter a valid email address.");
-        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: text(input.studyProgram || "", 300), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: text(input.accommodationContact || "", 1000), address: text(input.address || "", 12000), receivedBackpack: null, cityRegistration: null, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name, addedBy: actor.name };
+        const student = { id: idFor("stu"), legacyDate: dateToday(), name, matriculationNumber, country: text(input.country || "", 200), studyProgram: shortProgram(text(input.studyProgram || "", 300)), phone: text(input.phone || "", 100), email, enrolled: null, accommodation: null, accommodationContact: text(input.accommodationContact || "", 1000), address: text(input.address || "", 12000), receivedBackpack: null, cityRegistration: null, needsAttention: false, notes: text(input.notes || "", 4000), updatedAt: now(), updatedBy: actor.name, addedBy: actor.name };
         // Quick-add rows in the table can already carry the Yes/No columns.
         for (const field of STUDENT_YES_NO_FIELDS) if (input[field] !== undefined) { checkStudentField(field, input[field], student, data); student[field] = input[field]; }
         data.students.push(student);
         appendActivity(data, actor, "Student Update", { studentId: student.id, note: "Student created" });
         return student.id;
       }, { safeRetry: true });
+    },
+    // Deleting is deliberate: the caller must repeat the student's name, and a full backup is kept first.
+    async deleteStudent(actor, input) {
+      const id = text(input.id || "", 100).trim();
+      if (!id) throw new StaffError(400, "Choose a student to delete.");
+      return mutate(actor, input, "student deleted", (data) => {
+        const index = data.students.findIndex((student) => student.id === id);
+        if (index < 0) throw new StaffError(404, "This student was already deleted. Reload the list.");
+        const [removed] = data.students.splice(index, 1);
+        if (text(input.name || "", 200).trim() !== removed.name.trim()) throw new StaffError(409, "This student's name changed in the meantime. Reload the list and try again.");
+        // Earlier log entries stay, but no longer point at a student row that is gone.
+        for (const entry of data.activity) if (entry.studentId === id) entry.studentId = "";
+        appendActivity(data, actor, "Student Update", { note: `Deleted student: ${removed.name}${removed.matriculationNumber ? ` (${removed.matriculationNumber})` : ""}` });
+      }, { major: true, safeRetry: true });
     },
     async addHandover(actor, input) {
       const note = text(input.note || "", 4000).trim();
