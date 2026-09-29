@@ -199,3 +199,21 @@ test("private storage confines paths and makes conditional writes", async () => 
   assert.equal(calls.at(-1).options.headers["If-Match"], '"v1"');
   assert.equal(calls.at(-1).options.redirect, "error");
 });
+test("private storage waits out a Nextcloud file lock instead of failing the save", async () => {
+  const env = {
+    NEXTCLOUD_USERNAME: "synthetic",
+    NEXTCLOUD_APP_PASSWORD: "synthetic",
+    NEXTCLOUD_BASE_URL: "https://nextcloud.uni-weimar.de",
+    NEXTCLOUD_ROOT_FOLDER: "/Welcome.Lounge_WiSe2026_27/APP",
+  };
+  let puts = 0;
+  const store = createPrivateStore(env, async (url, options) => {
+    if (options.method === "MKCOL") return new Response(null, { status: 405 });
+    puts += 1;
+    return puts < 3 ? new Response(null, { status: 423 }) : new Response(null, { status: 204, headers: { etag: '"v2"' } });
+  });
+  assert.equal(await store.writeJson(store.paths.state, {}, '"v1"'), '"v2"');
+  assert.equal(puts, 3);
+  const locked = createPrivateStore(env, async (url, options) => new Response(null, { status: options.method === "MKCOL" ? 405 : 423 }));
+  await assert.rejects(locked.writeJson(locked.paths.state, {}, '"v1"'), (error) => error.status === 409);
+});

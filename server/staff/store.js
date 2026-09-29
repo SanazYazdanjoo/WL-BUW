@@ -54,6 +54,9 @@ export function staffPaths(env) {
     communityRss: "official-source-cache/community-rss.json",
   };
 }
+const TRANSIENT_STATUS = new Set([423, 429, 502, 503, 504]);
+const TRANSIENT_ATTEMPTS = 5;
+const transientPause = (attempt) => 250 * (attempt + 1) + Math.random() * 250;
 export function createPrivateStore(env, fetchImpl = fetch) {
   const paths = staffPaths(env);
   const permitted = (path) =>
@@ -85,24 +88,38 @@ export function createPrivateStore(env, fetchImpl = fetch) {
       );
     if (!env.NEXTCLOUD_USERNAME || !env.NEXTCLOUD_APP_PASSWORD)
       throw new StaffError(503, "The university connection is not configured.");
-    try {
-      return await fetchImpl(
-        davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
-        {
-          ...options,
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${env.NEXTCLOUD_USERNAME}:${env.NEXTCLOUD_APP_PASSWORD}`).toString("base64")}`,
-            ...options.headers,
+    // Nextcloud locks a file while it is being uploaded and answers other requests with
+    // 423 Locked (or a brief gateway error). Reads and conditional writes are safe to repeat:
+    // a write that already went through comes back as a version conflict, which callers handle.
+    for (let attempt = 0; ; attempt += 1) {
+      let response;
+      try {
+        response = await fetchImpl(
+          davUrl(env.NEXTCLOUD_USERNAME, path, env.NEXTCLOUD_ROOT_FOLDER, env.NEXTCLOUD_BASE_URL),
+          {
+            ...options,
+            headers: {
+              Authorization: `Basic ${Buffer.from(`${env.NEXTCLOUD_USERNAME}:${env.NEXTCLOUD_APP_PASSWORD}`).toString("base64")}`,
+              ...options.headers,
+            },
+            redirect: "error",
+            signal: AbortSignal.timeout(15000),
           },
-          redirect: "error",
-          signal: AbortSignal.timeout(15000),
-        },
-      );
-    } catch {
-      throw new StaffError(
-        502,
-        "The university file service is unavailable. Please retry.",
-      );
+        );
+      } catch {
+        throw new StaffError(
+          502,
+          "The university file service is unavailable. Please retry.",
+        );
+      }
+      const safeToRepeat = !options.method || options.method === "GET" || options.headers?.["If-Match"] || options.headers?.["If-None-Match"];
+      if (!TRANSIENT_STATUS.has(response.status) || !safeToRepeat || attempt + 1 >= TRANSIENT_ATTEMPTS) {
+        if (response.status === 423)
+          throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
+        return response;
+      }
+      await response.body?.cancel();
+      await new Promise((resolve) => setTimeout(resolve, transientPause(attempt)));
     }
   };
   async function read(path, limit = 8 * 1024 * 1024, etag = "") {

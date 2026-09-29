@@ -4592,6 +4592,37 @@ body:has(.staff)::before {
   min-width: 0;
 }
 
+/* A failed save in a narrow row cell: "Couldn't save" and Retry sit above the delete button.
+   The reason is in the tooltip (and read out by screen readers), so the row never gets wider. */
+.staff-cell-status-inner:has(.staff-autosave-error) {
+  flex-wrap: wrap;
+}
+
+.staff-cell-status-inner:has(.staff-autosave-error) > .staff-autosave {
+  flex-basis: 100%;
+  white-space: normal;
+}
+
+.staff-cell-status .staff-autosave > button {
+  margin-inline-start: 0;
+  padding-inline: 0;
+}
+
+.staff-cell-status .staff-autosave > span:first-child {
+  margin-inline-end: 0.4rem;
+}
+
+@media (min-width: 1280px) {
+  .staff-cell-status .staff-autosave-error {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 .staff .staff-row-delete {
   display: inline-flex;
   flex: none;
