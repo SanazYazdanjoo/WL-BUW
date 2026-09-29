@@ -193,8 +193,14 @@ export function staffMiddleware(
         }
         if (action === "presence") {
           // Heartbeat from an open workspace tab; answers with everyone working right now.
+          // A failed write (busy file, connection hiccup) still answers with the last known list.
           const presence = presenceStore();
-          return send(200, { online: presence ? await presence.ping(actor) : [] });
+          let online = [];
+          if (presence) {
+            try { online = await presence.ping(actor); }
+            catch { try { online = await presence.online(); } catch { /* keep it empty */ } }
+          }
+          return send(200, { online });
         }
         if (action === "actor/select") {
           const input = await readBody(req);

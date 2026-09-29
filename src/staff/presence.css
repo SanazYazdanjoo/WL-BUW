@@ -1,30 +1,39 @@
 /* Who is working now (header) and the Sign-ins page. */
 .staff-online-now {
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-  max-width: min(32rem, 45vw);
   margin: 0 0 0 auto;
-  color: var(--staff-chrome-muted, #b8b8bf);
-  font-size: 0.85rem;
-  white-space: nowrap;
+  padding: 0;
+  list-style: none;
 }
 
 .staff-online-now + .staff-student-site {
   margin-left: 1.25rem;
 }
 
-.staff-online-count {
-  color: var(--staff-chrome-text, #f4f4f0);
-  font-weight: 600;
+/* Round initials, overlapping a little, like the account avatar in the sidebar. */
+.staff-online-avatar {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--staff-accent, #b71a49);
+  box-shadow: 0 0 0 2px var(--staff-chrome, #111);
+  color: var(--staff-on-accent, #fff);
+  font-size: 0.85rem;
+  font-weight: 700;
+  place-items: center;
+  cursor: default;
 }
 
-.staff-online-names {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
+.staff-online-avatar + .staff-online-avatar {
+  margin-left: -0.4rem;
+}
+
+.staff-online-avatar.is-more {
+  background: #4a4a52;
+  font-size: 0.75rem;
 }
 
 .staff-online-dot {
@@ -41,7 +50,6 @@
   .staff-online-now {
     order: 3;
     flex-basis: 100%;
-    max-width: 100%;
     margin-left: 0;
   }
 

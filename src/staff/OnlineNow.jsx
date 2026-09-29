@@ -4,10 +4,13 @@ import { roleLabel } from "./roles";
 import "./presence.css";
 
 const PING_EVERY = 60 * 1000;
+const SHOW_AT_MOST = 6;
+const initialsOf = (name) => (name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "?";
 
-// Header strip: who has the workspace open right now. The same request is this tab's heartbeat.
+// Header strip: who has the workspace open right now, as initial avatars. The same request is this tab's heartbeat.
 export function OnlineNow({ session }) {
-  const [online, setOnline] = useState(null);
+  // Start with just you, so the strip is there before (or even without) the first answer.
+  const [online, setOnline] = useState([]);
   useEffect(() => {
     let active = true, timer = null;
     const ping = () => {
@@ -23,16 +26,18 @@ export function OnlineNow({ session }) {
     document.addEventListener("visibilitychange", ping);
     return () => { active = false; clearTimeout(timer); document.removeEventListener("visibilitychange", ping); };
   }, [session.csrf]);
-  if (!online) return null;
   // Always list yourself first, even before the server has seen your first ping.
   const others = online.filter((person) => person.staffId !== session.staffId);
-  const names = [`${session.name} (you)`, ...others.map((person) => person.name)];
-  const detail = [`${session.name} (you) · ${roleLabel(session.role)}`, ...others.map((person) => `${person.name} · ${roleLabel(person.role)}`)].join("\n");
+  const people = [{ key: "you", name: session.name, label: `${session.name} (you)`, role: session.role }, ...others.map((person) => ({ key: person.staffId, name: person.name, label: person.name, role: person.role }))];
+  const shown = people.slice(0, SHOW_AT_MOST), hidden = people.slice(SHOW_AT_MOST);
   return (
-    <p className="staff-online-now" title={detail} aria-label={`Working now: ${names.join(", ")}`}>
-      <span className="staff-online-dot" aria-hidden="true" />
-      <span className="staff-online-count" aria-hidden="true">{names.length} online</span>
-      <span className="staff-online-names" aria-hidden="true">{names.join(", ")}</span>
-    </p>
+    <ul className="staff-online-now" aria-label={`Working now: ${people.map((person) => person.label).join(", ")}`}>
+      {shown.map((person) => (
+        <li key={person.key} className="staff-online-avatar" title={`${person.label} · ${roleLabel(person.role)}`}>
+          <span aria-hidden="true">{initialsOf(person.name)}</span>
+        </li>
+      ))}
+      {hidden.length > 0 && <li className="staff-online-avatar is-more" title={hidden.map((person) => `${person.label} · ${roleLabel(person.role)}`).join("\n")}><span aria-hidden="true">+{hidden.length}</span></li>}
+    </ul>
   );
 }
