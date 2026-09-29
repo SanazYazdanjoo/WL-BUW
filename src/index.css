@@ -5452,6 +5452,79 @@ body:has(.staff)::before {
   }
 }
 
+/* Phones and tablets: saved students collapse to one tappable line (number, name,
+   country · programme); a tap opens the full card. The new-student row stays a card. */
+.staff-student-table td.staff-cell-summary {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .staff-student-table td.staff-cell-summary {
+    display: block;
+    grid-column: 1 / -1;
+  }
+
+  .staff-student-table .staff-cell-summary + td.staff-cell-number,
+  .staff-student-table tr.is-collapsed > td:not(.staff-cell-summary) {
+    display: none;
+  }
+
+  .staff-student-table tr.is-collapsed {
+    padding-block: 0.15rem;
+  }
+
+  .staff-row-summary {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+  }
+
+  .staff-row-summary strong {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .staff-row-summary-number {
+    flex: none;
+    min-width: 1.4rem;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .staff-row-summary-details {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .staff-row-summary svg {
+    flex: none;
+    color: var(--color-text-muted);
+    transition: transform 150ms ease;
+  }
+
+  .staff-row-summary[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+}
+
 /* Small laptops (1024–1279px): rows stay on one line, with tighter cells and slightly smaller
    text so short values such as matriculation numbers are not cut off. */
 @media (min-width: 1024px) and (max-width: 1279px) {

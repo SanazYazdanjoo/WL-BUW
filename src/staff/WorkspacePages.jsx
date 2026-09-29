@@ -116,8 +116,21 @@ function AddedCell({ by, date, pending = false }) {
 
 function StudentRow({ student, number, save, columns, onDelete, programOptions }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
+  // Phones and tablets show each student as one line; a tap opens the full card.
+  // A failed save or a conflict keeps the card open so the message stays visible.
+  const [open, setOpen] = useState(false);
+  const expanded = open || autosave.status === "error" || Boolean(autosave.conflict);
+  const { draft } = autosave;
   return (
-    <tr className={autosave.draft.needsAttention === true ? "is-attention" : undefined}>
+    <tr className={[draft.needsAttention === true && "is-attention", !expanded && "is-collapsed"].filter(Boolean).join(" ") || undefined}>
+      <td className="staff-cell-summary">
+        <button type="button" className="staff-row-summary" aria-expanded={expanded} onClick={() => setOpen(!expanded)}>
+          <span className="staff-row-summary-number">{number}</span>
+          <strong>{draft.name || "Name not supplied"}</strong>
+          <span className="staff-row-summary-details">{[draft.country, draft.studyProgram].filter(Boolean).join(" · ")}</span>
+          <svg aria-hidden="true" viewBox="0 0 10 6" width="12" height="8"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        </button>
+      </td>
       <NumberCell number={number} />
       <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} programOptions={programOptions} />
       <AddedCell by={student.addedBy} date={student.legacyDate} />
