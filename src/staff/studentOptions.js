@@ -25,6 +25,20 @@ export function searchCountries(query) {
   return results.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name)).map(({ name, alias, rank }) => ({ name, alias, prefix: rank < 3 }));
 }
 
+// Plain options (study programmes) matching the query, best first: starts with it, then a word starts
+// with it, then anywhere. `prefix` marks a confident guess worth pre-selecting.
+export function searchOptions(options, query) {
+  const q = foldText(query);
+  if (!q) return options.map((name) => ({ name, prefix: false }));
+  const results = [];
+  for (const name of options) {
+    const folded = foldText(name);
+    const rank = folded === q ? -1 : folded.startsWith(q) ? 0 : folded.includes(` ${q}`) ? 1 : folded.includes(q) ? 2 : null;
+    if (rank !== null) results.push({ name, rank });
+  }
+  return results.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name)).map(({ name, rank }) => ({ name, prefix: rank < 2 }));
+}
+
 // The standard spelling for a typed name or alias ("usa" → "United States"), if any.
 export function canonicalCountry(value) {
   const q = foldText(value);

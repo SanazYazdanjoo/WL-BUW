@@ -3172,7 +3172,7 @@ main:focus {
 
 .staff-student-table .staff-new-student-row .staff-cell-input {
   border-color: var(--color-border);
-  background: white;
+  background-color: white;
 }
 
 .staff-fair-share {
@@ -4576,6 +4576,146 @@ body:has(.staff)::before {
 
 .staff-combo-list .staff-combo-empty:hover {
   background: none;
+}
+
+/* Touch screens: the field shows its chevron and a tap opens the full-screen picker. */
+@media (pointer: coarse) {
+  .staff-student-table .staff-combo-input {
+    padding-right: 1.4rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23686870' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.45rem center;
+  }
+
+  .staff-combo-input[readonly] {
+    cursor: pointer;
+  }
+}
+
+/* The picker fills the part of the screen the keyboard leaves free. */
+.staff-combo-sheet {
+  position: fixed;
+  top: var(--sheet-top, 0px);
+  left: 0;
+  width: 100%;
+  max-width: none;
+  height: var(--sheet-height, 100dvh);
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: white;
+  color: #25252a;
+}
+
+.staff-combo-sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.staff-combo-sheet::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.staff-combo-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 0.75rem 0.5rem 1rem;
+  border-bottom: 1px solid #dededa;
+}
+
+.staff-combo-sheet-head strong {
+  flex: 1;
+  font-size: 1.05rem;
+}
+
+.staff-combo-sheet-head button {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0;
+  background: none;
+  color: #b71a49;
+  font: inherit;
+  font-weight: 600;
+}
+
+.staff-combo-sheet .staff-combo-sheet-search {
+  margin: 0.75rem 1rem 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid #c9c9c4;
+  border-radius: 8px;
+  font-size: 16px; /* 16px stops iOS zooming into the field */
+}
+
+.staff-combo-sheet-list {
+  flex: 1;
+  margin: 0;
+  padding: 0 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.staff-combo-sheet-list button {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid #efefeb;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.staff-combo-sheet-list button:active {
+  background: #f2f2ee;
+}
+
+.staff-combo-sheet-list .is-current button {
+  font-weight: 700;
+  color: #b71a49;
+}
+
+.staff-combo-sheet-list .is-current button::after {
+  content: "✓";
+}
+
+.staff-combo-sheet-list .staff-combo-sheet-typed {
+  color: #b71a49;
+  font-weight: 600;
+}
+
+.staff-combo-sheet-list mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.staff-combo-sheet-list small {
+  color: #686870;
+  font-size: 0.8rem;
+}
+
+/* Tablets: a centred panel instead of the whole screen. */
+@media (min-width: 700px) {
+  .staff-combo-sheet {
+    top: calc(var(--sheet-top, 0px) + 1rem);
+    left: 50%;
+    width: min(32rem, 100% - 2rem);
+    height: min(40rem, var(--sheet-height, 100dvh) - 2rem);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.25);
+    transform: translateX(-50%);
+  }
 }
 
 /* Students: deleting a row. The button stays faint until the row is hovered or focused,

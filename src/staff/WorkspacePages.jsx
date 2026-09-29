@@ -7,15 +7,17 @@ import { canManage, canManageLogins, roleLabel } from "./roles";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { STUDY_PROGRAM_OPTIONS } from "./studentOptions";
-import { CountryInput } from "./CountryInput";
+import { CountryInput, ProgramInput } from "./CountryInput";
 import { DateInput } from "./DateInput";
 import { formatDate, formatDateTime } from "../../shared/dates";
 import { fairShare, formatHours, isClosedDay, shiftHours, tutorStatistics } from "./statistics";
-const studyProgramOptions = (workspace) => [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
-function SuggestedInput({ label, name, value, onChange, options, maxLength = 300, type = "text" }) {
-  const listId = `student-${name}-options`;
-  return <label>{label}<input type={type} list={listId} maxLength={maxLength} value={value || ""} onChange={(event) => onChange(event.target.value)} /><datalist id={listId}>{options.map((option) => <option key={option} value={option} />)}</datalist></label>;
-}
+// Cached per workspace load so the programme pickers keep the same list between renders.
+const programOptionsCache = new WeakMap();
+const studyProgramOptions = (workspace) => {
+  const key = workspace?.data || programOptionsCache;
+  if (!programOptionsCache.has(key)) programOptionsCache.set(key, [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b)));
+  return programOptionsCache.get(key);
+};
 function State({ error }) {
   return error ? (
     <div className="staff-load-error" role="alert">
@@ -51,7 +53,7 @@ const STUDENT_COLUMNS = [
   { field: "country", label: "Country", max: 200, country: true, share: 9 },
   { field: "matriculationNumber", label: "Matriculation no.", short: "Matr.-no", max: 100, share: 9 },
   { field: "enrolled", label: "Enrolled", check: true, share: 6.5 },
-  { field: "studyProgram", label: "Study program", short: "Program", max: 300, list: "staff-program-options", share: 14 },
+  { field: "studyProgram", label: "Study program", short: "Program", max: 300, program: true, share: 14 },
   { field: "address", label: "Address", max: 12000, optional: true, share: 11 },
   { field: "accommodation", label: "Accommodation", short: "Accomm.", check: true, share: 7 },
   { field: "accommodationContact", label: "Contact (if no accommodation)", short: "Contact", max: 1000, contact: true, share: 10 },
@@ -74,12 +76,14 @@ const studentRowDraft = (student) => ({
 });
 const studentRowProblem = (draft) => (!draft.name.trim() ? "Enter the student's full name." : "");
 
-function StudentCells({ columns, draft, set, who, nameRef }) {
+function StudentCells({ columns, draft, set, who, nameRef, programOptions }) {
   // data-field places each cell in the card grid on smaller screens.
-  return columns.map(({ field, label, card, max, list, type, check, contact, country }) => check
+  return columns.map(({ field, label, card, max, type, check, contact, country, program }) => check
     ? <td key={field} data-field={field} data-label={card || label} className="staff-cell-check"><input type="checkbox" aria-label={`${label} · ${who}`} checked={draft[field] === true} onChange={(e) => set(field, e.target.checked, AUTOSAVE_TOGGLE_DELAY)} /></td>
     : country
     ? <td key={field} data-field={field} data-label={label}><CountryInput className="staff-cell-input" aria-label={`${label} · ${who}`} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
+    : program
+    ? <td key={field} data-field={field} data-label={label}><ProgramInput className="staff-cell-input" aria-label={`${label} · ${who}`} options={programOptions} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
     : <td key={field} data-field={field} data-label={label}>
       <input
         ref={field === "name" ? nameRef : undefined}
@@ -87,7 +91,6 @@ function StudentCells({ columns, draft, set, who, nameRef }) {
         aria-label={`${label} · ${who}`}
         placeholder={field === "name" && nameRef ? "+ New student" : contact && draft.accommodation !== true ? "Phone, email or address" : ""}
         disabled={contact && draft.accommodation === true}
-        list={list}
         type={type || "text"}
         maxLength={max}
         title={draft[field] || undefined}
@@ -111,12 +114,12 @@ function AddedCell({ by, date, pending = false }) {
   );
 }
 
-function StudentRow({ student, number, save, columns, onDelete }) {
+function StudentRow({ student, number, save, columns, onDelete, programOptions }) {
   const autosave = useAutosave(studentRowDraft(student), save, { validate: studentRowProblem });
   return (
     <tr className={autosave.draft.needsAttention === true ? "is-attention" : undefined}>
       <NumberCell number={number} />
-      <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} />
+      <StudentCells columns={columns} draft={autosave.draft} set={autosave.setField} who={autosave.draft.name || "student"} programOptions={programOptions} />
       <AddedCell by={student.addedBy} date={student.legacyDate} />
       <td className="staff-cell-status"><div className="staff-cell-status-inner">
         <SaveStatus {...autosave} onRetry={autosave.retry} onUseMine={() => autosave.resolveConflict(true)} onUseLatest={() => autosave.resolveConflict(false)} />
@@ -131,7 +134,7 @@ function StudentRow({ student, number, save, columns, onDelete }) {
 
 // Like the empty row under an Excel table: fill it in, then press Enter or
 // leave the row to add the student. A fresh empty row appears straight away.
-function NewStudentRow({ onCreate, number, columns, today, me }) {
+function NewStudentRow({ onCreate, number, columns, today, me, programOptions }) {
   const blank = () => ({ ...studentRowDraft({}), enrolled: false, accommodation: false, cityRegistration: false, needsAttention: false });
   const [draft, setDraft] = useState(blank);
   const [state, setState] = useState({ saving: false, error: "" });
@@ -154,10 +157,11 @@ function NewStudentRow({ onCreate, number, columns, today, me }) {
     <tr
       className="staff-new-student-row"
       onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); create(); } if (event.key === "Escape") { setDraft(blank()); setState({ saving: false, error: "" }); } }}
-      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) create(); }}
+      // Opening a touch-screen picker (country, programme) is not leaving the row.
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget) && !event.relatedTarget?.closest?.(".staff-combo-sheet")) create(); }}
     >
       <NumberCell number={number} pending />
-      <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} />
+      <StudentCells columns={columns} draft={draft} set={set} who="new student" nameRef={nameRef} programOptions={programOptions} />
       <AddedCell by={me} date={today} pending />
       <td className="staff-cell-status">
         <div className="staff-autosave" aria-live="polite">
@@ -208,7 +212,6 @@ function StudentTable({ students, save, programOptions, onCreate, onDelete, show
   if (!students.length && !onCreate) return <p className="staff-empty-state">No students found.</p>;
   return (
     <div className="table-scroll">
-      <datalist id="staff-program-options">{programOptions.map((option) => <option key={option} value={option} />)}</datalist>
       <table aria-label="Student records" className="staff-student-table">
         <thead>
           <tr>
@@ -220,8 +223,8 @@ function StudentTable({ students, save, programOptions, onCreate, onDelete, show
           </tr>
         </thead>
         <tbody>
-          {students.map((s, index) => <StudentRow key={s.id} number={index + 1} student={s} columns={columns} onDelete={onDelete} save={(patch, base) => save(s.id, patch, base)} />)}
-          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} number={students.length + 1} onCreate={onCreate} columns={columns} today={today} me={me} />}
+          {students.map((s, index) => <StudentRow key={s.id} number={index + 1} student={s} columns={columns} programOptions={programOptions} onDelete={onDelete} save={(patch, base) => save(s.id, patch, base)} />)}
+          {onCreate && <NewStudentRow key={showAddress ? "with-address" : "without-address"} number={students.length + 1} onCreate={onCreate} columns={columns} programOptions={programOptions} today={today} me={me} />}
         </tbody>
       </table>
     </div>
@@ -496,7 +499,7 @@ function StudentEditor({ student, save, programOptions }) {
           <label>Full name<input required maxLength={200} value={draft.name} onChange={(e) => setField("name", e.target.value)} /></label>
           <label>Matriculation number<input maxLength={100} value={draft.matriculationNumber} onChange={(e) => setField("matriculationNumber", e.target.value)} /></label>
           <label>Country<CountryInput value={draft.country} onChange={(value) => setField("country", value)} /></label>
-          <SuggestedInput label="Study programme" name="study-program" value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} />
+          <label>Study programme<ProgramInput value={draft.studyProgram} options={programOptions} onChange={(value) => setField("studyProgram", value)} /></label>
           <label className="staff-field-wide">Address<textarea rows={2} maxLength={12000} value={draft.address || ""} onChange={(e) => setField("address", e.target.value)} /></label>
         </div>
       </fieldset>
