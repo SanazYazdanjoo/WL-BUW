@@ -31,9 +31,14 @@ export function tutorStatistics({ shifts, shiftTimes, tutors = [], schedule = {}
 
 const addDay = (iso) => { const date = new Date(`${iso}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
 
+// A closed day has nobody scheduled and a note that says so ("Closed", "Bank Holiday",
+// "Geschlossen", "Feiertag"). Other notes don't close a day, so it stays open after
+// the last person takes their name out.
+const CLOSED_NOTE = /closed|holiday|geschlossen|feiertag/i;
+export const isClosedDay = (day) => Boolean(day?.event && CLOSED_NOTE.test(day.event)) && ![...day.first, ...day.second].some((name) => name?.trim());
+
 // Fair share = hours that need covering in the semester period ÷ number of tutors.
-// Open days: Mon–Fri, plus weekend days with someone scheduled; closed days
-// (a note and nobody scheduled, e.g. "Bank Holiday") don't count.
+// Open days: Mon–Fri, plus weekend days with someone scheduled; closed days don't count.
 export function fairShare({ shifts, shiftTimes, tutors = [], schedule = {} }) {
   const tutorCount = tutors.filter((name) => name?.trim()).length;
   if (!schedule.start || !schedule.end || !tutorCount) return null;
@@ -45,7 +50,7 @@ export function fairShare({ shifts, shiftTimes, tutors = [], schedule = {} }) {
     const day = days.get(date);
     const staffed = Boolean(day && [...day.first, ...day.second].some((name) => name.trim()));
     const weekend = [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
-    if (staffed || (!weekend && !day?.event)) openDays += 1;
+    if (staffed || (!weekend && !isClosedDay(day))) openDays += 1;
   }
   const totalHours = openDays * dayHours;
   return { openDays, perShift, tutorCount, totalHours, perTutor: totalHours / tutorCount };

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fairShare, formatHours, shiftHours, tutorStatistics } from "../src/staff/statistics.js";
+import { fairShare, isClosedDay, formatHours, shiftHours, tutorStatistics } from "../src/staff/statistics.js";
 
 test("tutor hours add up worked and planned shifts within the semester period", () => {
   assert.equal(shiftHours("10:00–13:00"), 3);
@@ -36,6 +36,18 @@ test("fair share divides the hours of open days between the tutors", () => {
   ];
   const fair = fairShare({ shifts, shiftTimes, tutors, schedule: { start: "2026-09-28", end: "2026-10-09", perShift: 3 } });
   assert.deepEqual(fair, { openDays: 10, perShift: 3, tutorCount: 10, totalHours: 180, perTutor: 18 });
+  // A note that doesn't say "closed"/"holiday" keeps an empty day open (e.g. after the last tutor left it).
+  const emptied = [...shifts, { date: "2026-10-05", first: ["", "", "", ""], second: ["", "", "", ""], event: "Orientation week" }];
+  assert.equal(fairShare({ shifts: emptied, shiftTimes, tutors, schedule: { start: "2026-09-28", end: "2026-10-09", perShift: 3 } }).openDays, 10);
   assert.equal(fairShare({ shifts, shiftTimes, tutors, schedule: {} }), null);
   assert.equal(fairShare({ shifts, shiftTimes, tutors: [], schedule: { start: "2026-09-28", end: "2026-10-09" } }), null);
+});
+
+test("only a note that says so closes an empty day", () => {
+  const empty = { first: ["", "", "", ""], second: ["", "", "", ""] };
+  assert.equal(isClosedDay({ ...empty, event: "Bank Holiday" }), true);
+  assert.equal(isClosedDay({ ...empty, event: "Lounge geschlossen" }), true);
+  assert.equal(isClosedDay({ ...empty, event: "Orientation week" }), false);
+  assert.equal(isClosedDay({ ...empty, first: ["Ali", "", "", ""], event: "Closed" }), false);
+  assert.equal(isClosedDay(undefined), false);
 });

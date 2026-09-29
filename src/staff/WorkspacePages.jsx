@@ -10,7 +10,7 @@ import { STUDY_PROGRAM_OPTIONS } from "./studentOptions";
 import { CountryInput } from "./CountryInput";
 import { DateInput } from "./DateInput";
 import { formatDate, formatDateTime } from "../../shared/dates";
-import { fairShare, formatHours, shiftHours, tutorStatistics } from "./statistics";
+import { fairShare, formatHours, isClosedDay, shiftHours, tutorStatistics } from "./statistics";
 const studyProgramOptions = (workspace) => [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
 function SuggestedInput({ label, name, value, onChange, options, maxLength = 300, type = "text" }) {
   const listId = `student-${name}-options`;
@@ -587,7 +587,7 @@ const shiftDraft = (day) => ({
 
 // Top right of the Today page: who works in each shift today (or why the lounge is closed).
 function TodayShifts({ day, times }) {
-  const closed = day?.event && ![...day.first, ...day.second].some(Boolean);
+  const closed = isClosedDay(day);
   return (
     <aside className="staff-on-duty" aria-labelledby="on-duty-heading">
       <div className="staff-section-header"><h2 id="on-duty-heading">On duty today</h2><Link to="/staff/shifts">Shifts</Link></div>
@@ -612,7 +612,7 @@ function ShiftDayRow({ date, day, save, me, editAll }) {
   const weekend = [0, 6].includes(weekday(date));
   const people = SLOT_KEYS.flatMap(([, n]) => [1, 2, 3, 4].map((p) => `s${n}p${p}`));
   // Use saved values so the layout doesn't switch (and steal focus) while someone is typing.
-  const closed = Boolean(day?.event) && ![...day.first, ...day.second].some(Boolean);
+  const closed = isClosedDay(day);
   // Tutors don't type: "+ Add me" in any empty cell, and "×" next to their own name.
   const tutorCell = (field, label) => {
     const value = draft[field];
