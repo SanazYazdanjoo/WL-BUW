@@ -3324,9 +3324,9 @@ main:focus {
   width: 9.5rem;
 }
 
-/* Below laptop width, each student row becomes a card with labelled fields,
+/* Below small-laptop width (1024px), each student row becomes a card with labelled fields,
    laid out on a 12-column grid (6 on phones) so related fields share a line. */
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-student-table,
   .staff-student-table tbody {
     display: block;
@@ -3591,7 +3591,7 @@ body:has(.staff)::before {
   text-align: center;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .staff-student-table td {
     white-space: nowrap;
   }
@@ -4612,7 +4612,7 @@ body:has(.staff)::before {
   margin-inline-end: 0.4rem;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .staff-cell-status .staff-autosave-error {
     position: absolute;
     width: 1px;
@@ -4666,7 +4666,7 @@ body:has(.staff)::before {
 }
 
 /* Cards: the delete button sits quietly at the bottom right of each card, with a word. */
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-student-table td.staff-cell-status {
     margin-top: -0.2rem;
   }
@@ -4830,7 +4830,7 @@ body:has(.staff)::before {
   background: #fff6cc;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-student-table tr.is-attention {
     background: #fff9dd;
     box-shadow: inset 4px 0 0 var(--buw-yellow);
@@ -4933,7 +4933,7 @@ body:has(.staff)::before {
   opacity: 0.5;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-student-table td.staff-cell-added {
     text-align: left;
   }
@@ -5259,7 +5259,7 @@ body:has(.staff)::before {
 }
 
 /* Cards below laptop width: program, tutor, email, phone on one line; WhatsApp, QR and note below. */
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-tutors-table tr.staff-group-row,
   .staff-tutors-table tr.staff-group-row th {
     display: block;
@@ -5300,7 +5300,7 @@ body:has(.staff)::before {
 }
 
 /* In the card layout the number sits small at the top of each card. */
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .staff-student-table td.staff-cell-number {
     display: block;
     grid-column: 1 / -1;
@@ -5309,5 +5309,23 @@ body:has(.staff)::before {
 
   .staff-student-table td.staff-cell-number::before {
     content: "#";
+  }
+}
+
+/* Small laptops (1024–1279px): rows stay on one line, with tighter cells and slightly smaller
+   text so short values such as matriculation numbers are not cut off. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .staff-student-table th,
+  .staff-student-table td {
+    padding-inline: 0.2rem;
+  }
+
+  .staff-student-table td {
+    font-size: 0.85rem;
+  }
+
+  .staff-student-table .staff-cell-input,
+  .staff-student-table .staff-combo-input {
+    padding-inline: 0.25rem;
   }
 }
