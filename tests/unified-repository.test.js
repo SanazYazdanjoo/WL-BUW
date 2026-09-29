@@ -246,6 +246,29 @@ test("coordinators edit the whole shift grid and every change is logged", async 
   await assert.rejects(repo.updateShiftDay(actor, { id: "2026-10-01", patch: { s1p1: "Ehsan" }, base: { s1p1: "Someone else" } }), (error) => error.code === "EDIT_CONFLICT" && error.latest.s1p1 === "Sanaz");
   await repo.updateShiftDay(actor, { id: "2026-10-03", patch: { note: "" }, base: { note: "Bank Holiday" } });
   assert.equal((await repo.workspace()).data.shifts.some((entry) => entry.date === "2026-10-03"), false);
+  // An autosave can fire mid-word ("Anna "); the server stores it trimmed, and the next save from the same cell is no conflict.
+  await repo.updateShiftDay(actor, { id: "2026-10-02", patch: { s1p1: "Anna " }, base: { s1p1: "" } });
+  await repo.updateShiftDay(actor, { id: "2026-10-02", patch: { s1p1: "Anna Weber" }, base: { s1p1: "Anna " } });
+  assert.deepEqual((await repo.workspace()).data.shifts.find((entry) => entry.date === "2026-10-02").first[0], "Anna Weber");
+});
+
+test("several staff adding and editing students at the same moment all persist", async () => {
+  const staffId = "staff_42345678-1234-4234-8234-123456789abc";
+  const ids = [1, 2, 3].map((n) => `stu_${n}2345678-1234-4234-8234-123456789abc`);
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: ids.map((id, n) => ({ id, name: `Existing ${n + 1}`, notes: "" })),
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store), actor = () => ({ name: "Tutor Example", role: "tutor", staffId });
+  const { etag } = await repo.workspace();
+  await Promise.all([
+    ...[1, 2, 3, 4, 5].map((n) => repo.addStudent(actor(), { name: `New ${n}`, etag })),
+    ...ids.map((id, n) => repo.updateStudent(actor(), { id, etag, patch: { notes: `Note ${n + 1}` }, base: { notes: "" } })),
+  ]);
+  const students = (await repo.workspace()).data.students;
+  assert.deepEqual(students.filter((s) => s.name.startsWith("New")).map((s) => s.name).sort(), ["New 1", "New 2", "New 3", "New 4", "New 5"]);
+  assert.deepEqual(ids.map((id) => students.find((s) => s.id === id).notes), ["Note 1", "Note 2", "Note 3"]);
 });
 
 test("students added on a chosen day can be exported to Excel", async () => {

@@ -3,7 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export const AUTOSAVE_DELAY = 2000;
 export const AUTOSAVE_TOGGLE_DELAY = 300;
 const changedFields = (next, base) => Object.keys(next).filter((field) => !Object.is(next[field], base[field]));
+// The server trims some text, so "Anna " typed here and "Anna" stored there are the same value.
+const sameValue = (a, b) => Object.is(a, b) || (typeof a === "string" && typeof b === "string" && a.trim() === b.trim());
 
+// initialValue is the latest saved record from the server. When it changes (someone else saved),
+// fields this person isn't editing take the new value; fields with unsaved edits keep theirs.
 export function useAutosave(initialValue, save, { delay = AUTOSAVE_DELAY, validate } = {}) {
   const [draft, setDraft] = useState(initialValue);
   const [status, setStatus] = useState("idle");
@@ -119,6 +123,20 @@ export function useAutosave(initialValue, save, { delay = AUTOSAVE_DELAY, valida
     setStatus("dirty");
     timerRef.current = setTimeout(() => { void flush(); }, useMine ? 0 : delay);
   }, [delay, flush]);
+
+  const serverKey = JSON.stringify(initialValue);
+  useEffect(() => {
+    const server = JSON.parse(serverKey);
+    const updates = Object.keys(server).filter((field) =>
+      !sameValue(server[field], savedRef.current[field]) &&
+      Object.is(draftRef.current[field], savedRef.current[field]) &&
+      !conflictRef.current?.fields.includes(field));
+    if (!updates.length) return;
+    const pick = Object.fromEntries(updates.map((field) => [field, server[field]]));
+    savedRef.current = { ...savedRef.current, ...pick };
+    draftRef.current = { ...draftRef.current, ...pick };
+    setDraft(draftRef.current);
+  }, [serverKey]);
 
   useEffect(() => {
     mountedRef.current = true;

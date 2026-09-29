@@ -577,17 +577,20 @@ function ShiftDayRow({ date, day, save, me, editAll }) {
 // The Super Admin sets the semester period and shift times (also editable in the workbook's Settings tab).
 function ScheduleSetup({ workspace, busy, act }) {
   const initial = () => ({ start: workspace.schedule?.start || "", end: workspace.schedule?.end || "", shift1Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).first, shift2Time: (workspace.shiftTimes || DEFAULT_SHIFT_TIMES).second, perShift: workspace.schedule?.perShift || 3 });
-  const [form, setForm] = useState(initial);
+  const [form, setFormState] = useState(initial);
+  // The workbook version this form was based on when editing began.
+  const [editEtag, setEditEtag] = useState(null);
+  const setForm = (next) => { setEditEtag((etag) => etag ?? workspace.etag); setFormState(next); };
   return (
     <details className="staff-disclosure staff-schedule-setup">
       <summary>Semester setup</summary>
-      <form className="staff-form staff-form-grid" onSubmit={async (event) => { event.preventDefault(); if (!busy) await act("schedule/setup", form); }}>
+      <form className="staff-form staff-form-grid" onSubmit={async (event) => { event.preventDefault(); if (!busy && await act("schedule/setup", { ...form, etag: editEtag ?? workspace.etag })) setEditEtag(null); }}>
         <label>First day<input type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></label>
         <label>Last day<input type="date" min={form.start || undefined} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
         <label>S1 time<input maxLength={40} placeholder="10:00–13:00" value={form.shift1Time} onChange={(e) => setForm({ ...form, shift1Time: e.target.value })} /></label>
         <label>S2 time<input maxLength={40} placeholder="12:00–15:00" value={form.shift2Time} onChange={(e) => setForm({ ...form, shift2Time: e.target.value })} /></label>
         <label>Tutors per shift<select value={form.perShift} onChange={(e) => setForm({ ...form, perShift: Number(e.target.value) })}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
-        <div className="button-row staff-field-wide"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save semester setup"}</button><button type="button" onClick={() => setForm(initial())}>Reset</button></div>
+        <div className="button-row staff-field-wide"><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save semester setup"}</button><button type="button" onClick={() => { setFormState(initial()); setEditEtag(null); }}>Reset</button></div>
         <p className="staff-muted staff-field-wide">Stored in the workbook's Settings tab. Tutor names are managed on the <Link to="/staff/tutor-list">Tutors</Link> page.</p>
       </form>
     </details>
@@ -667,9 +670,11 @@ export function TutorListPage() {
   const [draft, setDraft] = useState(null);
   if (!canManage(session)) return <div className="staff-page"><h1>Tutors</h1><p>Only the Super Admin or the Coordinator can manage the tutor list.</p></div>;
   if (!workspace) return <State error={error} />;
+  // The workbook version the draft was based on when editing began.
+  const [editEtag, setEditEtag] = useState(null);
   const saved = workspace.tutors || [];
   const names = draft ?? (saved.length ? saved : [""]);
-  const set = (next) => setDraft(next);
+  const set = (next) => { if (draft === null) setEditEtag(workspace.etag); setDraft(next); };
   const cleaned = names.map((name) => name.trim()).filter(Boolean);
   const changed = cleaned.join("\n") !== saved.join("\n");
   const duplicate = cleaned.find((name, index) => cleaned.findIndex((other) => other.toLocaleLowerCase("en") === name.toLocaleLowerCase("en")) !== index);
@@ -678,7 +683,7 @@ export function TutorListPage() {
       <header className="staff-page-heading"><h1>Tutors <span className="staff-count">{cleaned.length}</span></h1></header>
       <p className="staff-muted">This semester's tutors. They are suggested in Shifts and listed in Statistics, and stored in the workbook's Tutors tab.</p>
       {error && <p role="alert">{error}</p>}
-      <form className="staff-panel staff-form" onSubmit={async (event) => { event.preventDefault(); if (!busy && !duplicate && await act("tutors/save", { tutors: cleaned })) setDraft(null); }}>
+      <form className="staff-panel staff-form" onSubmit={async (event) => { event.preventDefault(); if (!busy && !duplicate && await act("tutors/save", { tutors: cleaned, etag: editEtag ?? workspace.etag })) { setDraft(null); setEditEtag(null); } }}>
         <ol className="staff-tutor-rows">
           {names.map((name, index) => (
             <li key={index}>
@@ -875,7 +880,7 @@ export function ShiftPage() {
               </tr>
             </thead>
             <tbody>
-              {dates.map((date) => <ShiftDayRow key={canManage(session) ? date : `${date}:${JSON.stringify(days.get(date) || null)}`} date={date} day={days.get(date)} me={session.name} editAll={canManage(session)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
+              {dates.map((date) => <ShiftDayRow key={date} date={date} day={days.get(date)} me={session.name} editAll={canManage(session)} save={(patch, base) => autosave("shifts/day", date, patch, base)} />)}
             </tbody>
           </table>
         </div>

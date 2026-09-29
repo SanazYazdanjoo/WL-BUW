@@ -67,6 +67,11 @@ function checkEvent(event) {
   if (typeof event.active !== "boolean") throw new StaffError(400, "Choose whether this event is active.");
 }
 
+// Several staff can save at once: each write is retried on a fresh copy of the workbook,
+// with a short random pause so simultaneous writers don't collide again straight away.
+const WRITE_ATTEMPTS = 6;
+const pauseBeforeRetry = (attempt) => new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150 * (attempt + 1)));
+
 export function createUnifiedRepository(store) {
   async function current() {
     const file = await store.read(store.paths.unified, 10 * 1024 * 1024);
@@ -111,7 +116,7 @@ export function createUnifiedRepository(store) {
   };
   async function mutate(actor, input, reason, callback, options = {}) {
     if (!actor.staffId && !options.allowUnassigned) throw new StaffError(403, "Choose your name from the active staff list before saving.");
-    const attempts = options.safeRetry ? 3 : 1;
+    const attempts = options.safeRetry ? WRITE_ATTEMPTS : 1;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const file = await current();
       if (!options.safeRetry && (!input.etag || input.etag !== file.etag)) throw new StaffError(409, "The workbook changed while you were saving. Reload the latest version and review your change again.");
@@ -128,6 +133,7 @@ export function createUnifiedRepository(store) {
         return result;
       } catch (error) {
         if (error.status !== 409 || attempt + 1 === attempts) throw error;
+        await pauseBeforeRetry(attempt);
       }
     }
     throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
@@ -137,7 +143,7 @@ export function createUnifiedRepository(store) {
     if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length || Object.keys(patch).some((field) => !allowed.includes(field))) throw new StaffError(400, "The requested fields cannot be updated.");
     if (!input.base || typeof input.base !== "object" || Object.keys(patch).some((field) => !Object.hasOwn(input.base, field))) throw new StaffError(400, "Reload this record before saving your changes.");
     if (!actor.staffId) throw new StaffError(403, "Choose your name from the active staff list before saving.");
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
       const file = await current();
       const selectedStaff = file.parsed.data.staff.find((person) => person.id === actor.staffId && person.isActive);
       if (!selectedStaff) throw new StaffError(403, "Your selected staff identity is no longer active. Choose an active name before saving.");
@@ -174,13 +180,14 @@ export function createUnifiedRepository(store) {
         return { ...result, record: structuredClone(record), changed };
       } catch (error) {
         if (error.status !== 409) throw error;
-        if (attempt === 2) {
+        if (attempt === WRITE_ATTEMPTS - 1) {
           const busy = new StaffError(409, "The workbook is busy with another update. Your draft is still available; retry in a moment.");
           busy.code = "WORKBOOK_BUSY";
           throw busy;
         }
         const refreshed = await current();
         if (refreshed.etag === priorVersion) throw error;
+        await pauseBeforeRetry(attempt);
       }
     }
     throw new StaffError(409, "The workbook is busy with another update. Retry in a moment.");
@@ -535,7 +542,8 @@ export function createUnifiedRepository(store) {
       return mutate(actor, input, "shift update", (data) => {
         let day = data.shifts.find((entry) => entry.date === date);
         if (!day) { day = toShiftDay({ date }); data.shifts.push(day); }
-        const conflicts = Object.keys(patch).filter((field) => shiftValue(day, field) !== base[field] && shiftValue(day, field) !== patch[field]);
+        // Names are saved trimmed, so "Anna " sent by an earlier autosave is the same as the stored "Anna".
+        const conflicts = Object.keys(patch).filter((field) => shiftValue(day, field) !== base[field].trim() && shiftValue(day, field) !== patch[field].trim());
         if (conflicts.length) {
           const error = new StaffError(409, "Someone else changed this day. Review both versions before continuing.");
           error.code = "EDIT_CONFLICT"; error.fields = conflicts; error.latest = Object.fromEntries(conflicts.map((field) => [field, shiftValue(day, field)]));

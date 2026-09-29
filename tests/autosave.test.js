@@ -72,6 +72,29 @@ test("a newer edit made during an in-flight save stays dirty and is sent after i
   } finally { await act(async () => root?.unmount()); timers.restore(); }
 });
 
+test("someone else's saved change appears, but never over a field being edited here", async () => {
+  const timers = fakeTimers(), calls = [];
+  let editor;
+  const save = async (patch, base) => { calls.push({ patch, base }); return {}; };
+  function Harness({ record }) { editor = useAutosave(record, save); return null; }
+  let root;
+  try {
+    await act(async () => { root = create(React.createElement(Harness, { record: { notes: "", country: "", name: "Ana" } })); });
+    await act(async () => editor.setField("notes", "Typing here"));
+    // Another tutor saved notes and country; the refreshed record reaches this row.
+    await act(async () => root.update(React.createElement(Harness, { record: { notes: "Their note", country: "Iran", name: "Ana" } })));
+    assert.deepEqual(editor.draft, { notes: "Typing here", country: "Iran", name: "Ana" });
+    await timers.advance(2000);
+    // Only the local edit is sent, with the base it started from, so the server can detect the clash.
+    assert.deepEqual(calls, [{ patch: { notes: "Typing here" }, base: { notes: "" } }]);
+    // A trimmed copy of what was just typed does not replace the text in the field.
+    await act(async () => editor.setField("name", "Ana "));
+    await timers.advance(2000);
+    await act(async () => root.update(React.createElement(Harness, { record: { notes: "Typing here", country: "Iran", name: "Ana" } })));
+    assert.equal(editor.draft.name, "Ana ");
+  } finally { await act(async () => root?.unmount()); timers.restore(); }
+});
+
 test("invalid drafts stay local and a failed request can be retried", async () => {
   const timers = fakeTimers();
   let editor, attempts = 0;
