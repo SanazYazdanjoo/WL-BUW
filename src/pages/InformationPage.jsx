@@ -1,4 +1,5 @@
 ﻿import { Link, useOutletContext } from "react-router-dom";
+import { formatDate } from "../../shared/dates";
 export function InformationSections({ kind, data }) {
   if (kind === "health-insurance")
     return data.providers.length ? (
@@ -63,7 +64,7 @@ export default function InformationPage({ kind, title }) {
       <header className="page-heading">
         <h1>{title}</h1>
         {result.data.publishedAt && (
-          <p>Updated {result.data.publishedAt.slice(0, 10)}</p>
+          <p>Updated {formatDate(result.data.publishedAt)}</p>
         )}
       </header>
       <InformationSections kind={kind} data={result.data} />

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
+import { formatDateTime } from "../../shared/dates";
 
 const labels = {
   current: "Current",
@@ -19,9 +20,7 @@ const resultLabels = {
   disabled: "source synchronization is disabled",
 };
 const routeIds = { preparingStudies: "preparing-studies", welcomeEvents: "welcome-events" };
-const dateText = (value) => value
-  ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }).format(new Date(value))
-  : "Not checked yet";
+const dateText = (value) => formatDateTime(value) || "Not checked yet";
 
 export default function OfficialSourcesPage() {
   const { session } = useOutletContext();

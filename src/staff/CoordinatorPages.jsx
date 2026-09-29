@@ -4,16 +4,9 @@ import { InformationSections } from "../pages/InformationPage";
 import { staffRequest } from "./service";
 import { canManage } from "./roles";
 import { whatsappLink } from "../../shared/content";
+import { formatDate, formatDateTime } from "../../shared/dates";
 function statusDate(value) {
-  if (!value) return "Not recorded";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Not recorded"
-    : new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Europe/Berlin",
-      }).format(date);
+  return formatDateTime(value) || "Not recorded";
 }
 
 function SemesterStatus({ onRestore }) {
@@ -491,7 +484,7 @@ export function PrintCenter() {
                     {content[kind]?.semesterLabel ||
                       content.config?.semesterLabel}{" "}
                     · Published{" "}
-                    {content[kind]?.publishedAt?.slice(0, 10) || "Not yet"}
+                    {formatDate(content[kind]?.publishedAt) || "Not yet"}
                   </p>
                 </header>
                 {!content[kind] ? (

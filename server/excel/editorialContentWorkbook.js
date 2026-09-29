@@ -65,7 +65,7 @@ function dates(record, sheet, field = "last_reviewed") {
   const value = record.value(field);
   if (!value) return "";
   try { return dateValue(value); } catch {
-    throw new WorkbookError(`${sheet} · row ${record.row} · ${field}: use a date or YYYY-MM-DD.`);
+    throw new WorkbookError(`${sheet} · row ${record.row} · ${field}: use a date or DD.MM.YYYY.`);
   }
 }
 function uniqueOrders(items, sheet) {

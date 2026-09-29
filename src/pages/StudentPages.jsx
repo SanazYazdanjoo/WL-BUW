@@ -3,6 +3,7 @@ import JourneyMap from "../components/JourneyMap";
 import { findTopic } from "../services/topics";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import { useState } from "react";
+import { formatDate } from "../../shared/dates";
 import {
   EscalationCard,
   FeedbackPrompt,
@@ -186,9 +187,6 @@ export function CommunityPage() {
   const legacySharing = !workbookResourcesPublished
     ? community.sharingIsCaring
     : null;
-  const noticeDate = (value) => new Intl.DateTimeFormat("en-GB", {
-    day: "numeric", month: "short", timeZone: "Europe/Berlin",
-  }).format(new Date(value));
   return (
     <section className="community-page info-page">
       <Link className="back-link" to="/info">← Info</Link>
@@ -198,7 +196,7 @@ export function CommunityPage() {
         {communityFeed === "stale" && <p className="community-feed-note">This list could not be refreshed. Check the university message boards for current notices.</p>}
         {community.notices?.length ? community.notices.map((notice) => (
           <a className="community-notice" key={notice.id} href={notice.url} target="_blank" rel="noopener noreferrer">
-            <span className="community-notice-meta">{notice.category} · {noticeDate(notice.date)}</span>
+            <span className="community-notice-meta">{notice.category} · {formatDate(notice.date)}</span>
             <span className="community-notice-title">{notice.title}</span>
             {notice.excerpt && <span className="community-notice-excerpt">{notice.excerpt}</span>}
             <span className="community-notice-link">Open notice ↗</span>
@@ -292,7 +290,7 @@ function EventDate({ event }) {
       <span className="event-date-month">{eventDatePart(event.date, { month: "short" })}</span>
       {endDate && (
         <span className="event-date-end">
-          to {eventDatePart(endDate, { day: "numeric", month: "short" })}
+          to {formatDate(endDate)}
         </span>
       )}
     </time>

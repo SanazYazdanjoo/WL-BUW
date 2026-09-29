@@ -3,6 +3,8 @@ import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
 import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
+import { DateInput } from "./DateInput";
+import { formatDate, formatDateTime } from "../../shared/dates";
 import { assignableRoles, canManageLogins, roleLabel } from "./roles";
 
 const sections = ["First Step", "Useful Info", "Student Support", "Community", "Help"];
@@ -145,7 +147,7 @@ export function ContentManagementPage() {
           <label>Semester<input required maxLength={100} value={settingsForm.semesterLabel || ""} onChange={(e) => setSettingsForm({ ...settingsForm, semesterLabel: e.target.value })} /></label>
           <label>WhatsApp group<input type="url" placeholder="https://chat.whatsapp.com/..." value={settingsForm.whatsappGroupUrl || ""} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappGroupUrl: e.target.value })} /></label>
           <label className="checkbox-label"><input type="checkbox" checked={settingsForm.whatsappEnabled === true} onChange={(e) => setSettingsForm({ ...settingsForm, whatsappEnabled: e.target.checked })} />Enable WhatsApp</label>
-          <label>Last reviewed<input type="date" value={settingsForm.contentReviewedDate || ""} onChange={(e) => setSettingsForm({ ...settingsForm, contentReviewedDate: e.target.value })} /></label>
+          <label>Last reviewed<DateInput value={settingsForm.contentReviewedDate || ""} onChange={(contentReviewedDate) => setSettingsForm({ ...settingsForm, contentReviewedDate })} /></label>
           <button className="primary" disabled={busy || Boolean(form)}>Save settings</button>
         </form>}
       </details>
@@ -178,7 +180,7 @@ export function ContentManagementPage() {
 function statusDate(value) {
   if (!value) return "Not recorded";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Not recorded" : new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }).format(date);
+  return formatDateTime(date) || "Not recorded";
 }
 
 export function BackupPage() {
@@ -201,12 +203,12 @@ function eventProblem(draft) {
   if (draft.link && !/^https:\/\/[^\s]+$/i.test(draft.link)) return "Enter a complete HTTPS link.";
   return "";
 }
-const eventWhen = (event) => [new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`)), event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime)].filter(Boolean).join(" · ");
+const eventWhen = (event) => [formatDate(event.date), event.startTime && (event.endTime ? `${event.startTime}–${event.endTime}` : event.startTime)].filter(Boolean).join(" · ");
 
 function EventFields({ value, set }) {
   return <>
     <label>Title<input autoFocus required maxLength={200} value={value.title} onChange={(e) => set("title", e.target.value)} /></label>
-    <label>Date<input type="date" required value={value.date} onChange={(e) => set("date", e.target.value)} /></label>
+    <label>Date<DateInput required value={value.date} onChange={(date) => set("date", date)} /></label>
     <label>Start<input type="time" value={value.startTime} onChange={(e) => set("startTime", e.target.value)} /></label>
     <label>End<input type="time" value={value.endTime} onChange={(e) => set("endTime", e.target.value)} /></label>
     <label>Location<input maxLength={300} value={value.location} onChange={(e) => set("location", e.target.value)} /></label>

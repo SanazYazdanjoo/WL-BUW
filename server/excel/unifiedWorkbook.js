@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { formatDate } from "../../shared/dates.js";
 import { booleanValue, cellText, dateValue, key, readWorkbook, rows, WorkbookError } from "./excelUtils.js";
 import { inferLinkLabel, safeLink, whatsappLink } from "../../shared/content.js";
 import { shortProgram } from "../../shared/studyPrograms.js";
@@ -52,7 +53,7 @@ const uniqueId = (base, used) => {
 };
 const dateCell = (value, context, optional = true) => {
   if (!cellText(value)) return optional ? "" : (() => { throw new WorkbookError(`${context} is required.`); })();
-  try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or YYYY-MM-DD.`); }
+  try { return dateValue(value); } catch { throw new WorkbookError(`${context} must be an Excel date or DD.MM.YYYY.`); }
 };
 const OPTIONAL_HEADERS = { Students: new Set(["Phone", "Email", "Contact (if no accommodation)", "Added By", "Needs Attention"]) };
 // Accommodation and City Registration used to be free text; any old non-empty text counts as ticked.
@@ -279,7 +280,7 @@ const SHEET_GUIDANCE = {
   Staff: "Names support attribution and contact display. Passwords and access codes stay in server settings.",
   Shifts: "One row per day. Write who works in each shift; use Note for closures such as a bank holiday.",
   Tutors: "This semester's tutors, one per row. Add, rename or delete rows; the numbering is updated automatically.",
-  Events: "One event per row. Date as YYYY-MM-DD, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
+  Events: "One event per row. Date as DD.MM.YYYY, times as 24-hour 14:00. Set Active to TRUE to show it on the Events page.",
 };
 function addSheet(workbook, name, dataRows = []) {
   const sheet = workbook.addWorksheet(name);
@@ -304,7 +305,7 @@ export function createUnifiedWorkbook(data = {}) {
   workbook.creator = "Welcome Lounge";
   const settings = data.settings || {};
   const shiftTimes = data.shiftTimes || DEFAULT_SHIFT_TIMES;
-  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", settings.contentReviewedDate || ""], ["Schedule Start", data.schedule?.start || ""], ["Schedule End", data.schedule?.end || ""], ["Tutors per Shift", String(data.schedule?.perShift || DEFAULT_TUTORS_PER_SHIFT)], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
+  const settingsRows = [["Semester", settings.semesterLabel || ""], ["WhatsApp Group URL", settings.whatsappGroupUrl || ""], ["WhatsApp Enabled", settings.whatsappEnabled ?? false], ["Last Reviewed", formatDate(settings.contentReviewedDate)], ["Schedule Start", formatDate(data.schedule?.start)], ["Schedule End", formatDate(data.schedule?.end)], ["Tutors per Shift", String(data.schedule?.perShift || DEFAULT_TUTORS_PER_SHIFT)], ["Shift 1 Time", shiftTimes.first], ["Shift 2 Time", shiftTimes.second], ["Workbook Version", "1"]];
   const sheetSettings = addSheet(workbook, "Settings", settingsRows);
   sheetSettings.getColumn(1).width = 28;
   sheetSettings.getColumn(2).width = 60;
@@ -314,12 +315,12 @@ export function createUnifiedWorkbook(data = {}) {
     contentSheet.getCell(row, 1).dataValidation = { type: "list", allowBlank: true, formulae: ['"First Step,Useful Info,Student Support,Community,Help"'] };
     contentSheet.getCell(row, 6).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
-  const eventsSheet = addSheet(workbook, "Events", (data.events || []).map((e) => [e.title, e.date, e.startTime || "", e.endTime || "", e.location || "", e.description || "", e.link || "", e.active, e.id]));
+  const eventsSheet = addSheet(workbook, "Events", (data.events || []).map((e) => [e.title, formatDate(e.date), e.startTime || "", e.endTime || "", e.location || "", e.description || "", e.link || "", e.active, e.id]));
   eventsSheet.getColumn(2).numFmt = "@";
   eventsSheet.getColumn(3).numFmt = "@";
   eventsSheet.getColumn(4).numFmt = "@";
   for (let row = 4; row <= 1003; row++) eventsSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
-  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, s.legacyDate, s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email, s.accommodationContact || "", s.addedBy || "", s.needsAttention === true]));
+  const studentsSheet = addSheet(workbook, "Students", (data.students || []).map((s) => [s.id, formatDate(s.legacyDate), s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, s.enrolled, s.accommodation, s.address, s.receivedBackpack, s.cityRegistration, s.notes, s.phone, s.email, s.accommodationContact || "", s.addedBy || "", s.needsAttention === true]));
   studentsSheet.getColumn(1).numFmt = "@";
   studentsSheet.getColumn(4).numFmt = "@";
   addSheet(workbook, "Activity", (data.activity || []).map((a) => [a.id, a.timestamp, a.type, a.studentId, a.actor, a.note]));
@@ -328,7 +329,7 @@ export function createUnifiedWorkbook(data = {}) {
     staffSheet.getCell(row, 3).dataValidation = { type: "list", allowBlank: true, formulae: ['"Tutor,Coordinator,Admin,Super Admin"'] };
     staffSheet.getCell(row, 8).dataValidation = { type: "list", allowBlank: true, formulae: ['"TRUE,FALSE"'] };
   }
-  const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [s.date, ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));
+  const shiftsSheet = addSheet(workbook, "Shifts", [...(data.shifts || [])].sort((a, b) => a.date.localeCompare(b.date)).map((s) => [formatDate(s.date), ...slotNames(s.first), ...slotNames(s.second), s.event || ""]));
   shiftsSheet.getColumn(1).numFmt = "@";
   // An empty list still gets ten numbered rows so the tab is easy to fill in Excel.
   const tutorRows = data.tutors?.length ? data.tutors : Array(10).fill("");

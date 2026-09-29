@@ -1,20 +1,13 @@
 import sourcesConfig from "../../content/app-content/sources.json";
 import { resolveOfficialLink } from "../services/officialLink";
+import { formatDate } from "../../shared/dates";
 
 function checkedLabel(value) {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  const today = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Europe/Berlin",
-  }).format(new Date());
-  const checked = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Europe/Berlin",
-  }).format(date);
+  const today = formatDate(new Date());
+  const checked = formatDate(date);
   return checked === today ? "Checked today" : `Last checked ${checked}`;
 }
 

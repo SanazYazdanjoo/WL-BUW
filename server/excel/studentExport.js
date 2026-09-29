@@ -1,4 +1,5 @@
 import { ExcelJS } from "./excelUtils.js";
+import { formatDate } from "../../shared/dates.js";
 
 const yesNo = (value) => (value === true ? "Yes" : value === false ? "No" : "");
 
@@ -10,13 +11,13 @@ export async function exportStudentsForDay(data, date) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Welcome Lounge";
   const sheet = workbook.addWorksheet("Students");
-  sheet.addRow([`Welcome Lounge students · added on ${date}`]);
+  sheet.addRow([`Welcome Lounge students · added on ${formatDate(date)}`]);
   sheet.getRow(1).font = { bold: true, size: 13 };
   const headers = ["Full name", "Matriculation number", "Country", "Study program", "Enrolled", "Accommodation", "Contact (if no accommodation)", "City registration appointment", "Address", "Note", "Date added"];
   sheet.addRow(headers);
   sheet.getRow(2).font = { bold: true };
   for (const s of students)
-    sheet.addRow([s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, yesNo(s.enrolled), yesNo(s.accommodation), s.accommodationContact || "", yesNo(s.cityRegistration), s.address, s.notes, s.legacyDate]);
+    sheet.addRow([s.name, String(s.matriculationNumber || ""), s.country, s.studyProgram, yesNo(s.enrolled), yesNo(s.accommodation), s.accommodationContact || "", yesNo(s.cityRegistration), s.address, s.notes, formatDate(s.legacyDate)]);
   if (!students.length) sheet.addRow(["No students were added on this day."]);
   sheet.columns = headers.map((header) => ({ width: ["Address", "Note", "Contact (if no accommodation)"].includes(header) ? 36 : 20 }));
   sheet.getColumn(2).numFmt = "@";

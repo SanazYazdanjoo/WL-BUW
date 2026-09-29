@@ -1,5 +1,6 @@
 ﻿import ExcelJS from "exceljs";
 export { ExcelJS };
+import { parseDate } from "../../shared/dates.js";
 export class WorkbookError extends Error {
   constructor(message) {
     super(message);
@@ -111,15 +112,11 @@ export function dateValue(value) {
       .slice(0, 10);
   const text = cellText(value);
   if (!text) return "";
-  const match = text.match(/^(\d{4}-\d{2}-\d{2})(?:\s|$)/);
-  if (
-    match &&
-    Number.isFinite(Date.parse(match[1])) &&
-    new Date(match[1]).toISOString().slice(0, 10) === match[1]
-  )
-    return match[1];
+  // DD.MM.YYYY is the written format; YYYY-MM-DD (optionally followed by a time) is still accepted.
+  const iso = parseDate(text.split(/\s/)[0]);
+  if (iso) return iso;
   throw new WorkbookError(
-    "A date is not recognizable. Use an Excel date or YYYY-MM-DD.",
+    "A date is not recognizable. Use an Excel date or DD.MM.YYYY.",
   );
 }
 export function booleanValue(value) {

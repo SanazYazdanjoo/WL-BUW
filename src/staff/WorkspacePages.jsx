@@ -8,6 +8,8 @@ import { AUTOSAVE_TOGGLE_DELAY, useAutosave } from "./useAutosave";
 import { SaveStatus } from "./SaveStatus";
 import { STUDY_PROGRAM_OPTIONS } from "./studentOptions";
 import { CountryInput } from "./CountryInput";
+import { DateInput } from "./DateInput";
+import { formatDate, formatDateTime } from "../../shared/dates";
 import { fairShare, formatHours, shiftHours, tutorStatistics } from "./statistics";
 const studyProgramOptions = (workspace) => [...new Set([...STUDY_PROGRAM_OPTIONS, ...(workspace?.data?.students || []).map((student) => student.studyProgram).filter(Boolean), ...(workspace?.data?.programTutors || []).map((tutor) => tutor.program).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
 function SuggestedInput({ label, name, value, onChange, options, maxLength = 300, type = "text" }) {
@@ -33,7 +35,7 @@ function StudentExport({ workspace }) {
     <details className="staff-disclosure staff-student-export">
       <summary>Export students for a day</summary>
       <div className="staff-form staff-form-grid">
-        <label>Students added on<input type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>Students added on<DateInput required value={date} onChange={setDate} /></label>
         <p className="staff-muted staff-field-wide">{count} student{count === 1 ? "" : "s"} · Excel file with all student details.</p>
         {date ? <a className="staff-export-link" href={`/api/staff/students/export?date=${encodeURIComponent(date)}`} download>Download Excel</a> : <p className="staff-muted">Choose a day.</p>}
       </div>
@@ -60,7 +62,7 @@ const STUDENT_COLUMNS = [
 // "Date added" is set by the server when a student is created and is read-only here.
 // Who added the student and when share one narrow column: an icon that shows both on hover or focus.
 const ADDED_SHARE = 5.5;
-const formatDay = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`)) : "—");
+const formatDay = (iso) => formatDate(iso) || "—";
 const visibleStudentColumns = (showAddress) => STUDENT_COLUMNS.filter((column) => !column.optional || showAddress);
 const studentRowDraft = (student) => ({
   ...Object.fromEntries(STUDENT_COLUMNS.filter((column) => !column.check).map(({ field }) => [field, String(student[field] ?? "")])),
@@ -221,14 +223,7 @@ function StudentTable({ students, save, programOptions, onCreate, onDelete, show
 }
 
 function staffDateTime(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Time unavailable"
-    : new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Europe/Berlin",
-      }).format(date);
+  return formatDateTime(value) || "Time unavailable";
 }
 
 function HandoverEntries({ entries, today, limit }) {
@@ -340,7 +335,7 @@ export function Dashboard() {
   const attentionStudents = data.students.filter(STUDENT_FILTERS.attention.test);
   const withoutHousing = data.students.filter(STUDENT_FILTERS.housing.test);
   const addedToday = data.students.filter((student) => STUDENT_FILTERS.today.test(student, today));
-  const dayLabel = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone: "Europe/Berlin" }).format(new Date(`${today}T12:00:00Z`));
+  const dayLabel = `${new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(new Date(`${today}T00:00:00Z`))}, ${formatDate(today)}`;
   const setupItems = [
     !data.semesterLabel && { title: "Set the semester", to: canManage(session) ? "/staff/content" : null },
     data.shifts.length === 0 && canManage(session) && { title: "Add shifts", to: "/staff/shifts" },
@@ -557,7 +552,7 @@ export function StudentDetail() {
       <header className="staff-page-heading staff-record-header">
         <div><h1>{s.name || "Student record"}</h1><p className="staff-page-meta">{[s.studyProgram, s.matriculationNumber ? `No. ${s.matriculationNumber}` : "No matriculation number"].filter(Boolean).join(" · ")}</p></div>
       </header>
-      <p className="staff-record-meta">Date added: {s.legacyDate || "Unknown"}</p>
+      <p className="staff-record-meta">Date added: {formatDate(s.legacyDate) || "Unknown"}</p>
       {error && <p role="alert">{error}</p>}
       <StudentEditor
         key={s.id}
@@ -584,7 +579,7 @@ const DEFAULT_SHIFT_TIMES = { first: "10:00–13:00", second: "12:00–15:00" };
 const isoDay = (date) => date.toISOString().slice(0, 10);
 const addDays = (iso, days) => { const date = new Date(`${iso}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return isoDay(date); };
 const weekday = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const dayLabel = (iso) => `${iso} (${new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`))})`;
+const dayLabel = (iso) => `${formatDate(iso)} (${new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`))})`;
 const shiftDraft = (day) => ({
   ...Object.fromEntries(SLOT_KEYS.flatMap(([slot, n]) => [0, 1, 2, 3].map((i) => [`s${n}p${i + 1}`, day?.[slot]?.[i] || ""]))),
   note: day?.event || "",
@@ -659,8 +654,8 @@ function ScheduleSetup({ workspace, busy, act }) {
     <details className="staff-disclosure staff-schedule-setup">
       <summary>Semester setup</summary>
       <form className="staff-form staff-form-grid" onSubmit={async (event) => { event.preventDefault(); if (!busy && await act("schedule/setup", { ...form, etag: editEtag ?? workspace.etag })) setEditEtag(null); }}>
-        <label>First day<input type="date" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></label>
-        <label>Last day<input type="date" min={form.start || undefined} value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
+        <label>First day<DateInput value={form.start} onChange={(start) => setForm({ ...form, start })} /></label>
+        <label>Last day<DateInput min={form.start || undefined} value={form.end} onChange={(end) => setForm({ ...form, end })} /></label>
         <label>S1 time<input maxLength={40} placeholder="10:00–13:00" value={form.shift1Time} onChange={(e) => setForm({ ...form, shift1Time: e.target.value })} /></label>
         <label>S2 time<input maxLength={40} placeholder="12:00–15:00" value={form.shift2Time} onChange={(e) => setForm({ ...form, shift2Time: e.target.value })} /></label>
         <label>Tutors per shift<select value={form.perShift} onChange={(e) => setForm({ ...form, perShift: Number(e.target.value) })}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>

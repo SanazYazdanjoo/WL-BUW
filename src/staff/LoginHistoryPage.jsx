@@ -2,13 +2,11 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { staffRequest } from "./service";
 import { canManageLogins, roleLabel } from "./roles";
+import { formatDateTime } from "../../shared/dates";
 import "./presence.css";
 
 const EVENTS = { "sign-in": "Signed in", name: "Chose name", "sign-out": "Signed out", failed: "Failed sign-in" };
-const when = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Time unavailable" : new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }).format(date);
-};
+const when = (value) => formatDateTime(value) || "Time unavailable";
 const methodLabel = (method) => (method === "personal" ? "Personal login" : method === "shared" ? "Shared login" : "");
 
 // Admin and Super Admin: who signed in, chose a name, signed out, or failed to sign in — newest first.
