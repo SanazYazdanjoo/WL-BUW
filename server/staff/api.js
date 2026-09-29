@@ -15,6 +15,7 @@ import {
 } from "./auth.js";
 import { createPrivateStore } from "./store.js";
 import { createAccountStore, normalizeUsername, SHARED_LOGINS, verifyPassword } from "./accounts.js";
+import { createPresenceStore } from "./presence.js";
 import { createStaffRepository } from "./repository.js";
 import { createUnifiedRepository } from "./unifiedRepository.js";
 import { createUnifiedWorkbookTemplate } from "../excel/unifiedWorkbook.js";
@@ -90,6 +91,10 @@ export function staffMiddleware(
       const person = (await createUnifiedRepository(createPrivateStore(env, fetchImpl)).staffRoster()).staff.find((entry) => entry.id === account.staffId);
       return person ? { name: person.name, role: person.role, staffId: person.id } : { rejected: true };
     };
+    // Presence and the sign-in history need the university connection; without it they stay empty.
+    const presenceStore = () => (env.NEXTCLOUD_USERNAME && env.NEXTCLOUD_APP_PASSWORD ? createPresenceStore(createPrivateStore(env, fetchImpl)) : null);
+    // Never let a history or presence write stop someone from signing in or out.
+    const quietly = async (work) => { try { const presence = presenceStore(); if (presence) await work(presence); } catch { /* best effort */ } };
     const action = path.slice("/api/staff/".length);
     const send = (status, body, headers = {}) => {
       res.writeHead(status, {
@@ -102,7 +107,15 @@ export function staffMiddleware(
     };
     try {
       if (action === "login" && req.method === "POST") {
-        let token = await login(req, await readBody(req), env, findPersonalAccount, checkShared);
+        const body = await readBody(req);
+        const attempted = typeof (body.username ?? body.name) === "string" ? (body.username ?? body.name) : "";
+        let token;
+        try {
+          token = await login(req, body, env, findPersonalAccount, checkShared);
+        } catch (error) {
+          if (error.status === 401) await quietly((presence) => presence.record("failed", { login: attempted }));
+          throw error;
+        }
         const signedIn = decodeSession(token, env);
         // The Super Admin is never asked "Who is working?": attach the one Super Admin staff entry.
         if (signedIn?.role === "superadmin" && !signedIn.staffId && env.NEXTCLOUD_WORKBOOK_FILE !== "" && env.NEXTCLOUD_USERNAME && env.NEXTCLOUD_APP_PASSWORD) {
@@ -113,6 +126,8 @@ export function staffMiddleware(
             // Workbook unavailable: sign in anyway; the staff identity is attached on the next sign-in.
           }
         }
+        const final = decodeSession(token, env);
+        await quietly((presence) => presence.record("sign-in", { name: final.staffId ? final.name : "", role: final.role, login: attempted, method: final.personal ? "personal" : "shared" }));
         return send(200, { ok: true }, { "Set-Cookie": cookie(token, env) });
       }
       const actor = requireActor(sessionFromRequest(req, env));
@@ -131,6 +146,7 @@ export function staffMiddleware(
         activity: ["admin", "activityLog"],
         account: ["read", "account"],
         accounts: ["logins", "accounts"],
+        logins: ["logins", "loginHistory"],
         config: ["admin", "getConfig"],
       };
       const writes = {
@@ -166,8 +182,15 @@ export function staffMiddleware(
       const hasUnifiedWorkbook = async () => Boolean(env.NEXTCLOUD_WORKBOOK_FILE !== "" && env.NEXTCLOUD_USERNAME && env.NEXTCLOUD_APP_PASSWORD && (await unifiedStore.read(unifiedStore.paths.unified, 10 * 1024 * 1024)).value);
       if (req.method === "POST") {
         checkMutation(req, actor);
-        if (action === "logout")
+        if (action === "logout") {
+          await quietly(async (presence) => { await presence.leave(actor); await presence.record("sign-out", { name: actor.name, role: actor.role, method: actor.personal ? "personal" : "shared" }); });
           return send(200, { ok: true }, { "Set-Cookie": cookie("", env) });
+        }
+        if (action === "presence") {
+          // Heartbeat from an open workspace tab; answers with everyone working right now.
+          const presence = presenceStore();
+          return send(200, { online: presence ? await presence.ping(actor) : [] });
+        }
         if (action === "actor/select") {
           const input = await readBody(req);
           const repository = createUnifiedRepository(createPrivateStore(env, fetchImpl));
@@ -177,6 +200,7 @@ export function staffMiddleware(
           const person = choice.id.startsWith("new:") ? { id: await repository.ensureTutorStaff(choice.name), name: choice.name } : choice;
           if (await accountStore().byStaffId(person.id)) throw new StaffError(403, `${person.name} has a personal login. Sign in with it instead.`);
           const token = encodeSession({ id: person.id, name: person.name, role: actor.role, staffId: person.id }, env);
+          await quietly((presence) => presence.record("name", { name: person.name, role: actor.role, login: actor.role, method: "shared" }));
           return send(200, { ok: true, name: person.name }, { "Set-Cookie": cookie(token, env) });
         }
         if (action === "account/save") {
@@ -339,6 +363,10 @@ export function staffMiddleware(
         const { sharedLogins } = await accountStore().load();
         const shared = Object.fromEntries(SHARED_LOGINS.filter((login) => mayManageLoginOf(actor, login)).map((login) => [login, { custom: Boolean(sharedLogins[login]), updatedAt: sharedLogins[login]?.updatedAt || "", fromEnvironment: Boolean(sharedCode(environmentCode[login])) }]));
         return send(200, { accounts, sharedLogins: shared, staff: roster.staff.map((person) => ({ id: person.id, name: person.name, role: person.role, manageable: mayManageLoginOf(actor, person.role), username: byStaff.get(person.id)?.username || "", updatedAt: byStaff.get(person.id)?.updatedAt || "" })) });
+      }
+      if (action === "logins") {
+        const presence = presenceStore();
+        return send(200, presence ? { entries: await presence.history(), online: await presence.online() } : { entries: [], online: [] });
       }
       if (action === "activity") return send(200, await unifiedRepository.activityLog());
       if (["workspace", "content", "config"].includes(action) && await hasUnifiedWorkbook()) {

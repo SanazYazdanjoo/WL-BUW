@@ -15,6 +15,7 @@ import { ImportPage, PrintCenter } from "./staff/CoordinatorPages";
 import { BackupPage, ContentManagementPage, EventsManagementPage } from "./staff/UnifiedWorkbookPages";
 import InformationPage from "./pages/InformationPage";
 import OfficialSourcesPage from "./staff/OfficialSourcesPage";
+import LoginHistoryPage from "./staff/LoginHistoryPage";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import {
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="statistics" element={<StatisticsPage />} />
           <Route path="tutor-list" element={<TutorListPage />} />
           <Route path="activity" element={<ChangeLogPage />} />
+          <Route path="sign-ins" element={<LoginHistoryPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="program-tutors" element={<Tutors />} />
           <Route path="handover" element={<Handover />} />

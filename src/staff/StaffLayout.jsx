@@ -3,7 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { clearOfflineData, staffRequest } from "./service";
 import { OfflineBanner } from "./OfflineBanner";
 import { PasswordInput } from "./PasswordInput";
-import { canManage, roleLabel } from "./roles";
+import { canManage, canManageLogins, roleLabel } from "./roles";
+import { OnlineNow } from "./OnlineNow";
 import { FeedbackButton } from "./FeedbackButton";
 export default function StaffLayout() {
   const [session, setSession] = useState(null),
@@ -112,6 +113,7 @@ export default function StaffLayout() {
             {semesterLabel && <small>{semesterLabel}</small>}
           </span>
         </Link>
+        {inWorkspace && <OnlineNow session={session} />}
         <a className="staff-student-site" href="/" target="_blank" rel="noreferrer">Student site ↗</a>
         {session && !inWorkspace && <div className="staff-header-account">
           <Link to="/staff/account" className="staff-identity" aria-label={`Signed in as ${session.name}, ${roleLabel(session.role)}. My account`}>
@@ -196,6 +198,7 @@ export default function StaffLayout() {
                 ["activity", "Change log"],
                 ["content", "Content"],
                 ["backup", "Backup"],
+                ...(canManageLogins(session) ? [["sign-ins", "Sign-ins"]] : []),
               ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`}>{title}</NavLink>)}
             </>}
           </nav>

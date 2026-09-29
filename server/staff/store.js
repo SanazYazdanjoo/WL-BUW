@@ -40,6 +40,8 @@ export function staffPaths(env) {
     unifiedBackupStatus: `${dirs.meta}/unified-workbook-backup-status.json`,
     state: `${dirs.staff}/state.json`,
     accounts: `${dirs.staff}/accounts.json`,
+    presence: `${dirs.staff}/presence.json`,
+    loginHistory: `${dirs.staff}/login-history.json`,
     release: "app-content/published.json",
     history: `${dirs.meta}/publish-history.json`,
     workbookStatus: `${dirs.meta}/workbook-status.json`,
@@ -58,6 +60,8 @@ export function createPrivateStore(env, fetchImpl = fetch) {
     path === paths.unified ||
     path === paths.state ||
     path === paths.accounts ||
+    path === paths.presence ||
+    path === paths.loginHistory ||
     path === paths.release ||
     Object.values(paths.officialSources).includes(path) ||
     path === paths.communityRss ||
