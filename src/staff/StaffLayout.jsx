@@ -6,6 +6,7 @@ import { PasswordInput } from "./PasswordInput";
 import { canManage, canManageLogins, roleLabel } from "./roles";
 import { OnlineNow } from "./OnlineNow";
 import { FeedbackButton } from "./FeedbackButton";
+import BackToTop from "../components/BackToTop";
 
 // Line icons for the sidebar (16×16 grid, drawn with the current text colour).
 const NAV_ICONS = {
@@ -240,6 +241,7 @@ export default function StaffLayout() {
           </aside>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
+            <BackToTop />
           </main>
           </div>
           <FeedbackButton session={session} />

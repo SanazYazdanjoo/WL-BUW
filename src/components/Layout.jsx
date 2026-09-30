@@ -1,6 +1,7 @@
 ﻿import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AppHeader from "./AppHeader";
+import BackToTop from "./BackToTop";
 import { useContent } from "../hooks/useContent";
 import { useProgress } from "../hooks/useProgress";
 export default function Layout() {
@@ -35,6 +36,7 @@ export default function Layout() {
             content={content}
           />
         )}
+        <BackToTop targetId="main" />
       </main>
       <footer className="app-footer">
         <div className="footer-inner">
