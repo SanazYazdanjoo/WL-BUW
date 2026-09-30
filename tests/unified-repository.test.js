@@ -207,6 +207,26 @@ test("staff can correct a student's name, matriculation number and welcome mater
   await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { name: "  " }, base: { name: "Example Student" } }), /full name/);
 });
 
+test("finishing a half-typed student name keeps saving after a pause on a trailing space", async () => {
+  const studentId = "stu_12345678-1234-4234-8234-123456789abc";
+  const staffId = "staff_12345678-1234-4234-8234-123456789abc";
+  const store = memoryStore(await serializeUnifiedWorkbook({
+    settings: { semesterLabel: "Winter Semester 2026/27", whatsappEnabled: false },
+    students: [{ id: studentId, name: "Ali" }],
+    staff: [{ id: staffId, name: "Tutor Example", role: "tutor", isActive: true }],
+  }));
+  const repo = createUnifiedRepository(store);
+  const actor = { name: "Tutor Example", role: "tutor", staffId };
+  // Autosave fires while the name reads "Ali "; the workbook stores it trimmed as "Ali".
+  await repo.updateStudent(actor, { id: studentId, patch: { name: "Ali " }, base: { name: "Ali" } });
+  // The page still remembers "Ali " as the saved value when the rest of the name follows.
+  await repo.updateStudent(actor, { id: studentId, patch: { name: "Ali Example" }, base: { name: "Ali " } });
+  const [student] = (await parseUnifiedWorkbook(store.files.get(store.paths.unified).value)).data.students;
+  assert.equal(student.name, "Ali Example");
+  // A real change by someone else is still reported.
+  await assert.rejects(repo.updateStudent(actor, { id: studentId, patch: { name: "Ali Other" }, base: { name: "Ali " } }), (error) => error.code === "EDIT_CONFLICT");
+});
+
 test("deleting a student needs the matching name, keeps a backup and leaves a readable workbook", async () => {
   const studentId = "stu_12345678-1234-4234-8234-123456789abc";
   const otherId = "stu_22345678-1234-4234-8234-123456789abc";
