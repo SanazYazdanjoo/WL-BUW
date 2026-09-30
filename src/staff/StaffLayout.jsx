@@ -212,7 +212,6 @@ export default function StaffLayout() {
               ["students", "Students"],
               ["all-tutors", "All Tutors"],
               ["shifts", "Shifts"],
-              ["handover", "Handover"],
               ["events", "Events"],
             ].map(([path, title]) => <NavLink key={path} to={`/staff/${path}`} title={collapsed ? title : undefined}><NavIcon path={NAV_ICONS[path]} /><span className="staff-nav-text">{title}</span></NavLink>)}
             {canManage(session) && <>
