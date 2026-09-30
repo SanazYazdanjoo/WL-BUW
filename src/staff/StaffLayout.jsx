@@ -6,6 +6,7 @@ import { PasswordInput } from "./PasswordInput";
 import { canManage, canManageLogins, roleLabel } from "./roles";
 import { OnlineNow } from "./OnlineNow";
 import { FeedbackButton } from "./FeedbackButton";
+import BackToTop from "../components/BackToTop";
 
 // Line icons for the sidebar (16×16 grid, drawn with the current text colour).
 const NAV_ICONS = {
@@ -71,6 +72,14 @@ export default function StaffLayout() {
     window.addEventListener("staff-semester-updated", loadSemester);
     return () => { active = false; window.removeEventListener("staff-semester-updated", loadSemester); };
   }, [session, location.pathname]);
+  // On phones the menu is one sideways-scrolling line: bring the current page's item into view.
+  useEffect(() => {
+    const nav = document.getElementById("staff-sidebar-nav");
+    const current = nav?.querySelector("a[aria-current]");
+    if (!nav || !current || nav.scrollWidth <= nav.clientWidth) return;
+    const navBox = nav.getBoundingClientRect(), itemBox = current.getBoundingClientRect();
+    nav.scrollLeft += itemBox.left - navBox.left - (navBox.width - itemBox.width) / 2;
+  }, [location.pathname, session]);
   async function login(event) {
     event.preventDefault();
     setError("");
@@ -240,6 +249,7 @@ export default function StaffLayout() {
           </aside>
           <main id="staff-main" className="staff-main">
             <Outlet context={{ session, refreshRoster: loadRoster }} />
+            <BackToTop />
           </main>
           </div>
           <FeedbackButton session={session} />

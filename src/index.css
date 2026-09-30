@@ -3507,8 +3507,10 @@ main:focus {
 
 /* Small screens: the sidebar becomes a wrapping menu above the content. */
 @media (max-width: 900px) {
+  /* The menu keeps its own height; spare height on short pages goes to the content. */
   .staff-dashboard-shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
 
   .staff .staff-sidebar {
@@ -5540,5 +5542,62 @@ body:has(.staff)::before {
   .staff-student-table .staff-cell-input,
   .staff-student-table .staff-combo-input {
     padding-inline: 0.25rem;
+  }
+}
+
+/* Back to top: a full-width primary button at the end of long pages, on phones only. */
+.back-to-top.primary {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .back-to-top.primary {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 2rem;
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 700;
+  }
+
+  .back-to-top.primary:hover,
+  .back-to-top.primary:focus-visible {
+    border-color: var(--color-primary-hover);
+    background: var(--color-primary-hover);
+    color: white;
+  }
+}
+
+/* Phones and small tablets: the staff menu stays on one line and scrolls sideways;
+   "Management" becomes a small divider label inside that line. */
+@media (max-width: 900px) {
+  .staff .staff-sidebar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+
+  .staff .staff-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .staff .staff-sidebar a {
+    flex: none;
+  }
+
+  .staff .staff-sidebar-label {
+    flex: none;
+    flex-basis: auto;
+    margin: 0 0.25rem 0 0.35rem;
+    padding-left: 0.6rem;
+    border-left: 1px solid #4a4a52;
   }
 }
