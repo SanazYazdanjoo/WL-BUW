@@ -5614,3 +5614,19 @@ body:has(.staff)::before {
 .staff-student-table .staff-program-select {
   min-width: 9rem;
 }
+
+/* Students: the column names stay in view under the staff header while the list scrolls.
+   (Below 1024px the rows are labelled cards and the header row is hidden.) */
+@media (min-width: 1024px) {
+  .staff-student-table thead th {
+    position: sticky;
+    top: var(--staff-header-height);
+    z-index: 3;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+}
+
+.staff-program-new {
+  width: 100%;
+  min-width: 0;
+}
