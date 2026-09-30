@@ -3507,8 +3507,10 @@ main:focus {
 
 /* Small screens: the sidebar becomes a wrapping menu above the content. */
 @media (max-width: 900px) {
+  /* The menu keeps its own height; spare height on short pages goes to the content. */
   .staff-dashboard-shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
 
   .staff .staff-sidebar {
