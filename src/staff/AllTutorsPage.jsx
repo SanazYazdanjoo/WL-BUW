@@ -152,8 +152,20 @@ function TextCell({ column: { field, label, max, kind, placeholder }, draft, set
 function TutorRow({ row, previous, save, canEdit, onDelete, reload }) {
   const autosave = useAutosave(rowDraft(row), save, { validate: rowProblem });
   const who = autosave.draft.tutor || autosave.draft.program || "row";
+  // Phones and tablets show each tutor as one line; a tap opens the full card.
+  // A failed save or a conflict keeps the card open so the message stays visible.
+  const [open, setOpen] = useState(false);
+  const expanded = open || autosave.status === "error" || Boolean(autosave.conflict);
+  const { draft } = autosave;
   return (
-    <tr>
+    <tr className={expanded ? undefined : "is-collapsed"}>
+      <td className="staff-cell-summary">
+        <button type="button" className="staff-row-summary" aria-expanded={expanded} onClick={() => setOpen(!expanded)}>
+          <strong>{draft.tutor || draft.program || "Name not supplied"}</strong>
+          <span className="staff-row-summary-details">{draft.tutor ? draft.program : ""}</span>
+          <svg aria-hidden="true" viewBox="0 0 10 6" width="12" height="8"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        </button>
+      </td>
       {COLUMNS.map((column) => column.qr
         ? <QrCell key={column.field} row={row} qrCode={autosave.draft.qrCode} canEdit={canEdit} reload={reload} onRemove={() => autosave.setField("qrCode", "", AUTOSAVE_TOGGLE_DELAY)} />
         // Like the printed list: a programme repeated from the row above is shown faintly.

@@ -3370,7 +3370,7 @@ main:focus {
   .staff-student-table td[data-field="added"] { grid-column: span 6; }
   .staff-student-table td[data-field="enrolled"] { grid-column: span 3; }
   .staff-student-table td.staff-cell-status { grid-column: 1 / -1; }
-  .staff-student-table:not(.staff-tutors-table) td.staff-cell-status:not(:has(.staff-autosave > :not(:empty))):not(:has(.staff-row-delete)) { display: none; }
+  .staff-student-table td.staff-cell-status:not(:has(.staff-autosave > :not(:empty))):not(:has(.staff-row-delete)) { display: none; }
 
   /* Checkboxes line up at the bottom even when a label wraps. */
   .staff-student-table td.staff-cell-check {
@@ -5400,89 +5400,28 @@ body:has(.staff)::before {
   padding: 0.45rem 0.6rem;
 }
 
-/* Below laptop width the Students table turns into cards, but All Tutors keeps one line per tutor:
-   the table stays a table and scrolls sideways inside its frame. */
+/* Cards below laptop width: program, tutor, email, phone on one line; WhatsApp, QR and note below. */
 @media (max-width: 1023px) {
-  .staff .staff-all-tutors-page > .table-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .staff .staff-tutors-table {
-    display: table;
-    min-width: 60rem;
-  }
-
-  .staff .staff-tutors-table thead { display: table-header-group; }
-  .staff .staff-tutors-table tbody { display: table-row-group; }
-
-  .staff .staff-tutors-table tr {
-    display: table-row;
+  .staff-tutors-table tr.staff-group-row,
+  .staff-tutors-table tr.staff-group-row th {
+    display: block;
     padding: 0;
     border-bottom: 0;
   }
 
-  .staff .staff-tutors-table tr > td,
-  .staff .staff-tutors-table tr > th {
-    display: table-cell;
-    padding: 0.2rem 0.4rem;
-    border-bottom: 1px solid var(--color-border);
+  .staff-tutors-table tr.staff-group-row th {
+    padding: 0.7rem 1rem 0.6rem;
   }
 
-  .staff .staff-tutors-table tr > td {
-    white-space: nowrap;
-  }
+  .staff-tutors-table td[data-field="whatsapp"] { grid-column: span 4; }
+  .staff-tutors-table td[data-field="qrCode"] { grid-column: span 2; }
+  .staff-tutors-table td[data-field="note"] { grid-column: span 6; }
+}
 
-  .staff .staff-tutors-table tr.staff-group-row > th {
-    padding: 0.55rem 0.6rem 0.45rem;
-  }
-
-  /* Keep the faculty heading and its "+ Add tutor" in view while the rows scroll sideways. */
-  .staff .staff-tutors-table .staff-group-head {
-    position: sticky;
-    left: 0.6rem;
-    max-width: calc(100vw - 4rem);
-  }
-
-  .staff .staff-tutors-table td[data-label]::before {
-    content: none;
-  }
-
-  .staff .staff-tutors-table .staff-cell-input {
-    min-height: 0;
-    border-color: transparent;
-    background: transparent;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .staff .staff-tutors-table .staff-cell-input:hover,
-  .staff .staff-tutors-table .staff-cell-input:focus {
-    border-color: var(--color-border);
-    background: white;
-  }
-
-  .staff .staff-tutors-table .staff-cell-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .staff .staff-tutors-table td.staff-cell-status {
-    margin-top: 0;
-  }
-
-  .staff .staff-tutors-table .staff-row-delete {
-    padding-inline: 0.35rem;
-  }
-
-  .staff .staff-tutors-table .staff-row-delete-text {
-    display: none;
-  }
-
-  .staff .staff-tutors-table .staff-new-student-row .staff-autosave {
-    white-space: normal;
-  }
+@media (max-width: 699px) {
+  .staff-tutors-table td[data-field="whatsapp"],
+  .staff-tutors-table td[data-field="qrCode"],
+  .staff-tutors-table td[data-field="note"] { grid-column: 1 / -1; }
 }
 
 /* Students list: row numbers on the left. */
