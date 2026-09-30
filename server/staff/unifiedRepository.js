@@ -95,6 +95,10 @@ function checkEvent(event) {
   if (typeof event.active !== "boolean") throw new StaffError(400, "Choose whether this event is active.");
 }
 
+// The workbook trims every cell when it is read back, so "Ali " saved a moment ago is "Ali" now.
+// Treat such values as equal, or the next keystroke would look like someone else's change.
+const sameStored = (a, b) => JSON.stringify(a) === JSON.stringify(b) || (typeof a === "string" && typeof b === "string" && a.trim() === b.trim());
+
 // Several staff can save at once: each write is retried on a fresh copy of the workbook,
 // with a short random pause so simultaneous writers don't collide again straight away.
 const WRITE_ATTEMPTS = 6;
@@ -186,7 +190,7 @@ export function createUnifiedRepository(store) {
         const baseValue = input.base[field];
         const latestValue = record[targetField];
         const requestedValue = fieldMap(field, patch[field])[1];
-        if (JSON.stringify(latestValue) !== JSON.stringify(baseValue) && JSON.stringify(latestValue) !== JSON.stringify(requestedValue)) conflicts.push(field);
+        if (!sameStored(latestValue, baseValue) && !sameStored(latestValue, requestedValue)) conflicts.push(field);
       }
       if (conflicts.length) {
         const error = new StaffError(409, "Some fields were changed elsewhere. Review both versions before continuing.");
@@ -196,7 +200,7 @@ export function createUnifiedRepository(store) {
       const changed = [];
       for (const [field, value] of Object.entries(patch)) {
         const [targetField, mappedValue] = fieldMap(field, value);
-        if (JSON.stringify(record[targetField]) !== JSON.stringify(mappedValue)) changed.push(field);
+        if (!sameStored(record[targetField], mappedValue)) changed.push(field);
         record[targetField] = mappedValue;
       }
       if (!changed.length) return { ok: true, etag: file.etag, unchanged: true };
