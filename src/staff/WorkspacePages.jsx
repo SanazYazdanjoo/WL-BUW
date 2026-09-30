@@ -83,7 +83,7 @@ function StudentCells({ columns, draft, set, who, nameRef, programOptions }) {
     : country
     ? <td key={field} data-field={field} data-label={label}><CountryInput className="staff-cell-input" aria-label={`${label} · ${who}`} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
     : program
-    ? <td key={field} data-field={field} data-label={label}><ProgramInput className="staff-cell-input" aria-label={`${label} · ${who}`} options={programOptions} maxLength={max} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
+    ? <td key={field} data-field={field} data-label={label}><ProgramInput className="staff-cell-input" aria-label={`${label} · ${who}`} options={programOptions} title={draft[field] || undefined} value={draft[field]} onChange={(value) => set(field, value)} /></td>
     : <td key={field} data-field={field} data-label={label}>
       <input
         ref={field === "name" ? nameRef : undefined}

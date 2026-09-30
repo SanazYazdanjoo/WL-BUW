@@ -5601,3 +5601,16 @@ body:has(.staff)::before {
     border-left: 1px solid #4a4a52;
   }
 }
+
+/* Study programme: a native dropdown, so every device shows its own standard list. */
+.staff-program-select {
+  width: 100%;
+  max-width: 100%;
+  font: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.staff-student-table .staff-program-select {
+  min-width: 9rem;
+}
