@@ -5632,3 +5632,31 @@ body:has(.staff)::before {
     color: white;
   }
 }
+
+/* Phones and small tablets: the staff menu stays on one line and scrolls sideways;
+   "Management" becomes a small divider label inside that line. */
+@media (max-width: 900px) {
+  .staff .staff-sidebar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+
+  .staff .staff-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .staff .staff-sidebar a {
+    flex: none;
+  }
+
+  .staff .staff-sidebar-label {
+    flex: none;
+    flex-basis: auto;
+    margin: 0 0.25rem 0 0.35rem;
+    padding-left: 0.6rem;
+    border-left: 1px solid #4a4a52;
+  }
+}

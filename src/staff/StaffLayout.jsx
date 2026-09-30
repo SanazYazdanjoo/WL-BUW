@@ -72,6 +72,14 @@ export default function StaffLayout() {
     window.addEventListener("staff-semester-updated", loadSemester);
     return () => { active = false; window.removeEventListener("staff-semester-updated", loadSemester); };
   }, [session, location.pathname]);
+  // On phones the menu is one sideways-scrolling line: bring the current page's item into view.
+  useEffect(() => {
+    const nav = document.getElementById("staff-sidebar-nav");
+    const current = nav?.querySelector("a[aria-current]");
+    if (!nav || !current || nav.scrollWidth <= nav.clientWidth) return;
+    const navBox = nav.getBoundingClientRect(), itemBox = current.getBoundingClientRect();
+    nav.scrollLeft += itemBox.left - navBox.left - (navBox.width - itemBox.width) / 2;
+  }, [location.pathname, session]);
   async function login(event) {
     event.preventDefault();
     setError("");
